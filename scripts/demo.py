@@ -31,7 +31,8 @@ class IdleSlsk:
     async def start(self, s): pass
     async def stop(self): pass
     async def search(self, q, wait=0): return []
-    def transfer_info(self, t): return t
+    def transfer_info(self, t):   # the one demo transfer that is "downloading right now"
+        return {"state": "DOWNLOADING", "bytes": 0, "size": 0, "local_path": None, "place_in_queue": None, "fail_reason": ""}
     async def forget(self, t): pass
     async def abort(self, t): pass
     async def lookup(self, u, p): return None
@@ -39,7 +40,7 @@ class IdleSlsk:
 
 
 class IdleSC:
-    def latest(self, *a, **k): raise RuntimeError("demo mode")
+    def latest(self, *a, **k): return []   # nothing new on SoundCloud in the demo
     def channel_info(self, url):
         from nicotine_sync.soundcloud import ChannelInfo, is_playlist_url
         name = url.rstrip("/").rsplit("/", 1)[-1].replace("-", " ").title()
@@ -99,7 +100,16 @@ async def _noop(self):
     pass
 
 
+class _DemoTask:
+    def cancel(self): pass
+
+
 async def _start(self):
+    # Show one row as actively downloading (yellow spinner + progress bar).
+    for t in self.db.tracks():
+        if t["state"] == "downloading":
+            self.active[t["id"]] = {"task": _DemoTask(), "transfer": "demo", "candidate": None}
+            break
     self.note("Connected through Nicotine+ as djnina.")
     self.note("Concrete Loop: 1 new track(s).")
     self.note("Kellerraum: couldn't check SoundCloud (blocked)", "warn")

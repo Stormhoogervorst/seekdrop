@@ -48,7 +48,7 @@
         <h2>Where tracks go</h2>
         <div class="folder-pick">
           <label class="field grow"><span>Download folder</span><input id="s-dir" spellcheck="false"></label>
-          <button class="btn ghost" data-pick="s-dir" hidden>Choose…</button>
+          <button class="btn soft" data-pick="s-dir" hidden>Choose…</button>
         </div>
         <div id="s-share-wrap">
           <label class="check"><input type="checkbox" id="s-share" checked> Share this folder on Soulseek</label>
@@ -88,7 +88,7 @@
     <nav class="channels" id="channels" aria-label="Channels"></nav>
 
     <details class="activity">
-      <summary class="btn ghost"><i data-icon="activity"></i>Activity</summary>
+      <summary class="textbtn"><i data-icon="activity"></i>Activity</summary>
       <ul id="activity"></ul>
     </details>
   </aside>
@@ -103,9 +103,9 @@
         </div>
       </div>
       <div class="top-actions">
-        <a class="btn accent" id="update-link" href="#" target="_blank" rel="noopener" hidden></a>
-        <button class="btn ghost" id="check-now">Check now</button>
-        <button class="btn ghost" id="open-folder">Open folder</button>
+        <a class="btn quiet" id="update-link" href="#" target="_blank" rel="noopener" hidden></a>
+        <button class="btn soft" id="check-now">Check now</button>
+        <button class="btn soft" id="open-folder">Open folder</button>
         <button class="icon-btn" id="open-settings" aria-label="Settings" title="Settings"><i data-icon="settings"></i></button>
       </div>
     </header>
@@ -122,12 +122,6 @@
       </div>
     </div>
 
-    <div class="tiles" id="tiles">
-      <button class="tile accent" data-f="active"><span class="tile-label">In progress</span><span class="chip">Live</span><span class="tile-value" data-n="active">0</span></button>
-      <button class="tile strong" data-f="done"><span class="tile-label">Downloaded</span><span class="chip">Files</span><span class="tile-value" data-n="done">0</span></button>
-      <button class="tile muted" data-f="waiting"><span class="tile-label">Not found yet</span><span class="chip">Retry</span><span class="tile-value" data-n="waiting">0</span></button>
-    </div>
-
     <div class="channel-bar" id="channel-bar" hidden></div>
     <div class="thead" aria-hidden="true"><span>Track</span><span>Status</span><span>Actions</span></div>
     <div class="list" id="list"></div>
@@ -140,7 +134,7 @@
 <aside class="drawer" id="drawer" aria-label="Settings" hidden>
   <div class="drawer-head">
     <h2>Settings</h2>
-    <button class="btn ghost" id="close-settings">Close</button>
+    <button class="btn soft" id="close-settings">Close</button>
   </div>
   <form id="settings-form" class="drawer-body">
     <h3>Soulseek</h3>
@@ -152,7 +146,7 @@
     </label>
     <div data-mode="nicotine">
       <p class="hint" id="set-nic-status"></p>
-      <button class="btn ghost" type="button" id="set-nic-install">Add plugin to Nicotine+ again</button>
+      <button class="btn soft" type="button" id="set-nic-install">Add plugin to Nicotine+ again</button>
     </div>
     <div data-mode="builtin">
       <div class="row2">
@@ -165,7 +159,7 @@
     <h3>Files</h3>
     <div class="folder-pick">
       <label class="field grow"><span>Download folder</span><input name="download_dir" id="set-dir" spellcheck="false"></label>
-      <button class="btn ghost" data-pick="set-dir" type="button" hidden>Choose…</button>
+      <button class="btn soft" data-pick="set-dir" type="button" hidden>Choose…</button>
     </div>
     <label class="check"><input type="checkbox" name="organize_by_channel"> Put tracks in a folder per channel</label>
     <div data-mode="builtin">

@@ -2,8 +2,9 @@
 
 ## Unreleased
 
-- New light look (see DESIGN.md): grey shell, white card, Inter Tight, yellow as the only accent,
-  status pills, stat tiles that filter the list, and Lucide icons.
+- New light, calm look (see DESIGN.md): grey shell, one white card, Inter Tight, Lucide icons.
+  Yellow only marks what is downloading right now; statuses are plain text with a small icon;
+  row actions show on hover or keyboard focus.
 
 ## 0.3.0
 

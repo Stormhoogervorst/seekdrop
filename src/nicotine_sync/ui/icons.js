@@ -1,6 +1,7 @@
 // Lucide icons (lucide-static 0.460.0, ISC License, https://lucide.dev). 20px, 1.5px stroke.
 const ICONS = {
  "activity": "<path d=\"M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2\"/>",
+ "circle": "<circle cx=\"12\" cy=\"12\" r=\"10\"/>",
  "check": "<path d=\"M20 6 9 17l-5-5\"/>",
  "circle-slash": "<circle cx=\"12\" cy=\"12\" r=\"10\"/> <line x1=\"9\" x2=\"15\" y1=\"15\" y2=\"9\"/>",
  "clock": "<circle cx=\"12\" cy=\"12\" r=\"10\"/> <polyline points=\"12 6 12 12 16 14\"/>",

@@ -241,3 +241,50 @@ letterSpacing: { display: '-0.03em', hero: '-0.04em', title: '-0.02em' },
 - Never add shadows.
 - All interactive elements are pills or circles.
 - Cards are big and roomy; the radius jumps sharply between cards (20) and stat tiles (6).
+
+---
+
+## 8. Calm mode refinements
+
+These override the sections above where they conflict. The goal is a calm, low-noise screen.
+
+**Yellow has one meaning: "actively downloading right now".**
+- Yellow stays on: the logo tile, the spinner ring in the top-bar status, the progress-bar fill of the
+  track that is downloading, and that track's small status spinner.
+- The update notice is a quiet pill (`--surface-muted`, no border, 14px medium `--text-body`) with a
+  6px yellow dot before the text.
+- No yellow backgrounds on status pills or tiles.
+
+**No stat tiles.** The filter tabs are the single place for counts.
+
+**Fewer borders.** No 1.5px black outlines, except at most one primary action per area if really needed.
+- Top-bar actions: `--surface-muted` filled pills, no border, 14px medium, height 40. Settings stays a
+  circular icon button.
+- Row actions: borderless text buttons, 14px medium `--text-muted`; on hover `--text-primary` on a
+  `--surface-muted` pill. Hidden (opacity 0) until the row is hovered or focused; keyboard focus
+  reveals them; always visible on touch and narrow screens.
+- Inputs: white fill, no border, radius pill; a 1px `--border-strong` border only on focus.
+- Secondary sidebar controls (e.g. Activity): plain text button with icon, 14px medium `--text-body`.
+
+**Quiet statuses.** Plain status text instead of pills: a 16px icon and a 14px medium label in
+`--text-primary`, the secondary line under it in 13px `--text-muted`. No backgrounds.
+- Actively downloading: small yellow spinner.
+- Waiting / searching / in line: `--text-muted` spinner or clock.
+- Downloaded: `--text-muted` check. Not found yet: `--text-muted` clock.
+- Stopped / skipped: `--text-muted` circle, whole row at 55% opacity.
+- Only real errors use `--negative` for icon and label. Informational states are muted.
+
+**Typography and spacing.**
+- Page title: 36/40, 600, -0.03em. Top-bar status title: 20px medium, subline 13px `--text-muted`.
+- Tables: no header bar; column labels 12px uppercase `--text-muted`, tracking 0.04em, no background.
+  Rows 72px, separated by a 1px `--surface-muted` divider.
+- Letter avatars: 40px, `--surface-muted`, letter 15px medium `--text-muted`.
+- Progress bar: 3px, track `--surface-muted`, yellow fill, only on the actively downloading row.
+- Main card padding 40px; 32px between the title/filters and the list.
+
+**Sidebar.**
+- Count badges: hidden at 0; otherwise plain 13px semibold `--text-body` text without a badge
+  (white on the active row).
+- Sublines `--text-muted`; only real errors in `--negative`.
+- Active row: black block, radius 12, same height as the other rows.
+- Logo tile 36px, app title 20px semibold.
