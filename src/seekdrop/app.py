@@ -99,7 +99,7 @@ class Backend:
 
         factory = None if self._slsk else make_slsk
         slsk = self._slsk or make_slsk(store.settings.soulseek_mode)
-        engine = Engine(db, store, sc, slsk, slsk_factory=factory)
+        engine = Engine(db, store, sc, slsk, slsk_factory=factory, staging_dir=str(home / "staging"))
         updates = self._updates or UpdateChecker(store)
         api = Api(engine, db, token=self.token or None, updates=updates)
         self.token = api.token

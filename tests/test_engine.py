@@ -94,7 +94,7 @@ def setup(tmp_path, monkeypatch):
     incoming = tmp_path / "in"
     incoming.mkdir()
     sc, slsk = FakeSC(), FakeSlsk(str(incoming))
-    return Engine(db, store, sc, slsk, poll_tick=0.05), db, sc, slsk, tmp_path
+    return Engine(db, store, sc, slsk, poll_tick=0.05, staging_dir=str(tmp_path / "staging")), db, sc, slsk, tmp_path
 
 
 _real_sleep = asyncio.sleep
@@ -297,3 +297,110 @@ def test_outdated_plugin_is_replaced(tmp_path, monkeypatch):
     assert nicotine.update_plugin_if_outdated()
     assert nicotine._plugin_version(dest) == nicotine._plugin_version(nicotine.PLUGIN_SRC)
     assert '"token": "key"' in (dest / "bridge.json").read_text()
+
+
+# --- Roadmap step 1: staging folder, publish only when everything checks out ------------------
+
+def _files(root):
+    out = []
+    for d, _, names in os.walk(root):
+        out += [os.path.relpath(os.path.join(d, n), root) for n in names]
+    return sorted(out)
+
+
+def _fresh_track(eng, db, sc):
+    sc.tracks = [TrackStub("9", "https://soundcloud.com/lbl/fresh", "Fresh Artist - Brand New")]
+    cid = db.add_channel("https://soundcloud.com/lbl", "Label", False, backlog=1)
+    asyncio.run(eng.check_channel(cid))
+    return db.tracks()[0]
+
+
+def test_aborted_download_leaves_nothing_in_music_folder(setup):
+    eng, db, sc, slsk, tmp = setup
+    t = _fresh_track(eng, db, sc)
+    slsk.incoming_dir = slsk.incoming
+
+    def broken(tr):     # the peer sends half the file, then gives up
+        with open(tr.path, "wb") as f:
+            f.write(b"x" * 5)
+        return {"state": "FAILED", "bytes": 5, "size": 10, "local_path": tr.path,
+                "place_in_queue": None, "fail_reason": "peer went away"}
+    slsk.transfer_info = broken
+
+    db.update_track(t["id"], state="downloading")
+    asyncio.run(eng._download(db.track(t["id"]), [Candidate("peer", "@@a\\Fresh Artist - Brand New.flac")]))
+    assert not (tmp / "out").exists() or _files(tmp / "out") == []
+    assert db.track(t["id"])["state"] == "waiting"
+    # The half file is still in incoming (aioslsk/Nicotine+ may keep it); the next start removes it.
+    assert _files(tmp / "in") == ["Fresh Artist - Brand New.flac"]
+    eng._tidy_incoming()
+    assert _files(tmp / "in") == []
+
+
+def test_finished_download_goes_through_staging(setup):
+    eng, db, sc, slsk, tmp = setup
+    t = _fresh_track(eng, db, sc)
+    seen_in_staging = []
+    eng.checks.append(lambda track, path: seen_in_staging.append(path) or None)
+    db.update_track(t["id"], state="downloading")
+    asyncio.run(eng._download(db.track(t["id"]), [Candidate("peer", "@@a\\Fresh Artist - Brand New.flac")]))
+    assert seen_in_staging and seen_in_staging[0].startswith(str(tmp / "staging"))
+    assert _files(tmp / "out") == [os.path.join("Label", "Fresh Artist - Brand New.flac")]
+    assert _files(tmp / "staging") == [] and _files(tmp / "in") == []
+
+
+def test_rejected_file_never_reaches_music_folder(setup):
+    eng, db, sc, slsk, tmp = setup
+    t = _fresh_track(eng, db, sc)
+    eng.checks.append(lambda track, path: "not really FLAC")
+    db.update_track(t["id"], state="downloading")
+    asyncio.run(eng._download(db.track(t["id"]), [Candidate("peer", "@@a\\Fresh Artist - Brand New.flac")]))
+    assert not (tmp / "out").exists() or _files(tmp / "out") == []
+    assert _files(tmp / "staging") == []
+    t = db.track(t["id"])
+    assert t["state"] == "waiting" and "not really FLAC" in t["last_error"]
+
+
+def test_publish_to_other_disk_appears_in_one_go(tmp_path, monkeypatch):
+    import errno
+    import shutil
+    src_dir, dest_dir = tmp_path / "staging", tmp_path / "music"
+    src_dir.mkdir()
+    dest_dir.mkdir()
+    src = src_dir / "Artist - Track.flac"
+    src.write_bytes(b"a" * 1000)
+    dest = dest_dir / "Artist - Track.flac"
+
+    def no_rename(a, b):    # pretend music lives on another disk
+        raise OSError(errno.EXDEV, "cross-device link")
+    monkeypatch.setattr(engine_mod.os, "rename", no_rename)
+
+    real_copy = shutil.copy2
+    during = []
+
+    def watching_copy(a, b):
+        real_copy(a, b)
+        during.append(sorted(os.listdir(dest_dir)))   # what a watch folder could see mid-way
+    monkeypatch.setattr(engine_mod.shutil, "copy2", watching_copy)
+
+    engine_mod.publish_file(str(src), str(dest))
+    assert during == [[".Artist - Track.flac.seekdrop-part"]]   # never the real name while copying
+    assert sorted(os.listdir(dest_dir)) == ["Artist - Track.flac"]
+    assert dest.read_bytes() == b"a" * 1000 and not src.exists()
+
+
+def test_start_removes_leftovers(setup):
+    eng, db, sc, slsk, tmp = setup
+    (tmp / "staging" / "12").mkdir(parents=True)
+    (tmp / "staging" / "12" / "half.flac").write_bytes(b"x")
+    label = tmp / "out" / "Label"
+    label.mkdir(parents=True)
+    (label / ".Artist - Track.flac.seekdrop-part").write_bytes(b"x")
+    (label / "Artist - Kept.flac").write_bytes(b"x")
+
+    async def scenario():
+        await eng.start()
+        await eng.stop()
+    asyncio.run(scenario())
+    assert _files(tmp / "staging") == []
+    assert _files(tmp / "out") == [os.path.join("Label", "Artist - Kept.flac")]

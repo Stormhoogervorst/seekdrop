@@ -2,16 +2,18 @@
 from __future__ import annotations
 
 import asyncio
+import errno
 import logging
 import os
 import re
 import shutil
 import time
 from collections import deque
-from typing import Optional
+from typing import Callable, Optional
 
 from . import db as states
 from .config import SettingsStore
+from .config import data_dir
 from .db import Database
 from .matching import Candidate, MatchPrefs, rank
 from .nicotine import migrate_legacy_plugin, update_plugin_if_outdated
@@ -29,6 +31,53 @@ SEARCH_WAIT = 12.0            # seconds to collect results per search
 MAX_TRACK_SECONDS = 10 * 60   # longer uploads are mixes/sets, not tracks
 
 
+PART_SUFFIX = ".seekdrop-part"   # hidden temp name while a file is copied to another disk
+
+# A check gets the track row and the staged file and returns a reason to reject it, or None.
+Check = Callable[[dict, str], Optional[str]]
+
+
+def publish_file(src: str, dest: str) -> None:
+    """Move src to dest so that dest appears in one go, complete and with its final name.
+    Same disk: a rename. Other disk (e.g. music on an external drive): copy to a hidden temp file
+    next to dest, then rename that; a half-copied file never carries the real name."""
+    try:
+        os.rename(src, dest)
+        return
+    except OSError as e:
+        if e.errno != errno.EXDEV:
+            raise
+    tmp = os.path.join(os.path.dirname(dest), "." + os.path.basename(dest) + PART_SUFFIX)
+    try:
+        shutil.copy2(src, tmp)
+        os.replace(tmp, dest)
+    except BaseException:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        raise
+    os.remove(src)
+
+
+def _clear_dir(path: str) -> int:
+    """Delete everything inside path (not path itself). Returns the number of entries removed."""
+    n = 0
+    if not path or not os.path.isdir(path):
+        return 0
+    for name in os.listdir(path):
+        full = os.path.join(path, name)
+        try:
+            if os.path.isdir(full) and not os.path.islink(full):
+                shutil.rmtree(full)
+            else:
+                os.remove(full)
+            n += 1
+        except OSError:
+            log.debug("couldn't remove %s", full, exc_info=True)
+    return n
+
+
 def safe_filename(name: str, limit: int = 150) -> str:
     name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', " ", name)
     name = re.sub(r"\s+", " ", name).strip(" .")
@@ -37,8 +86,12 @@ def safe_filename(name: str, limit: int = 150) -> str:
 
 class Engine:
     def __init__(self, db: Database, store: SettingsStore, sc: SoundCloudClient, slsk, poll_tick: float = 30.0,
-                 slsk_factory=None):
+                 slsk_factory=None, staging_dir: Optional[str] = None):
         self.db = db
+        # Finished downloads wait here (app data, never the music folder) until every check passed.
+        self.staging_dir = staging_dir or str(data_dir() / "staging")
+        self.checks: list[Check] = []   # file checks (roadmap steps 2, 3, 10) run on the staged file
+        self._clean_incoming = True     # once per start, after leftover transfers were dealt with
         self.slsk_factory = slsk_factory   # mode -> service; lets the user switch built-in / Nicotine+
         self.store = store
         self.sc = sc
@@ -68,6 +121,7 @@ class Engine:
         # Transfers from the last session may still sit in Nicotine+'s queue; tidy them up once connected.
         self._stale = self.db.interrupted_transfers()
         self.db.reset_interrupted()
+        self._tidy_files()
         if self.settings.configured:
             await self._connect()
         self._tasks = [
@@ -90,6 +144,32 @@ class Engine:
             log.warning("some downloads didn't stop in time")
         await self.slsk.stop()
 
+    def _tidy_files(self) -> None:
+        """Leftovers of a crash or forced quit: anything in staging, and hidden half-copied files in
+        the music folder. Incoming is cleaned later, once leftover transfers have been dealt with."""
+        n = _clear_dir(self.staging_dir)
+        root = self.settings.download_dir
+        if root and os.path.isdir(root):
+            dirs = [root] + [os.path.join(root, d) for d in os.listdir(root) if os.path.isdir(os.path.join(root, d))]
+            for d in dirs:
+                for name in os.listdir(d):
+                    if name.startswith(".") and name.endswith(PART_SUFFIX):
+                        try:
+                            os.remove(os.path.join(d, name))
+                            n += 1
+                        except OSError:
+                            pass
+        if n:
+            log.info("Removed %d leftover file(s) from an earlier session", n)
+
+    def _tidy_incoming(self) -> None:
+        if self.active:            # never while downloads are running
+            return
+        n = _clear_dir(getattr(self.slsk, "incoming_dir", ""))
+        if n:
+            log.info("Removed %d leftover file(s) from the incoming folder", n)
+        self._clean_incoming = False
+
     async def _recover_stale(self) -> None:
         """Deal with transfers from the previous session: keep files that finished meanwhile,
         cancel the rest (the track is searched again)."""
@@ -98,10 +178,12 @@ class Engine:
             try:
                 info = await self.slsk.lookup(t["peer"], t["remote_file"])
                 if info and info["state"] == "COMPLETE" and info.get("local_path") and os.path.exists(info["local_path"]):
-                    path = self._finalize(t, info["local_path"], Candidate(t["peer"], t["remote_file"]))
+                    c = Candidate(t["peer"], t["remote_file"])
+                    path, why = self._stage_and_publish(t, info["local_path"], c)
                     await self.slsk.cancel(t["peer"], t["remote_file"])   # clears the finished entry
-                    self.db.update_track(t["id"], state=states.DONE, file_path=path, progress=1.0, last_error="")
-                    self.note(f"Downloaded {os.path.basename(path)}")
+                    if path:
+                        self.db.update_track(t["id"], state=states.DONE, file_path=path, progress=1.0, last_error="")
+                        self.note(f"Downloaded {os.path.basename(path)}")
                 elif info:
                     await self.slsk.cancel(t["peer"], t["remote_file"])
             except Exception:
@@ -298,6 +380,8 @@ class Engine:
                 if self.settings.configured and self.slsk.connected:
                     if self._stale:
                         await self._recover_stale()
+                    if self._clean_incoming and not self._stale:
+                        self._tidy_incoming()
                     for t in self.db.due_tracks(time.time()):
                         if len(self.active) >= self.settings.max_parallel_downloads:
                             break
@@ -359,13 +443,16 @@ class Engine:
                 ok, info = await self._try_candidate(t, c)
                 if ok:
                     try:
-                        path = self._finalize(t, info["local_path"], c)
+                        path, why = self._stage_and_publish(t, info["local_path"], c)
                     finally:
                         await self.slsk.forget(info["transfer"])
-                    self.db.update_track(tid, state=states.DONE, file_path=path, progress=1.0, last_error="")
-                    self.note(f"Downloaded {os.path.basename(path)}")
-                    self._schedule_share_rescan()
-                    return
+                    if path:
+                        self.db.update_track(tid, state=states.DONE, file_path=path, progress=1.0, last_error="")
+                        self.note(f"Downloaded {os.path.basename(path)}")
+                        self._schedule_share_rescan()
+                        return
+                    info["fail_reason"] = why
+                    self.note(f"Rejected a file from {c.username}: {why}", "warn")
                 reason = info.get("fail_reason") or reason
                 if self.db.track(tid)["state"] != states.DOWNLOADING:   # skipped by user
                     return
@@ -423,6 +510,31 @@ class Engine:
                 # Removing an unfinished transfer also lets aioslsk drop the partial file.
                 await self.slsk.forget(transfer)
 
+    def _stage_and_publish(self, t: dict, src: str, c: Candidate) -> tuple[Optional[str], str]:
+        """incoming -> staging -> checks -> music folder. Returns (published path, "") or
+        (None, reason) when a check rejected the file; a rejected file never reaches the music folder."""
+        staged = self._stage(t, src)
+        for check in self.checks:
+            try:
+                why = check(t, staged)
+            except Exception as e:      # a broken check must not let an unchecked file through
+                log.exception("file check failed")
+                why = f"check failed ({e})"
+            if why:
+                try:
+                    os.remove(staged)
+                except OSError:
+                    pass
+                return None, why
+        return self._finalize(t, staged, c), ""
+
+    def _stage(self, t: dict, src: str) -> str:
+        folder = os.path.join(self.staging_dir, str(t["id"]))
+        os.makedirs(folder, exist_ok=True)
+        staged = os.path.join(folder, os.path.basename(src))
+        shutil.move(src, staged)    # incoming and staging are both in the app data: a rename
+        return staged
+
     def _finalize(self, t: dict, src: str, c: Candidate) -> str:
         s = self.settings
         dest_dir = s.download_dir
@@ -440,7 +552,11 @@ class Engine:
         while os.path.exists(dest):
             dest = os.path.join(dest_dir, f"{base} ({n}){ext}")
             n += 1
-        shutil.move(src, dest)
+        publish_file(src, dest)
+        try:
+            os.rmdir(os.path.dirname(src))   # the track's staging folder, if now empty
+        except OSError:
+            pass
         return dest
 
     def _schedule_retry(self, t: Optional[dict], reason: str) -> None:

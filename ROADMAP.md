@@ -49,7 +49,7 @@ Na deze fase komt er alleen nog gecontroleerde muziek in de map van de DJ: geen 
 
 ### Stap 1: staging-map, pas publiceren als alles klopt
 
-**Status: deels.** Downloads komen al eerst in een `incoming`-map in de app-data en worden daarna naar de muziekmap verplaatst (`engine._finalize`). Mist: controles en taggen vóór het verplaatsen, opruimen van achtergebleven bestanden in `incoming` bij het opstarten, en een verplaatsing die ook naar een andere schijf in één keer gebeurt (nu `shutil.move`, dat bij een externe schijf eerst kopieert, waardoor even een half bestand zichtbaar is).
+**Status: klaar (nov 2026).** Downloads gaan van `incoming` naar `staging/<track>/` in de app-data, langs de controles in `Engine.checks` (stap 2, 3 en 10 haken daar in) en worden dan in één keer gepubliceerd (`publish_file`: rename, of bij een andere schijf kopiëren naar een verborgen `.…seekdrop-part` en dan hernoemen). Bij het opstarten worden `staging` en `.seekdrop-part`-resten opgeruimd, en na het herstel van transfers ook `incoming`. Getest met een echte playlist via Nicotine+.
 
 Doel: half gedownloade of afgekeurde bestanden komen nooit in de muziekmap terecht. De watch folder van Rekordbox of Serato pikt anders halve bestanden op.
 
@@ -61,9 +61,9 @@ Bouwen:
 
 Klaar als:
 
-- [ ] Een afgebroken download laat niets achter in de muziekmap.
-- [ ] Een bestand verschijnt in één keer, met de definitieve naam.
-- [ ] Een test bewijst beide punten.
+- [x] Een afgebroken download laat niets achter in de muziekmap.
+- [x] Een bestand verschijnt in één keer, met de definitieve naam.
+- [x] Een test bewijst beide punten.
 
 ### Stap 2: bestandscontrole en quarantaine
 

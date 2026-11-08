@@ -10,7 +10,8 @@ Repo: github.com/Stormhoogervorst/nicotinesync.
 ## Run / test
 - Python 3.11 to 3.13 (not 3.14: deps). `python3.13 -m venv .venv && .venv/bin/pip install -e ".[dev]"`.
 - `python -m seekdrop` (window) or `--browser` / `--headless`.
-- `pytest -q` (unit + engine tests with fakes).
+- `pytest -q` (unit + engine tests with fakes). `tests/conftest.py` points XDG_DATA_HOME, APPDATA and
+  SEEKDROP_HOME at a temp dir, so no test can touch the real Nicotine+ plugins or app data.
 - UI dev server: `python scripts/demo.py` (launch.json `ui-demo`), open http://localhost:8765/#token=dev.
   Made-up data in a temp folder, no network; UI file edits show on refresh.
 - Throwaway data dir: `SEEKDROP_HOME=/tmp/ns python -m seekdrop --headless --port 47900`.
@@ -44,7 +45,9 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   `settings.soulseek_mode`. Steps that touch peers (4, 8) must work through both.
 - **Engine** (`engine.py`): poll loop checks channels → `tracks` rows (state wanted…done); search
   loop: queries → rank → up to 3 candidates → download into the service's incoming folder in the
-  app data → `_finalize()` moves it to `download_dir/<channel>/Artist - Title (Version).ext`.
+  app data → `_stage_and_publish()`: move to `staging/<track id>/`, run `Engine.checks` (each returns a
+  reject reason or None), then `publish_file()` to `download_dir/<channel>/Artist - Title (Version).ext`
+  in one go. Start-up removes staging leftovers and hidden `.…seekdrop-part` files.
   Retries 1h/3h/6h/12h/daily up to `give_up_days`.
 - **Storage**: `db.py` (SQLite: `channels`, `tracks`), `config.py` (settings.json, data dir, migration).
 - **UI**: `server.py` (aiohttp JSON API with a per-run key) + `ui/` (plain HTML/CSS/JS, no build),
