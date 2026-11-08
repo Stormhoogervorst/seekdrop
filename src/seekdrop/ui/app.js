@@ -70,7 +70,7 @@ async function refresh() {
     ui.state = await api("GET", "/api/state" + q);
     render();
   } catch (e) {
-    $("#deck-title").textContent = "Nicotine+ Sync stopped";
+    $("#deck-title").textContent = "SeekDrop stopped";
     $("#deck-sub").textContent = "Restart the app.";
     $("#ring").className = "ring err";
   } finally {
@@ -135,7 +135,7 @@ function renderDeck(s) {
   } else {
     ring.className = "ring err";
     title.textContent = viaNic ? "Not connected to Nicotine+" : "Not connected to Soulseek";
-    sub.textContent = s.soulseek.error || (viaNic ? "Open Nicotine+ and turn on the Nicotine+ Sync Bridge plugin." : "Check your account in Settings.");
+    sub.textContent = s.soulseek.error || (viaNic ? "Open Nicotine+ and turn on the SeekDrop Bridge plugin." : "Check your account in Settings.");
     sub.classList.add("err");
   }
 }
@@ -237,7 +237,7 @@ function renderTracks(s) {
     if (!s.channels.length) {
       msg = `<h2>Add your first channel</h2><p>Paste the link to a SoundCloud profile on the left, for example a label, artist or promo channel. New uploads show up here and get searched on Soulseek.</p>`;
     } else if (ui.filter === "all") {
-      msg = `<h2>Nothing new yet</h2><p>Nicotine+ Sync checks your channels ${inTime(s.next_check_in) ? "again " + inTime(s.next_check_in) : "regularly"}. New uploads appear here.</p>`;
+      msg = `<h2>Nothing new yet</h2><p>SeekDrop checks your channels ${inTime(s.next_check_in) ? "again " + inTime(s.next_check_in) : "regularly"}. New uploads appear here.</p>`;
     } else {
       msg = `<p>No tracks here.</p>`;
     }
@@ -303,7 +303,7 @@ for (const r of document.querySelectorAll('input[name="s-mode"]')) r.addEventLis
 
 function nicInstalledNote(dir) {
   const el = $("#s-nic-done");
-  el.innerHTML = `<b>Plugin added.</b> Now open Nicotine+, go to Preferences, then Plugins, and turn on <b>Nicotine+ Sync Bridge</b>. If it was already on, turn it off and on again.`;
+  el.innerHTML = `<b>Plugin added.</b> Now open Nicotine+, go to Preferences, then Plugins, and turn on <b>SeekDrop Bridge</b>. If it was already on, turn it off and on again.`;
   el.title = dir;
   el.hidden = false;
   $("#s-nic-install").textContent = "Add plugin again";
@@ -449,7 +449,7 @@ function openSettings() {
     else if (el.name === "share_dirs") el.value = (v || []).join("\n");
     else el.value = v ?? "";
   }
-  $("#version").textContent = `Nicotine+ Sync ${ui.state.version}`;
+  $("#version").textContent = `SeekDrop ${ui.state.version}`;
   settingsMode();
   showError($("#set-error"), "");
   $("#drawer").hidden = $("#scrim").hidden = false;
@@ -460,10 +460,10 @@ function settingsMode() {
   for (const el of document.querySelectorAll("#settings-form [data-mode]")) el.hidden = el.dataset.mode !== mode;
   const st = ui.state;
   const msg = !st.nicotine.plugin_installed
-    ? "The plugin isn't in Nicotine+ yet. Add it, then turn on Nicotine+ Sync Bridge in Nicotine+ (Preferences, Plugins)."
+    ? "The plugin isn't in Nicotine+ yet. Add it, then turn on SeekDrop Bridge in Nicotine+ (Preferences, Plugins)."
     : st.settings.soulseek_mode === "nicotine" && st.soulseek.status === "connected"
       ? (st.soulseek.username ? `Connected through Nicotine+ as ${st.soulseek.username}.` : "Connected through Nicotine+.")
-      : "Plugin added. Turn on Nicotine+ Sync Bridge in Nicotine+ (Preferences, Plugins). Save to switch.";
+      : "Plugin added. Turn on SeekDrop Bridge in Nicotine+ (Preferences, Plugins). Save to switch.";
   $("#set-nic-status").textContent = msg;
   $("#set-nic-install").textContent = st.nicotine.plugin_installed ? "Add plugin to Nicotine+ again" : "Add plugin to Nicotine+";
 }

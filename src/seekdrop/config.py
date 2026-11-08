@@ -2,26 +2,88 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
+import shutil
 import threading
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
+from typing import Optional
+
 from platformdirs import user_data_dir, user_log_dir, user_music_dir
 
-APP_NAME = "Nicotine+ Sync"
+APP_NAME = "SeekDrop"
 GITHUB_REPO = "Stormhoogervorst/nicotinesync"
 
 
+log = logging.getLogger(__name__)
+
+# Earlier names of this app. Their data folder is taken over once, on the first start as SeekDrop.
+LEGACY_APP_NAMES = ("Nicotine+ Sync", "Cratewatch")
+LEGACY_DB_NAMES = ("nicotine-sync.db", "cratewatch.db")
+DB_NAME = "seekdrop.db"
+
+
+def migrate_legacy_data(new: Optional[Path] = None, legacy: Optional[list[Path]] = None) -> Optional[Path]:
+    """Move the data folder of an older app name (settings, database, channels) to SeekDrop's.
+    Only when SeekDrop has no data yet; never merges or overwrites. Returns the folder it took over."""
+    if new is None:
+        if os.environ.get("SEEKDROP_HOME"):
+            return None
+        new = Path(user_data_dir(APP_NAME, appauthor=False))
+    if legacy is None:
+        legacy = [Path(user_data_dir(n, appauthor=False)) for n in LEGACY_APP_NAMES]
+    moved = None
+    if not (new.exists() and any(new.iterdir())):
+        for old in legacy:
+            if old.is_dir() and any(old.iterdir()):
+                if new.exists():
+                    new.rmdir()   # empty
+                new.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(old), str(new))
+                moved = old
+                log.info("Moved data from %s to %s", old, new)
+                break
+    if moved is not None:
+        _retarget_default_download_dir(new / "settings.json")
+    if new.is_dir() and not (new / DB_NAME).exists():
+        for name in LEGACY_DB_NAMES:
+            if (new / name).exists():
+                for suffix in ("", "-wal", "-shm"):
+                    src = new / (name + suffix)
+                    if src.exists():
+                        src.rename(new / (DB_NAME + suffix))
+                break
+    return moved
+
+
+def _retarget_default_download_dir(settings_file: Path, music: Optional[Path] = None) -> None:
+    """The old default download folder (Music/<old name>) becomes Music/SeekDrop, but only when it
+    is missing or empty. A folder that already holds music is left alone."""
+    try:
+        data = json.loads(settings_file.read_text("utf-8"))
+    except (OSError, ValueError):
+        return
+    music = music or Path(default_download_dir()).parent
+    current = Path(data.get("download_dir") or "")
+    if current not in [music / n for n in LEGACY_APP_NAMES]:
+        return
+    if current.is_dir() and any(f.name != ".DS_Store" for f in current.iterdir()):
+        return
+    data["download_dir"] = str(music / APP_NAME)
+    settings_file.write_text(json.dumps(data, indent=2), "utf-8")
+
+
 def data_dir() -> Path:
-    p = Path(os.environ.get("NICOTINE_SYNC_HOME") or user_data_dir(APP_NAME, appauthor=False))
+    p = Path(os.environ.get("SEEKDROP_HOME") or user_data_dir(APP_NAME, appauthor=False))
     p.mkdir(parents=True, exist_ok=True)
     return p
 
 
 def log_dir() -> Path:
-    p = Path(os.environ.get("NICOTINE_SYNC_HOME") or user_log_dir(APP_NAME, appauthor=False))
-    if os.environ.get("NICOTINE_SYNC_HOME"):
+    p = Path(os.environ.get("SEEKDROP_HOME") or user_log_dir(APP_NAME, appauthor=False))
+    if os.environ.get("SEEKDROP_HOME"):
         p = p / "logs"
     p.mkdir(parents=True, exist_ok=True)
     return p

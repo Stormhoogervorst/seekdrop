@@ -54,7 +54,7 @@ class UpdateChecker:
 
     async def check(self) -> None:
         url = f"https://api.github.com/repos/{self.repo}/releases/latest"   # skips drafts and pre-releases
-        headers = {"Accept": "application/vnd.github+json", "User-Agent": f"NicotineSync/{__version__}"}
+        headers = {"Accept": "application/vnd.github+json", "User-Agent": f"SeekDrop/{__version__}"}
         try:
             async with aiohttp.ClientSession(headers=headers) as s:
                 async with s.get(url, timeout=aiohttp.ClientTimeout(total=15)) as r:

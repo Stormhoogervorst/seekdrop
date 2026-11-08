@@ -1,10 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
 
+- **New name: SeekDrop** (was Nicotine+ Sync). Your channels, settings and downloads are taken over
+  automatically on first start. The Nicotine+ plugin is now called *SeekDrop Bridge*: in Nicotine+,
+  turn off *Nicotine+ Sync Bridge* and turn on *SeekDrop Bridge* once (the app reminds you).
 - New light, calm look (see DESIGN.md): grey shell, one white card, Inter Tight, Lucide icons.
   Yellow only marks what is downloading right now; statuses are plain text with a small icon;
-  row actions show on hover or keyboard focus.
+  row actions are quiet grey text buttons.
 
 ## 0.3.0
 

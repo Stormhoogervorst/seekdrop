@@ -1,7 +1,7 @@
 import asyncio
 
-from nicotine_sync import updates
-from nicotine_sync.updates import UpdateChecker, is_newer, parse_version
+from seekdrop import updates
+from seekdrop.updates import UpdateChecker, is_newer, parse_version
 
 
 def test_version_compare():

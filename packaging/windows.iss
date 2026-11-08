@@ -5,17 +5,17 @@
 
 [Setup]
 AppId={{AFE9CD32-27AE-44FE-8A3C-548DA2EC0AF1}
-AppName=Nicotine+ Sync
+AppName=SeekDrop
 AppVersion={#AppVersion}
-AppPublisher=Nicotine+ Sync
-DefaultDirName={autopf}\NicotineSync
-DefaultGroupName=Nicotine+ Sync
+AppPublisher=SeekDrop
+DefaultDirName={autopf}\SeekDrop
+DefaultGroupName=SeekDrop
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=..\dist
-OutputBaseFilename=NicotineSync-{#AppVersion}-windows-setup
+OutputBaseFilename=SeekDrop-{#AppVersion}-windows-setup
 SetupIconFile=icon.ico
-UninstallDisplayIcon={app}\NicotineSync.exe
+UninstallDisplayIcon={app}\SeekDrop.exe
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -23,15 +23,15 @@ LicenseFile=..\LICENSE
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
-Name: "startup"; Description: "Start Nicotine+ Sync when I log in"; Flags: unchecked
+Name: "startup"; Description: "Start SeekDrop when I log in"; Flags: unchecked
 
 [Files]
-Source: "..\dist\NicotineSync\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
+Source: "..\dist\SeekDrop\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 
 [Icons]
-Name: "{group}\Nicotine+ Sync"; Filename: "{app}\NicotineSync.exe"
-Name: "{autodesktop}\Nicotine+ Sync"; Filename: "{app}\NicotineSync.exe"; Tasks: desktopicon
-Name: "{userstartup}\Nicotine+ Sync"; Filename: "{app}\NicotineSync.exe"; Tasks: startup
+Name: "{group}\SeekDrop"; Filename: "{app}\SeekDrop.exe"
+Name: "{autodesktop}\SeekDrop"; Filename: "{app}\SeekDrop.exe"; Tasks: desktopicon
+Name: "{userstartup}\SeekDrop"; Filename: "{app}\SeekDrop.exe"; Tasks: startup
 
 [Run]
-Filename: "{app}\NicotineSync.exe"; Description: "Open Nicotine+ Sync"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\SeekDrop.exe"; Description: "Open SeekDrop"; Flags: nowait postinstall skipifsilent

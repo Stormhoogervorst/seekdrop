@@ -14,7 +14,7 @@ from . import db as states
 from .config import SettingsStore
 from .db import Database
 from .matching import Candidate, MatchPrefs, rank
-from .nicotine import update_plugin_if_outdated
+from .nicotine import migrate_legacy_plugin, update_plugin_if_outdated
 from .soundcloud import SoundCloudClient, TrackStub
 from .titles import is_mix, parse_title, search_queries
 
@@ -112,8 +112,11 @@ class Engine:
     async def _connect(self) -> None:
         if self.settings.soulseek_mode == "nicotine":
             try:
-                if await asyncio.to_thread(update_plugin_if_outdated):
-                    self.note("Updated the Nicotine+ plugin. In Nicotine+, turn Nicotine+ Sync Bridge off and on "
+                if await asyncio.to_thread(migrate_legacy_plugin):
+                    self.note("The Nicotine+ plugin has a new name. In Nicotine+, turn off Nicotine+ Sync Bridge "
+                              "and turn on SeekDrop Bridge (Preferences, Plugins).", "warn")
+                elif await asyncio.to_thread(update_plugin_if_outdated):
+                    self.note("Updated the Nicotine+ plugin. In Nicotine+, turn SeekDrop Bridge off and on "
                               "(Preferences, Plugins) to use the new version.", "warn")
             except OSError as e:
                 log.warning("couldn't update the Nicotine+ plugin: %s", e)

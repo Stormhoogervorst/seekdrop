@@ -5,12 +5,12 @@ import time
 
 import pytest
 
-from nicotine_sync import engine as engine_mod
-from nicotine_sync.config import SettingsStore
-from nicotine_sync.db import Database
-from nicotine_sync.engine import Engine
-from nicotine_sync.matching import Candidate
-from nicotine_sync.soundcloud import TrackInfo, TrackStub
+from seekdrop import engine as engine_mod
+from seekdrop.config import SettingsStore
+from seekdrop.db import Database
+from seekdrop.engine import Engine
+from seekdrop.matching import Candidate
+from seekdrop.soundcloud import TrackInfo, TrackStub
 
 
 class FakeSC:
@@ -289,7 +289,7 @@ def test_leftover_transfers_are_tidied_up_after_restart(setup):
 
 
 def test_outdated_plugin_is_replaced(tmp_path, monkeypatch):
-    from nicotine_sync import nicotine
+    from seekdrop import nicotine
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
     dest = nicotine.install_plugin(47820, "key")
     assert not nicotine.update_plugin_if_outdated()            # same version: nothing to do

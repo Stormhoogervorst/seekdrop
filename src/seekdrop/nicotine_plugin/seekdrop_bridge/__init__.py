@@ -1,10 +1,10 @@
-# Nicotine+ Sync Bridge: a Nicotine+ plugin that lets the Nicotine+ Sync app search and
+# SeekDrop Bridge: a Nicotine+ plugin that lets the SeekDrop app search and
 # download through Nicotine+ (your own Soulseek account).
 #
 # GNU GENERAL PUBLIC LICENSE, Version 3 or later.
 #
 # It opens a small HTTP API on 127.0.0.1 only. Every request must carry the
-# X-Token header with the key from bridge.json (written by Nicotine+ Sync when it
+# X-Token header with the key from bridge.json (written by SeekDrop when it
 # installed this plugin). Nicotine+ objects are only touched on Nicotine+'s
 # main thread.
 
@@ -38,7 +38,7 @@ class Plugin(BasePlugin):
         self.key = cfg.get("token") or ""
         self.port = int(cfg.get("port") or 47820)
         if not self.key:
-            self.log("no key found. Install the plugin from Nicotine+ Sync's settings.")
+            self.log("no key found. Install the plugin from SeekDrop's settings.")
             return
 
         # Search results for our searches are dropped by Nicotine+ itself (they belong to no
@@ -70,8 +70,8 @@ class Plugin(BasePlugin):
             self.log("can't listen on port %s (%s)", (self.port, error))
             return
         self.server.daemon_threads = True
-        threading.Thread(target=self.server.serve_forever, name="nicotine-sync-bridge", daemon=True).start()
-        self.log("ready for Nicotine+ Sync on 127.0.0.1:%s", (self.port,))
+        threading.Thread(target=self.server.serve_forever, name="seekdrop-bridge", daemon=True).start()
+        self.log("ready for SeekDrop on 127.0.0.1:%s", (self.port,))
 
     def _stop(self):
         if self.server is not None:
@@ -225,7 +225,7 @@ class Plugin(BasePlugin):
 
 class _Handler(BaseHTTPRequestHandler):
     bridge = None
-    server_version = "NicotineSyncBridge/1"
+    server_version = "SeekDropBridge/1"
 
     def log_message(self, *_args):
         pass

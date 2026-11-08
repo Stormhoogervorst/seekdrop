@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 LOGIN_REASONS = {
     "INVALIDPASS": "Wrong password for this Soulseek username. If the name isn't yours, pick another one.",
     "INVALIDUSERNAME": "Soulseek doesn't accept this username. Try another one (letters and numbers work best).",
-    "SVRFULL": "The Soulseek server is full. Nicotine+ Sync will keep trying.",
+    "SVRFULL": "The Soulseek server is full. SeekDrop will keep trying.",
     "SVRPRIVATE": "The Soulseek server is not accepting new accounts right now.",
 }
 
@@ -78,7 +78,7 @@ class SoulseekService:
         async def on_kicked(_):
             self.status, self.retryable = "error", False
             self.error = ("Soulseek logged you out because this account was used somewhere else. "
-                          "Use a separate account for Nicotine+ Sync.")
+                          "Use a separate account for SeekDrop.")
 
         client.events.register(SessionInitializedEvent, on_login)
         client.events.register(SessionDestroyedEvent, on_logout)

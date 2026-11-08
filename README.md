@@ -1,6 +1,6 @@
-# Nicotine+ Sync
+# SeekDrop
 
-Follow SoundCloud channels and playlists. When a track shows up, Nicotine+ Sync looks for it on
+Follow SoundCloud channels and playlists. When a track shows up, SeekDrop looks for it on
 Soulseek and downloads the best copy it can find.
 
 For DJs and producers who don't want to check twenty label pages every day.
@@ -19,23 +19,23 @@ For DJs and producers who don't want to check twenty label pages every day.
   DJ-pool edits (`(Clean)`, `(Intro)`, `TMU …`) and spam peers that advertise a website are skipped.
 - Lossless (FLAC/WAV/AIFF) or 320 kbps MP3, your choice.
 - Not on Soulseek yet? It tries again after 1 h, 3 h, 6 h, 12 h, then daily, for up to 30 days.
-- Files land in `Music/Nicotine+ Sync/<channel or playlist>/Artist - Title (Version).flac`.
+- Files land in `Music/SeekDrop/<channel or playlist>/Artist - Title (Version).flac`.
 
-Nicotine+ Sync is an independent project. It is not made by or affiliated with the Nicotine+ team.
+SeekDrop is an independent project. It is not made by or affiliated with the Nicotine+ team.
 
 ## Install
 
 Download the latest version from the
 [Releases page](https://github.com/Stormhoogervorst/nicotinesync/releases/latest).
 
-**macOS 11 or newer, Apple Silicon (M1 and later):** `NicotineSync-x.y.z-macos-arm64.dmg`
+**macOS 11 or newer, Apple Silicon (M1 and later):** `SeekDrop-x.y.z-macos-arm64.dmg`
 
-1. Open the DMG and drag **Nicotine+ Sync** to Applications.
+1. Open the DMG and drag **SeekDrop** to Applications.
 2. Open it. If macOS says it can't check the app for malicious software: open
    **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to
-   Nicotine+ Sync, then confirm. You only need to do this once.
+   SeekDrop, then confirm. You only need to do this once.
 
-**Windows 10/11:** `NicotineSync-x.y.z-windows-setup.exe`
+**Windows 10/11:** `SeekDrop-x.y.z-windows-setup.exe`
 
 Windows may show a SmartScreen warning because the app isn't code-signed: click
 **More info**, then **Run anyway**. The installer can start the app when you log in.
@@ -47,12 +47,12 @@ Releases page and install it over the old one; your channels and settings are ke
 
 - **Through Nicotine+ (recommended if you already use it).** Uses your Nicotine+ account and
   shares. In setup (or Settings) click *Add plugin to Nicotine+*, then in Nicotine+ open
-  **Preferences → Plugins** and turn on **Nicotine+ Sync Bridge**. If it isn't in the list,
+  **Preferences → Plugins** and turn on **SeekDrop Bridge**. If it isn't in the list,
   close Preferences and open it again, or restart Nicotine+.
-  The plugin only listens on 127.0.0.1 and only accepts Nicotine+ Sync's key. Searches don't
+  The plugin only listens on 127.0.0.1 and only accepts SeekDrop's key. Searches don't
   create search tabs or history in Nicotine+; downloads show up in its Downloads tab.
-  Nicotine+ must be open while Nicotine+ Sync works.
-- **With its own account.** Nicotine+ Sync logs in to Soulseek itself; no other app needed.
+  Nicotine+ must be open while SeekDrop works.
+- **With its own account.** SeekDrop logs in to Soulseek itself; no other app needed.
   Use a separate Soulseek account for it: logging in with the same account somewhere else
   disconnects one of them. A name that doesn't exist yet is created when you first log in.
 
@@ -62,7 +62,7 @@ The app only checks while it's open.
 
 Soulseek is a network where people share their own music folders. Only download music you have
 the right to have, such as free downloads, promos sent to you, or tracks you bought elsewhere.
-You are responsible for what you download and share. Nicotine+ Sync reads only public (or
+You are responsible for what you download and share. SeekDrop reads only public (or
 shared-with-you) SoundCloud pages and never downloads audio from SoundCloud itself.
 
 ## Privacy
@@ -71,18 +71,18 @@ Everything stays on your computer. The app talks to SoundCloud (to read channels
 to Soulseek (directly or through Nicotine+), and twice a day to GitHub to see if there is a new
 version (you can turn that off in Settings). There is no tracking or analytics.
 
-Settings, database and logs live in `~/Library/Application Support/Nicotine+ Sync` (macOS) or
-`%LOCALAPPDATA%\Nicotine+ Sync` (Windows).
+Settings, database and logs live in `~/Library/Application Support/SeekDrop` (macOS) or
+`%LOCALAPPDATA%\SeekDrop` (Windows).
 
 ## Troubleshooting
 
-- **"Can't reach Nicotine+"**: open Nicotine+ and check that Nicotine+ Sync Bridge is turned on
+- **"Can't reach Nicotine+"**: open Nicotine+ and check that SeekDrop Bridge is turned on
   (Preferences → Plugins). After updating the app, turn the plugin off and on once.
 - **A track stays at "Waiting for peer"**: the peer has a queue. After 45 minutes the app tries
   another peer.
 - **"Not on Soulseek yet"** for a track you can find by hand: open an issue with the SoundCloud
   link and the file name you found. Title matching is strict on purpose.
-- Logs: `nicotine-sync.log` in the folder above. Please attach it to bug reports.
+- Logs: `seekdrop.log` in the folder above. Please attach it to bug reports.
 
 Report problems on the [Issues page](https://github.com/Stormhoogervorst/nicotinesync/issues).
 
@@ -93,21 +93,21 @@ Python 3.11 to 3.13.
 ```bash
 python3.13 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
-python -m nicotine_sync            # app window
-python -m nicotine_sync --browser  # UI in your browser
+python -m seekdrop            # app window
+python -m seekdrop --browser  # UI in your browser
 pytest
 ```
 
 **UI work:** `python scripts/demo.py` starts the real UI with made-up data at
 http://localhost:8765/#token=dev, without SoundCloud or Soulseek, in a throwaway data folder.
-Edits to `src/nicotine_sync/ui/` show up when you refresh the page; Python changes need a restart.
+Edits to `src/seekdrop/ui/` show up when you refresh the page; Python changes need a restart.
 `DEMO_SETUP=1` shows the first-run setup instead. (In Claude Code: `.claude/launch.json` → `ui-demo`.)
-Use a throwaway data folder with `NICOTINE_SYNC_HOME=/tmp/ns python -m nicotine_sync --browser`.
+Use a throwaway data folder with `SEEKDROP_HOME=/tmp/ns python -m seekdrop --browser`.
 
 ## Releases
 
-1. Update the version in `pyproject.toml`, `src/nicotine_sync/__init__.py` and (if the plugin
-   changed) `src/nicotine_sync/nicotine_plugin/nicotine_sync_bridge/PLUGININFO`, and add the
+1. Update the version in `pyproject.toml`, `src/seekdrop/__init__.py` and (if the plugin
+   changed) `src/seekdrop/nicotine_plugin/seekdrop_bridge/PLUGININFO`, and add the
    changes to `CHANGELOG.md`.
 2. Push a tag like `v0.3.0`. GitHub Actions runs the tests, builds the Windows installer and the
    macOS DMG, smoke-tests both, and attaches them to a **draft** release.
@@ -117,22 +117,22 @@ macOS signing and notarization run automatically once these repository secrets a
 `MACOS_CERT_P12` (base64 of a Developer ID Application certificate), `MACOS_CERT_PASSWORD`,
 `APPLE_ID`, `APPLE_TEAM_ID` and `APPLE_APP_PASSWORD`. That needs an Apple Developer account.
 
-Local build: `pyinstaller packaging/nicotine_sync.spec --noconfirm`.
+Local build: `pyinstaller packaging/seekdrop.spec --noconfirm`.
 
 ## How it's built
 
 | Part | File |
 |---|---|
-| Read SoundCloud profiles and playlists (via yt-dlp) | `src/nicotine_sync/soundcloud.py` |
-| Clean up titles, spot mixes, build search queries | `src/nicotine_sync/titles.py` |
-| Score Soulseek results | `src/nicotine_sync/matching.py` |
-| Soulseek client (via aioslsk) | `src/nicotine_sync/soulseek.py` |
-| Nicotine+ client + plugin installer | `src/nicotine_sync/nicotine.py` |
-| Nicotine+ plugin (runs inside Nicotine+) | `src/nicotine_sync/nicotine_plugin/nicotine_sync_bridge/` |
-| Scheduler, retries, file naming | `src/nicotine_sync/engine.py` |
-| Update notice | `src/nicotine_sync/updates.py` |
-| Local API + UI | `src/nicotine_sync/server.py`, `src/nicotine_sync/ui/` |
-| App window (pywebview) | `src/nicotine_sync/__main__.py` |
+| Read SoundCloud profiles and playlists (via yt-dlp) | `src/seekdrop/soundcloud.py` |
+| Clean up titles, spot mixes, build search queries | `src/seekdrop/titles.py` |
+| Score Soulseek results | `src/seekdrop/matching.py` |
+| Soulseek client (via aioslsk) | `src/seekdrop/soulseek.py` |
+| Nicotine+ client + plugin installer | `src/seekdrop/nicotine.py` |
+| Nicotine+ plugin (runs inside Nicotine+) | `src/seekdrop/nicotine_plugin/seekdrop_bridge/` |
+| Scheduler, retries, file naming | `src/seekdrop/engine.py` |
+| Update notice | `src/seekdrop/updates.py` |
+| Local API + UI | `src/seekdrop/server.py`, `src/seekdrop/ui/` |
+| App window (pywebview) | `src/seekdrop/__main__.py` |
 
 ## License
 

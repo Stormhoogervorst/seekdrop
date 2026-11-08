@@ -1,7 +1,8 @@
-"""Entry point: `python -m nicotine_sync` or the packaged app."""
+"""Entry point: `python -m seekdrop` or the packaged app."""
 from __future__ import annotations
 
 import argparse
+import logging
 import signal
 import sys
 import time
@@ -9,12 +10,12 @@ import webbrowser
 
 from . import __version__
 from .app import Backend, acquire_instance_lock, setup_logging
-from .config import APP_NAME
+from .config import APP_NAME, migrate_legacy_data
 
 ALREADY_RUNNING_HTML = """<html><body style="font-family:system-ui;background:#111;color:#eee;
 display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
-<div style="text-align:center"><h2>Nicotine+ Sync is already running</h2>
-<p style="color:#999">Switch to the open Nicotine+ Sync window.</p></div></body></html>"""
+<div style="text-align:center"><h2>SeekDrop is already running</h2>
+<p style="color:#999">Switch to the open SeekDrop window.</p></div></body></html>"""
 
 
 class JsApi:
@@ -34,7 +35,7 @@ class JsApi:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(prog="nicotine-sync")
+    ap = argparse.ArgumentParser(prog="seekdrop")
     ap.add_argument("--browser", action="store_true", help="open the UI in your web browser instead of an app window")
     ap.add_argument("--headless", action="store_true", help="run without any UI (prints the UI address)")
     ap.add_argument("--port", type=int, default=0)
@@ -45,13 +46,21 @@ def main(argv: list[str] | None = None) -> int:
     setup_logging(args.verbose)
     lock = acquire_instance_lock()
     if lock is None:
+        if args.headless or args.browser:   # no window wanted: just say so
+            print("SeekDrop is already running.", file=sys.stderr)
+            return 1
         try:
             import webview
             webview.create_window(APP_NAME, html=ALREADY_RUNNING_HTML, width=460, height=220)
             webview.start()
         except Exception:
-            print("Nicotine+ Sync is already running.", file=sys.stderr)
+            print("SeekDrop is already running.", file=sys.stderr)
         return 1
+
+    try:   # first start after a rename: take over the old data folder
+        migrate_legacy_data()
+    except OSError:
+        logging.getLogger("seekdrop").exception("couldn't move the old data folder")
 
     backend = Backend(port=args.port)
     url = backend.start()

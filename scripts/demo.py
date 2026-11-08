@@ -3,7 +3,7 @@
     python scripts/demo.py            -> http://localhost:8765/#token=dev
     DEMO_SETUP=1 python scripts/demo.py   (shows the first-run setup instead)
 
-Edits to src/nicotine_sync/ui/* (HTML, CSS, JS) show up when you refresh the page.
+Edits to src/seekdrop/ui/* (HTML, CSS, JS) show up when you refresh the page.
 Python changes need a restart. Data lives in a throwaway folder, never in your real app data.
 """
 import os
@@ -13,12 +13,12 @@ import threading
 import time
 
 # Never touch the real app data.
-os.environ.setdefault("NICOTINE_SYNC_HOME", os.path.join(tempfile.gettempdir(), "nicotine-sync-demo"))
+os.environ.setdefault("SEEKDROP_HOME", os.path.join(tempfile.gettempdir(), "seekdrop-demo"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from nicotine_sync.app import Backend, setup_logging  # noqa: E402
-from nicotine_sync.config import SettingsStore, data_dir  # noqa: E402
-from nicotine_sync.db import Database  # noqa: E402
+from seekdrop.app import Backend, setup_logging  # noqa: E402
+from seekdrop.config import SettingsStore, data_dir  # noqa: E402
+from seekdrop.db import Database  # noqa: E402
 
 PORT = int(os.environ.get("PORT", "8765"))
 TOKEN = os.environ.get("DEMO_TOKEN", "dev")
@@ -42,7 +42,7 @@ class IdleSlsk:
 class IdleSC:
     def latest(self, *a, **k): return []   # nothing new on SoundCloud in the demo
     def channel_info(self, url):
-        from nicotine_sync.soundcloud import ChannelInfo, is_playlist_url
+        from seekdrop.soundcloud import ChannelInfo, is_playlist_url
         name = url.rstrip("/").rsplit("/", 1)[-1].replace("-", " ").title()
         return ChannelInfo(url, name, "playlist" if is_playlist_url(url) else "profile")
 
@@ -59,7 +59,7 @@ store = SettingsStore()
 if not SETUP:
     store.update({"accepted_terms": True, "soulseek_mode": "nicotine", "nicotine_token": "demo",
                   "download_dir": str(home / "Music")})
-db = Database(home / "nicotine-sync.db")
+db = Database(home / "seekdrop.db")
 if not db.channels() and not SETUP:
     now = time.time()
     chans = [("https://soundcloud.com/nightshift-records", "Nightshift Records", "profile"),
@@ -93,7 +93,7 @@ if not db.channels() and not SETUP:
 setup_logging()
 
 # Keep the demo rows as they are: no searching, polling or reconnecting.
-import nicotine_sync.engine as E  # noqa: E402
+import seekdrop.engine as E  # noqa: E402
 
 
 async def _noop(self):

@@ -1,4 +1,4 @@
-"""Use Nicotine+ (with the Nicotine+ Sync Bridge plugin) instead of a built-in Soulseek login."""
+"""Use Nicotine+ (with the SeekDrop Bridge plugin) instead of a built-in Soulseek login."""
 from __future__ import annotations
 
 import asyncio
@@ -17,7 +17,7 @@ from .matching import Candidate, file_ext
 
 log = logging.getLogger(__name__)
 
-PLUGIN_NAME = "nicotine_sync_bridge"
+PLUGIN_NAME = "seekdrop_bridge"
 PLUGIN_SRC = Path(__file__).parent / "nicotine_plugin" / PLUGIN_NAME
 DEFAULT_PORT = 47820
 
@@ -31,7 +31,7 @@ STATUS_MAP = {
     "Cancelled": "ABORTED",
 }
 
-MSG_UNREACHABLE = ("Can't reach Nicotine+. Open Nicotine+ and turn on the Nicotine+ Sync Bridge plugin "
+MSG_UNREACHABLE = ("Can't reach Nicotine+. Open Nicotine+ and turn on the SeekDrop Bridge plugin "
                    "(Preferences, Plugins).")
 MSG_KEY = "The Nicotine+ plugin has a different key. Install the plugin again from Settings, then turn it off and on in Nicotine+."
 MSG_OFFLINE = "Nicotine+ is open but not connected to Soulseek."
@@ -72,6 +72,27 @@ def _plugin_version(folder: Path) -> str:
     except OSError:
         pass
     return ""
+
+
+# Earlier plugin folder names; their key is reused so the app keeps working after a rename.
+LEGACY_PLUGIN_NAMES = ("nicotine_sync_bridge", "cratewatch_bridge")
+
+
+def migrate_legacy_plugin() -> bool:
+    """If only an older-named plugin is installed, install this one with the same port and key.
+    Returns True when it did; the user then switches plugins once in Nicotine+."""
+    if (nicotine_plugins_dir() / PLUGIN_NAME / "bridge.json").exists():
+        return False
+    for old in LEGACY_PLUGIN_NAMES:
+        cfg = nicotine_plugins_dir() / old / "bridge.json"
+        if cfg.exists():
+            try:
+                d = json.loads(cfg.read_text("utf-8"))
+                install_plugin(int(d["port"]), str(d["token"]))
+                return True
+            except (OSError, ValueError, KeyError):
+                return False
+    return False
 
 
 def update_plugin_if_outdated() -> bool:

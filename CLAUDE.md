@@ -1,21 +1,23 @@
-# Nicotine+ Sync: notes for Claude Code
+# SeekDrop: notes for Claude Code
 
 Desktop app (Python, pywebview UI) that follows SoundCloud channels and playlists and downloads
 the tracks from Soulseek, either with its own login (aioslsk) or through Nicotine+ via the bundled
-`nicotine_sync_bridge` plugin. Formerly called Cratewatch. UI copy is English; the owner speaks Dutch.
+`seekdrop_bridge` plugin. Formerly Cratewatch, then Nicotine+ Sync (renamed because "SoulSync"
+is taken by another Soulseek project). On first start the old data folder and plugin key are taken
+over (`config.migrate_legacy_data`, `nicotine.migrate_legacy_plugin`). UI copy is English; the owner speaks Dutch.
 Repo: github.com/Stormhoogervorst/nicotinesync.
 
 ## Run / test
 - Python 3.11 to 3.13 (not 3.14: deps). `python3.13 -m venv .venv && .venv/bin/pip install -e ".[dev]"`.
-- `python -m nicotine_sync` (window) or `--browser` / `--headless`.
+- `python -m seekdrop` (window) or `--browser` / `--headless`.
 - `pytest -q` (unit + engine tests with fakes).
 - UI dev server: `python scripts/demo.py` (launch.json `ui-demo`), open http://localhost:8765/#token=dev.
   Made-up data in a temp folder, no network; UI file edits show on refresh.
-- Throwaway data dir: `NICOTINE_SYNC_HOME=/tmp/ns python -m nicotine_sync --headless --port 47900`.
+- Throwaway data dir: `SEEKDROP_HOME=/tmp/ns python -m seekdrop --headless --port 47900`.
   The printed URL has `#token=…`; send it as `X-Token` to `/api/*`.
 - Nicotine+ plugin harness: `pip download nicotine-plus --no-deps`, unzip the wheel, then
   `PYTHONPATH=src:<unzipped> python tests/manual/nicotine_harness.py`.
-- Local build: `pyinstaller packaging/nicotine_sync.spec --noconfirm` -> `dist/Nicotine+ Sync.app`.
+- Local build: `pyinstaller packaging/seekdrop.spec --noconfirm` -> `dist/SeekDrop.app`.
 
 ## Verified against the real services (Nov 2026, macOS 26, Nicotine+ 3.3.11)
 - SoundCloud via yt-dlp: profiles, playlists (flat entries have no title; some URLs are

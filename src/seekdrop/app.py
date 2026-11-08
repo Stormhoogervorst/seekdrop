@@ -10,7 +10,7 @@ from typing import Optional
 
 from aiohttp import web
 
-from .config import SettingsStore, data_dir, log_dir
+from .config import DB_NAME, SettingsStore, data_dir, log_dir
 from .db import Database
 from .engine import Engine
 from .server import Api
@@ -19,7 +19,7 @@ from .updates import UpdateChecker
 from .soulseek import SoulseekService
 from .soundcloud import SoundCloudClient
 
-log = logging.getLogger("nicotine_sync")
+log = logging.getLogger("seekdrop")
 
 INSTANCE_PORT = 47811  # localhost-only lock so two copies don't fight over one Soulseek account
 
@@ -29,7 +29,7 @@ def setup_logging(verbose: bool = False) -> None:
     if root.handlers:
         return
     root.setLevel(logging.DEBUG if verbose else logging.INFO)
-    fh = RotatingFileHandler(log_dir() / "nicotine-sync.log", maxBytes=2_000_000, backupCount=3, encoding="utf-8")
+    fh = RotatingFileHandler(log_dir() / "seekdrop.log", maxBytes=2_000_000, backupCount=3, encoding="utf-8")
     fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
     root.addHandler(fh)
     sh = logging.StreamHandler()
@@ -89,7 +89,7 @@ class Backend:
         self._loop = asyncio.get_running_loop()
         self._stop = asyncio.Event()
         home = data_dir()
-        db = Database(home / "nicotine-sync.db")
+        db = Database(home / DB_NAME)
         store = SettingsStore()
         sc = self._sc or SoundCloudClient(cache_dir=str(home / "cache"))
         def make_slsk(mode: str):

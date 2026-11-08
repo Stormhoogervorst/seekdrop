@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nicotine+ Sync</title>
+<title>SeekDrop</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%23FCF251%22/%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%228%22 fill=%22none%22 stroke=%22%23111111%22 stroke-width=%222.5%22/%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%222%22 fill=%22%23111111%22/%3E%3C/svg%3E">
 <link rel="stylesheet" href="/ui/style.css">
 </head>
@@ -12,32 +12,32 @@
 <!-- First run -->
 <main id="setup" class="setup" hidden>
   <div class="setup-inner">
-    <h1 class="wordmark">Nicotine+ Sync</h1>
-    <p class="lede">Follow SoundCloud channels and playlists. When a track shows up, Nicotine+ Sync looks for it on Soulseek and downloads the best copy it can find.</p>
+    <h1 class="wordmark">SeekDrop</h1>
+    <p class="lede">Follow SoundCloud channels and playlists. When a track shows up, SeekDrop looks for it on Soulseek and downloads the best copy it can find.</p>
 
     <ol class="steps">
       <li class="step">
         <h2>Before you start</h2>
-        <p>Nicotine+ Sync searches Soulseek, a network where people share their own music folders. You decide what you download and share. Only download music you have the right to have, such as free downloads, promos sent to you, or tracks you've bought. You're responsible for how you use it.</p>
-        <label class="check"><input type="checkbox" id="s-terms"> I understand and use Nicotine+ Sync at my own responsibility</label>
+        <p>SeekDrop searches Soulseek, a network where people share their own music folders. You decide what you download and share. Only download music you have the right to have, such as free downloads, promos sent to you, or tracks you've bought. You're responsible for how you use it.</p>
+        <label class="check"><input type="checkbox" id="s-terms"> I understand and use SeekDrop at my own responsibility</label>
       </li>
       <li class="step">
         <h2>Connect to Soulseek</h2>
         <div class="choice" role="radiogroup" aria-label="How to connect">
           <label class="opt"><input type="radio" name="s-mode" value="nicotine">
-            <span><b>Through Nicotine+</b><small>Uses the account and shared folders you already have in Nicotine+. Nicotine+ needs to be open while Nicotine+ Sync works.</small></span></label>
+            <span><b>Through Nicotine+</b><small>Uses the account and shared folders you already have in Nicotine+. Nicotine+ needs to be open while SeekDrop works.</small></span></label>
           <label class="opt"><input type="radio" name="s-mode" value="builtin" checked>
-            <span><b>With its own Soulseek account</b><small>Nicotine+ Sync logs in to Soulseek itself. You don't need any other app.</small></span></label>
+            <span><b>With its own Soulseek account</b><small>SeekDrop logs in to Soulseek itself. You don't need any other app.</small></span></label>
         </div>
         <div id="s-nicotine" hidden>
-          <p>Nicotine+ Sync adds a small plugin to Nicotine+ so the two apps can talk. It only works on this computer.</p>
+          <p>SeekDrop adds a small plugin to Nicotine+ so the two apps can talk. It only works on this computer.</p>
           <div class="nic-steps">
             <button class="btn" type="button" id="s-nic-install">Add plugin to Nicotine+</button>
             <p class="hint" id="s-nic-done" hidden></p>
           </div>
         </div>
         <div id="s-builtin">
-          <p>Use a separate account just for Nicotine+ Sync. A name that doesn't exist yet is created automatically when you log in. Logging in with the same account in another Soulseek app will disconnect one of them.</p>
+          <p>Use a separate account just for SeekDrop. A name that doesn't exist yet is created automatically when you log in. Logging in with the same account in another Soulseek app will disconnect one of them.</p>
           <div class="row2">
             <label class="field"><span>Username</span><input id="s-user" autocomplete="off" spellcheck="false"></label>
             <label class="field"><span>Password</span><input id="s-pass" type="password" autocomplete="new-password"></label>
@@ -64,7 +64,7 @@
 <!-- App -->
 <div id="app" class="shell" hidden>
   <aside class="side">
-    <div class="brand"><span class="logo-tile"><i data-icon="disc-3"></i></span><span class="wordmark small">Nicotine+ Sync</span></div>
+    <div class="brand"><span class="logo-tile"><i data-icon="disc-3"></i></span><span class="wordmark small">SeekDrop</span></div>
 
     <form class="add" id="add-form" autocomplete="off">
       <label for="add-url" class="add-label">Add a channel or playlist</label>
