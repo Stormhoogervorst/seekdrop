@@ -11,8 +11,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with: { python-version: "3.12" }
       - run: pip install -e ".[dev]"
       - run: pytest -q
@@ -21,8 +21,8 @@ jobs:
     needs: test
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with: { python-version: "3.12" }
       - run: pip install -e ".[dev]"
       - run: pyinstaller packaging/nicotine_sync.spec --noconfirm
@@ -40,7 +40,7 @@ jobs:
           $v = python -c "import sys; sys.path.insert(0,'src'); import nicotine_sync; print(nicotine_sync.__version__)"
           if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) { choco install innosetup -y --no-progress }
           iscc /DAppVersion=$v packaging\windows.iss
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: windows
           path: dist/*-windows-setup.exe
@@ -51,8 +51,8 @@ jobs:
     env:
       MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with: { python-version: "3.12" }
       - run: pip install -e ".[dev]"
       - run: pyinstaller packaging/nicotine_sync.spec --noconfirm
@@ -106,7 +106,7 @@ jobs:
           xcrun notarytool submit "$DMG" --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
             --password "$APPLE_APP_PASSWORD" --wait
           xcrun stapler staple "$DMG"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: macos
           path: dist/*.dmg
@@ -117,9 +117,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions: { contents: write }
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with: { path: out }
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: out/**/*
           draft: true
