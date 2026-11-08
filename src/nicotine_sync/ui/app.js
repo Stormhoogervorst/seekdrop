@@ -195,30 +195,35 @@ function renderFilters(s) {
     b.innerHTML = `${esc(label)}<span class="n">${counts[f]}</span>`;
     b.setAttribute("aria-selected", String(ui.filter === f));
   }
+  for (const t of document.querySelectorAll("#tiles .tile")) {
+    t.querySelector(".tile-value").textContent = counts[t.dataset.f];
+    t.setAttribute("aria-pressed", String(ui.filter === t.dataset.f));
+  }
 }
 
+// cls picks the pill style, ic the leading Lucide icon.
 function statusOf(t) {
   switch (t.state) {
-    case "wanted": return { cls: "work", lbl: "In line to search" };
-    case "searching": return { cls: "work", lbl: "Searching Soulseek" };
+    case "wanted": return { cls: "work", ic: "loader-circle", lbl: "In line to search" };
+    case "searching": return { cls: "work", ic: "loader-circle", lbl: "Searching Soulseek" };
     case "downloading": {
-      if (t.transfer_state === "DOWNLOADING") return { cls: "work", lbl: `Downloading ${Math.round(t.progress * 100)}%`, sub: t.peer };
+      if (t.transfer_state === "DOWNLOADING") return { cls: "work", ic: "loader-circle", lbl: `Downloading ${Math.round(t.progress * 100)}%`, sub: t.peer };
       const q = t.place_in_queue ? `, place ${t.place_in_queue}` : "";
-      return { cls: "work", lbl: `Waiting for peer${q}`, sub: t.peer };
+      return { cls: "work", ic: "loader-circle", lbl: `Waiting for peer${q}`, sub: t.peer };
     }
-    case "waiting": return { cls: "wait", lbl: t.last_error || "Not found yet", sub: `Tries again ${inTime(t.retry_in)}` };
-    case "done": return { cls: "done", lbl: "Downloaded", sub: (t.file_path || "").split(/[\\/]/).pop() };
-    case "gave_up": return { cls: "gone", lbl: "Stopped looking", sub: t.last_error };
-    case "skipped": return { cls: "gone", lbl: "Skipped", sub: t.last_error };
-    default: return { cls: "", lbl: t.state };
+    case "waiting": return { cls: "wait", ic: "clock", lbl: t.last_error || "Not found yet", sub: `Tries again ${inTime(t.retry_in)}` };
+    case "done": return { cls: "done", ic: "check", lbl: "Downloaded", sub: (t.file_path || "").split(/[\\/]/).pop() };
+    case "gave_up": return { cls: "gone", ic: "circle-slash", lbl: "Stopped looking", sub: t.last_error };
+    case "skipped": return { cls: "gone", ic: "skip-forward", lbl: "Skipped", sub: t.last_error };
+    default: return { cls: "", ic: "", lbl: t.state };
   }
 }
 
 function actionsOf(t) {
   const a = [];
-  if (t.state === "done") a.push(`<button class="linkbtn" data-act="show" data-id="${t.id}">Show file</button>`);
-  if (["waiting", "gave_up", "skipped"].includes(t.state)) a.push(`<button class="linkbtn" data-act="retry" data-id="${t.id}">${t.state === "skipped" ? "Get it" : "Search now"}</button>`);
-  if (["wanted", "searching", "downloading", "waiting", "gave_up"].includes(t.state)) a.push(`<button class="linkbtn" data-act="skip" data-id="${t.id}">Skip</button>`);
+  if (t.state === "done") a.push(`<button class="btn ghost sm" data-act="show" data-id="${t.id}">Show file</button>`);
+  if (["waiting", "gave_up", "skipped"].includes(t.state)) a.push(`<button class="btn ghost sm" data-act="retry" data-id="${t.id}">${t.state === "skipped" ? "Get it" : "Search now"}</button>`);
+  if (["wanted", "searching", "downloading", "waiting", "gave_up"].includes(t.state)) a.push(`<button class="btn ghost sm" data-act="skip" data-id="${t.id}">Skip</button>`);
   return a.join("");
 }
 
@@ -249,16 +254,16 @@ function renderTracks(s) {
       : `<div class="art">${esc((t.artist || t.title || "?").trim().charAt(0).toUpperCase())}</div>`;
     const v = t.version ? ` <span class="v">(${esc(t.version)})</span>` : "";
     const chan = ui.channel ? "" : `<span> on ${esc(t.channel_name)}</span>`;
-    const bar = t.state === "downloading" ? `<div class="bar"><i style="width:${Math.round((t.progress || 0) * 100)}%"></i></div>` : "";
+    const bar = t.state === "downloading" ? `<div class="bar" role="progressbar" aria-valuenow="${Math.round((t.progress || 0) * 100)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${Math.round((t.progress || 0) * 100)}%"></i></div>` : "";
     return `<div class="tr ${t.state}">
       ${art}
       <div class="t-main">
         <div class="t-title" title="${esc(t.raw_title)}">${esc(t.title)}${v}</div>
         <div class="t-artist"><a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.artist || "Unknown artist")}</a>${chan}</div>
+        ${bar}
       </div>
-      <div class="st ${st.cls}"><span class="dot"></span><span class="lbl">${esc(st.lbl)}${st.sub ? `<span class="sub">${esc(st.sub)}</span>` : ""}</span></div>
+      <div class="st ${st.cls}"><span class="pill">${st.ic ? icon(st.ic, st.cls === "work" ? "spin" : "") : ""}<span class="lbl">${esc(st.lbl)}</span></span>${st.sub ? `<span class="sub">${esc(st.sub)}</span>` : ""}</div>
       <div class="acts">${actionsOf(t)}</div>
-      ${bar}
     </div>`;
   }).join("");
   if (list.dataset.k !== html) { list.innerHTML = html; list.dataset.k = html; }
@@ -411,12 +416,14 @@ function confirmRemove(btn, name) {
 }
 
 /* ---------------- tracks ---------------- */
-$("#filters").addEventListener("click", (e) => {
+function pickFilter(e) {
   const b = e.target.closest("button[data-f]");
   if (!b) return;
   ui.filter = b.dataset.f;
   render();
-});
+}
+$("#filters").addEventListener("click", pickFilter);
+$("#tiles").addEventListener("click", pickFilter);
 
 $("#list").addEventListener("click", async (e) => {
   const b = e.target.closest("[data-act]");

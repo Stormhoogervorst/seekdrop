@@ -136,5 +136,5 @@ Local build: `pyinstaller packaging/nicotine_sync.spec --noconfirm`.
 
 ## License
 
-GPL-3.0-or-later (required because it builds on aioslsk). The bundled Archivo font is under the
-SIL Open Font License.
+GPL-3.0-or-later (required because it builds on aioslsk). The bundled Inter Tight font is under the
+SIL Open Font License; the icons are from Lucide (ISC License). The visual style follows `DESIGN.md`.

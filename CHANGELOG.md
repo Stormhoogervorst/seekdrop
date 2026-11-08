@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- New light look (see DESIGN.md): grey shell, white card, Inter Tight, yellow as the only accent,
+  status pills, stat tiles that filter the list, and Lucide icons.
+
 ## 0.3.0
 
 First public release as **Nicotine+ Sync** (was Cratewatch).

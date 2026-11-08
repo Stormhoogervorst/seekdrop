@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Nicotine+ Sync</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%2212%22 fill=%22none%22 stroke=%22%23f2a93b%22 stroke-width=%225%22/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%23FCF251%22/%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%228%22 fill=%22none%22 stroke=%22%23111111%22 stroke-width=%222.5%22/%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%222%22 fill=%22%23111111%22/%3E%3C/svg%3E">
 <link rel="stylesheet" href="/ui/style.css">
 </head>
 <body>
@@ -64,11 +64,11 @@
 <!-- App -->
 <div id="app" class="shell" hidden>
   <aside class="side">
-    <div class="brand"><span class="wordmark small">Nicotine+ Sync</span></div>
+    <div class="brand"><span class="logo-tile"><i data-icon="disc-3"></i></span><span class="wordmark small">Nicotine+ Sync</span></div>
 
     <form class="add" id="add-form" autocomplete="off">
       <label for="add-url" class="add-label">Add a channel or playlist</label>
-      <input id="add-url" placeholder="soundcloud.com/name or …/sets/playlist" spellcheck="false">
+      <div class="input-pill"><i data-icon="link"></i><input id="add-url" placeholder="soundcloud.com/name or …/sets/playlist" spellcheck="false"></div>
       <div class="add-more" id="add-more" hidden>
         <p class="small" id="add-playlist-hint" hidden>Every track in this playlist is searched on Soulseek and downloaded when found. Tracks added to the playlist later are fetched too.</p>
         <label class="field compact" id="add-backlog-field"><span>Also get the latest</span>
@@ -88,7 +88,7 @@
     <nav class="channels" id="channels" aria-label="Channels"></nav>
 
     <details class="activity">
-      <summary>Activity</summary>
+      <summary class="btn ghost"><i data-icon="activity"></i>Activity</summary>
       <ul id="activity"></ul>
     </details>
   </aside>
@@ -96,20 +96,21 @@
   <section class="main">
     <header class="top">
       <div class="deck" id="deck">
-        <span class="ring" id="ring" aria-hidden="true"></span>
+        <span class="icon-btn deck-icon" aria-hidden="true"><span class="ring" id="ring"></span></span>
         <div>
           <div class="deck-title" id="deck-title">Connecting</div>
           <div class="deck-sub" id="deck-sub"></div>
         </div>
       </div>
       <div class="top-actions">
-        <a class="btn primary" id="update-link" href="#" target="_blank" rel="noopener" hidden></a>
+        <a class="btn accent" id="update-link" href="#" target="_blank" rel="noopener" hidden></a>
         <button class="btn ghost" id="check-now">Check now</button>
         <button class="btn ghost" id="open-folder">Open folder</button>
-        <button class="btn ghost" id="open-settings" aria-label="Settings">Settings</button>
+        <button class="icon-btn" id="open-settings" aria-label="Settings" title="Settings"><i data-icon="settings"></i></button>
       </div>
     </header>
 
+    <div class="card main-card">
     <div class="view-head">
       <h1 id="view-title">All channels</h1>
       <div class="filters" role="tablist" id="filters">
@@ -121,8 +122,16 @@
       </div>
     </div>
 
+    <div class="tiles" id="tiles">
+      <button class="tile accent" data-f="active"><span class="tile-label">In progress</span><span class="chip">Live</span><span class="tile-value" data-n="active">0</span></button>
+      <button class="tile strong" data-f="done"><span class="tile-label">Downloaded</span><span class="chip">Files</span><span class="tile-value" data-n="done">0</span></button>
+      <button class="tile muted" data-f="waiting"><span class="tile-label">Not found yet</span><span class="chip">Retry</span><span class="tile-value" data-n="waiting">0</span></button>
+    </div>
+
     <div class="channel-bar" id="channel-bar" hidden></div>
+    <div class="thead" aria-hidden="true"><span>Track</span><span>Status</span><span>Actions</span></div>
     <div class="list" id="list"></div>
+    </div>
   </section>
 </div>
 
@@ -217,6 +226,7 @@
 </aside>
 
 <div class="toast" id="toast" role="status" hidden></div>
+<script src="/ui/icons.js"></script>
 <script src="/ui/app.js"></script>
 </body>
 </html>
