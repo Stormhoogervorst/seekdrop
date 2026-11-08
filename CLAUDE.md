@@ -5,7 +5,7 @@ the tracks from Soulseek, either with its own login (aioslsk) or through Nicotin
 `seekdrop_bridge` plugin. Formerly Cratewatch, then Nicotine+ Sync (renamed because "SoulSync"
 is taken by another Soulseek project). On first start the old data folder and plugin key are taken
 over (`config.migrate_legacy_data`, `nicotine.migrate_legacy_plugin`). UI copy is English; the owner speaks Dutch.
-Repo: github.com/Stormhoogervorst/nicotinesync.
+Repo: github.com/Stormhoogervorst/seekdrop (renamed from nicotinesync; GitHub redirects the old name).
 
 ## Run / test
 - Python 3.11 to 3.13 (not 3.14: deps). ffmpeg is optional (`brew install ffmpeg`); without it the

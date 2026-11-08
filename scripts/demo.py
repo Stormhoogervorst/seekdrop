@@ -49,7 +49,7 @@ class IdleSC:
 
 class DemoUpdates:
     """Pretend a newer release exists, so the update button shows."""
-    latest = {"version": "0.4.0", "url": "https://github.com/Stormhoogervorst/nicotinesync/releases"}
+    latest = {"version": "0.4.0", "url": "https://github.com/Stormhoogervorst/seekdrop/releases"}
     def start(self): pass
     async def stop(self): pass
 

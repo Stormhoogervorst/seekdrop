@@ -29,7 +29,7 @@ SeekDrop is an independent project. It is not made by or affiliated with the Nic
 ## Install
 
 Download the latest version from the
-[Releases page](https://github.com/Stormhoogervorst/nicotinesync/releases/latest).
+[Releases page](https://github.com/Stormhoogervorst/seekdrop/releases/latest).
 
 **macOS 11 or newer, Apple Silicon (M1 and later):** `SeekDrop-x.y.z-macos-arm64.dmg`
 
@@ -97,7 +97,7 @@ Settings, database and logs live in `~/Library/Application Support/SeekDrop` (ma
   link and the file name you found. Title matching is strict on purpose.
 - Logs: `seekdrop.log` in the folder above. Please attach it to bug reports.
 
-Report problems on the [Issues page](https://github.com/Stormhoogervorst/nicotinesync/issues).
+Report problems on the [Issues page](https://github.com/Stormhoogervorst/seekdrop/issues).
 
 ## Run from source
 

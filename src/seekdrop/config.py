@@ -14,7 +14,7 @@ from typing import Optional
 from platformdirs import user_data_dir, user_log_dir, user_music_dir
 
 APP_NAME = "SeekDrop"
-GITHUB_REPO = "Stormhoogervorst/nicotinesync"
+GITHUB_REPO = "Stormhoogervorst/seekdrop"
 
 
 log = logging.getLogger(__name__)
