@@ -86,11 +86,14 @@ def safe_filename(name: str, limit: int = 150) -> str:
 
 class Engine:
     def __init__(self, db: Database, store: SettingsStore, sc: SoundCloudClient, slsk, poll_tick: float = 30.0,
-                 slsk_factory=None, staging_dir: Optional[str] = None):
+                 slsk_factory=None, staging_dir: Optional[str] = None, quarantine_dir: Optional[str] = None):
         self.db = db
         # Finished downloads wait here (app data, never the music folder) until every check passed.
         self.staging_dir = staging_dir or str(data_dir() / "staging")
+        # Files that failed a check, kept so the user can look at them, approve or delete them.
+        self.quarantine_dir = quarantine_dir or str(data_dir() / "quarantine")
         self.checks: list[Check] = []   # file checks (roadmap steps 2, 3, 10) run on the staged file
+        self.file_checker = None        # the ffmpeg check (checks.FileChecker), shown in Settings
         self._clean_incoming = True     # once per start, after leftover transfers were dealt with
         self.slsk_factory = slsk_factory   # mode -> service; lets the user switch built-in / Nicotine+
         self.store = store
@@ -179,7 +182,7 @@ class Engine:
                 info = await self.slsk.lookup(t["peer"], t["remote_file"])
                 if info and info["state"] == "COMPLETE" and info.get("local_path") and os.path.exists(info["local_path"]):
                     c = Candidate(t["peer"], t["remote_file"])
-                    path, why = self._stage_and_publish(t, info["local_path"], c)
+                    path, why = await self._stage_and_publish(t, info["local_path"], c)
                     await self.slsk.cancel(t["peer"], t["remote_file"])   # clears the finished entry
                     if path:
                         self.db.update_track(t["id"], state=states.DONE, file_path=path, progress=1.0, last_error="")
@@ -414,6 +417,8 @@ class Engine:
                 self._last_search = time.time()
                 results = await self.slsk.search(q, wait=SEARCH_WAIT)
                 ranked = rank(p, t["duration"], results, self._prefs())
+                blocked = self.db.blocked(tid)      # files that failed the checks before
+                ranked = [c for c in ranked if (c.username, c.filename) not in blocked]
                 if ranked:
                     break
         except asyncio.CancelledError:
@@ -443,7 +448,7 @@ class Engine:
                 ok, info = await self._try_candidate(t, c)
                 if ok:
                     try:
-                        path, why = self._stage_and_publish(t, info["local_path"], c)
+                        path, why = await self._stage_and_publish(t, info["local_path"], c)
                     finally:
                         await self.slsk.forget(info["transfer"])
                     if path:
@@ -510,23 +515,41 @@ class Engine:
                 # Removing an unfinished transfer also lets aioslsk drop the partial file.
                 await self.slsk.forget(transfer)
 
-    def _stage_and_publish(self, t: dict, src: str, c: Candidate) -> tuple[Optional[str], str]:
+    async def _stage_and_publish(self, t: dict, src: str, c: Candidate) -> tuple[Optional[str], str]:
         """incoming -> staging -> checks -> music folder. Returns (published path, "") or
-        (None, reason) when a check rejected the file; a rejected file never reaches the music folder."""
+        (None, reason) when a check rejected the file. A rejected file goes to quarantine and its
+        peer + file are blocked for this track; it never reaches the music folder."""
         staged = self._stage(t, src)
         for check in self.checks:
             try:
-                why = check(t, staged)
+                why = await asyncio.to_thread(check, t, staged)   # ffmpeg can take a few seconds
             except Exception as e:      # a broken check must not let an unchecked file through
                 log.exception("file check failed")
-                why = f"check failed ({e})"
+                why = f"Check failed ({e})"
             if why:
-                try:
-                    os.remove(staged)
-                except OSError:
-                    pass
+                self._quarantine(t, staged, c, why)
                 return None, why
         return self._finalize(t, staged, c), ""
+
+    def _quarantine(self, t: dict, staged: str, c: Candidate, why: str) -> None:
+        folder = os.path.join(self.quarantine_dir, str(t["id"]))
+        os.makedirs(folder, exist_ok=True)
+        dest = os.path.join(folder, os.path.basename(staged))
+        n = 2
+        while os.path.exists(dest):
+            root, ext = os.path.splitext(os.path.basename(staged))
+            dest = os.path.join(folder, f"{root} ({n}){ext}")
+            n += 1
+        try:
+            shutil.move(staged, dest)
+            try:
+                os.rmdir(os.path.dirname(staged))
+            except OSError:
+                pass
+        except OSError:
+            log.exception("couldn't move %s to quarantine", staged)
+            dest = ""
+        self.db.add_reject(t["id"], c.username, c.filename, why, dest)
 
     def _stage(self, t: dict, src: str) -> str:
         folder = os.path.join(self.staging_dir, str(t["id"]))
@@ -593,6 +616,37 @@ class Engine:
         self.db.update_track(tid, state=states.SKIPPED, progress=0, last_error="")
         if entry:
             entry["task"].cancel()
+
+    def approve_reject(self, rid: int) -> Optional[str]:
+        """User overrides a check: move the quarantined file to the music folder and mark the
+        track downloaded. Returns the new path, or None when the file is gone."""
+        r = self.db.reject(rid)
+        if not r or r["status"] != "quarantined" or not r["path"] or not os.path.exists(r["path"]):
+            return None
+        t = self.db.track(r["track_id"])
+        if not t:
+            return None
+        path = self._finalize(t, r["path"], Candidate(r["peer"], r["remote_file"]))
+        self.db.update_track(t["id"], state=states.DONE, file_path=path, progress=1.0, last_error="",
+                             peer=r["peer"], remote_file=r["remote_file"])
+        self.db.update_reject(rid, status="approved", path="")
+        entry = self.active.get(t["id"])
+        if entry:
+            entry["task"].cancel()      # a new attempt for this track is no longer needed
+        self.note(f"Approved {os.path.basename(path)} anyway")
+        return path
+
+    def delete_reject(self, rid: int) -> None:
+        r = self.db.reject(rid)
+        if not r or r["status"] != "quarantined":
+            return
+        if r["path"]:
+            try:
+                os.remove(r["path"])
+                os.rmdir(os.path.dirname(r["path"]))
+            except OSError:
+                pass
+        self.db.update_reject(rid, status="deleted", path="")   # the block stays
 
     def remove_channel(self, cid: int) -> None:
         for t in self.db.tracks(limit=100000, channel_id=cid):

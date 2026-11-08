@@ -184,7 +184,7 @@ const GROUPS = {
 };
 
 function renderFilters(s) {
-  const counts = { all: 0, active: 0, done: 0, waiting: 0, skipped: 0 };
+  const counts = { all: 0, active: 0, done: 0, waiting: 0, skipped: 0, quarantine: (s.rejects || []).length };
   for (const t of s.tracks) {
     if (t.state !== "skipped") counts.all++;
     for (const [g, list] of Object.entries(GROUPS)) if (list.includes(t.state)) counts[g]++;
@@ -226,8 +226,37 @@ function actionsOf(t) {
   return a.join("");
 }
 
+// Files that failed the file checks (roadmap step 2): reason, where it came from, approve or delete.
+function renderRejects(s) {
+  const list = $("#list");
+  const rows = s.rejects || [];
+  let html;
+  if (!rows.length) {
+    html = `<div class="empty"><p>Nothing in quarantine. Files that fail the checks show up here.</p></div>`;
+  } else {
+    html = rows.map((r) => {
+      const v = r.version ? ` <span class="v">(${esc(r.version)})</span>` : "";
+      const file = (r.remote_file || "").split(/[\\/]/).pop();
+      return `<div class="tr quarantined">
+      <div class="art">${esc((r.artist || r.title || "?").trim().charAt(0).toUpperCase())}</div>
+      <div class="t-main">
+        <div class="t-title">${esc(r.title)}${v}</div>
+        <div class="t-artist">${esc(r.artist || "Unknown artist")}<span> on ${esc(r.channel_name)}</span></div>
+      </div>
+      <div class="st err"><span class="st-line">${icon("circle-slash")}<span class="lbl" title="${esc(r.reason)}">${esc(r.reason)}</span></span><span class="sub" title="${esc(r.remote_file)}">${esc(r.peer)} · ${esc(file)}</span></div>
+      <div class="acts">
+        <button class="rowbtn" data-ract="approve" data-id="${r.id}">Approve anyway</button>
+        <button class="rowbtn" data-ract="delete" data-id="${r.id}">Delete</button>
+      </div>
+    </div>`;
+    }).join("");
+  }
+  if (list.dataset.k !== html) { list.innerHTML = html; list.dataset.k = html; }
+}
+
 function renderTracks(s) {
   const list = $("#list");
+  if (ui.filter === "quarantine") return renderRejects(s);
   let rows = s.tracks;
   if (ui.filter === "all") rows = rows.filter((t) => t.state !== "skipped");
   else rows = rows.filter((t) => GROUPS[ui.filter].includes(t.state));
@@ -424,6 +453,14 @@ function pickFilter(e) {
 $("#filters").addEventListener("click", pickFilter);
 
 $("#list").addEventListener("click", async (e) => {
+  const q = e.target.closest("[data-ract]");
+  if (q) {
+    try {
+      if (q.dataset.ract === "approve") { await api("POST", `/api/rejects/${q.dataset.id}/approve`); toast("Moved to your music folder"); }
+      if (q.dataset.ract === "delete") { await api("POST", `/api/rejects/${q.dataset.id}/delete`); toast("Deleted"); }
+    } catch (ex) { toast(ex.message); }
+    return refresh();
+  }
   const b = e.target.closest("[data-act]");
   if (!b) return;
   const id = b.dataset.id;
@@ -450,6 +487,9 @@ function openSettings() {
     else el.value = v ?? "";
   }
   $("#version").textContent = `SeekDrop ${ui.state.version}`;
+  $("#set-checks-status").textContent = ui.state.checks && ui.state.checks.available
+    ? "On. Every download is checked with ffmpeg before it goes to your music folder."
+    : "Off: ffmpeg isn't installed, so downloads aren't checked. Install ffmpeg (on a Mac: brew install ffmpeg) and restart SeekDrop.";
   settingsMode();
   showError($("#set-error"), "");
   $("#drawer").hidden = $("#scrim").hidden = false;

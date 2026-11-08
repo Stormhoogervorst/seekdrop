@@ -75,6 +75,8 @@ class Api:
         r.add_post("/api/check-now", self.check_now)
         r.add_post("/api/tracks/{id}/retry", self.retry_track)
         r.add_post("/api/tracks/{id}/skip", self.skip_track)
+        r.add_post("/api/rejects/{id}/approve", self.approve_reject)
+        r.add_post("/api/rejects/{id}/delete", self.delete_reject)
         r.add_post("/api/open", self.open_path)
         r.add_post("/api/nicotine/install", self.install_nicotine)
         return app
@@ -109,6 +111,8 @@ class Api:
             "nicotine": {"plugin_installed": plugin_installed(), "plugins_dir": str(nicotine_plugins_dir())},
             "channels": channels,
             "tracks": tracks,
+            "rejects": self.db.quarantined(),
+            "checks": {"available": bool(e.file_checker and e.file_checker.tools.available)},
             "stats": self.db.stats(),
             "activity": list(e.activity)[:30],
             "next_check_in": max(0, int(e.next_poll_at - now)) if e.next_poll_at else 0,
@@ -190,6 +194,16 @@ class Api:
 
     async def skip_track(self, request: web.Request):
         self.engine.skip(int(request.match_info["id"]))
+        return web.json_response({"ok": True})
+
+    async def approve_reject(self, request: web.Request):
+        path = self.engine.approve_reject(int(request.match_info["id"]))
+        if not path:
+            return web.json_response({"error": "That file is no longer in quarantine."}, status=404)
+        return web.json_response({"ok": True, "path": path})
+
+    async def delete_reject(self, request: web.Request):
+        self.engine.delete_reject(int(request.match_info["id"]))
         return web.json_response({"ok": True})
 
     async def open_path(self, request: web.Request):

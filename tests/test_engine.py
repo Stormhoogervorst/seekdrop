@@ -404,3 +404,64 @@ def test_start_removes_leftovers(setup):
     asyncio.run(scenario())
     assert _files(tmp / "staging") == []
     assert _files(tmp / "out") == [os.path.join("Label", "Artist - Kept.flac")]
+
+
+# --- Roadmap step 2: quarantine and blocklist ------------------------------------------------
+
+def test_rejected_file_goes_to_quarantine_and_is_blocked(setup):
+    eng, db, sc, slsk, tmp = setup
+    t = _fresh_track(eng, db, sc)
+    eng.quarantine_dir = str(tmp / "quarantine")
+    eng.checks.append(lambda track, path: "Not really FLAC (it's MP3)")
+    bad = Candidate("peer", "@@a\\Fresh Artist - Brand New.flac")
+    db.update_track(t["id"], state="downloading")
+    asyncio.run(eng._download(db.track(t["id"]), [bad]))
+
+    rej = db.quarantined()
+    assert len(rej) == 1 and rej[0]["reason"] == "Not really FLAC (it's MP3)"
+    assert os.path.exists(rej[0]["path"]) and rej[0]["path"].startswith(str(tmp / "quarantine"))
+    assert not (tmp / "out").exists() or _files(tmp / "out") == []
+    assert db.blocked(t["id"]) == {("peer", "@@a\\Fresh Artist - Brand New.flac")}
+
+    # The next search never offers the same peer + file again; another peer is fine.
+    eng.checks.clear()
+    good = Candidate("other", "@@b\\Fresh Artist\\Fresh Artist - Brand New.flac", size=30_000_000,
+                     duration=301, has_free_slots=True)
+
+    async def search(query, wait=0):
+        blocked_again = Candidate("peer", "@@a\\Fresh Artist - Brand New.flac", size=30_000_000,
+                                  duration=301, has_free_slots=True)
+        return [blocked_again, good]
+    slsk.search = search
+
+    async def again():
+        await eng._search_track(db.track(t["id"]))
+        await eng.active[t["id"]]["task"]
+    asyncio.run(again())
+    t2 = db.track(t["id"])
+    assert t2["state"] == "done" and t2["peer"] == "other"
+
+
+def test_approve_and_delete_from_quarantine(setup):
+    eng, db, sc, slsk, tmp = setup
+    t = _fresh_track(eng, db, sc)
+    eng.quarantine_dir = str(tmp / "quarantine")
+    eng.checks.append(lambda track, path: "30 s of silence at the end")
+    db.update_track(t["id"], state="downloading")
+    asyncio.run(eng._download(db.track(t["id"]), [Candidate("peer", "@@a\\Fresh Artist - Brand New.flac")]))
+    rid = db.quarantined()[0]["id"]
+
+    path = eng.approve_reject(rid)
+    assert path and path.endswith(os.path.join("Label", "Fresh Artist - Brand New.flac")) and os.path.exists(path)
+    assert db.track(t["id"])["state"] == "done" and db.quarantined() == []
+    assert db.reject(rid)["status"] == "approved"
+
+    # Delete: the file goes, the block stays.
+    t3 = db.track(t["id"])
+    db.update_track(t3["id"], state="downloading")
+    os.makedirs(tmp / "in", exist_ok=True)
+    asyncio.run(eng._download(db.track(t["id"]), [Candidate("peer2", "@@c\\Fresh Artist - Brand New.flac")]))
+    r2 = db.quarantined()[0]
+    eng.delete_reject(r2["id"])
+    assert not os.path.exists(r2["path"]) and db.quarantined() == []
+    assert ("peer2", "@@c\\Fresh Artist - Brand New.flac") in db.blocked(t["id"])

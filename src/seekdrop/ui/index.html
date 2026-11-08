@@ -119,6 +119,7 @@
         <button role="tab" data-f="done">Downloaded</button>
         <button role="tab" data-f="waiting">Not found yet</button>
         <button role="tab" data-f="skipped">Skipped</button>
+        <button role="tab" data-f="quarantine">Quarantine</button>
       </div>
     </div>
 
@@ -167,6 +168,27 @@
       <label class="field"><span>Other shared folders, one per line</span><textarea name="share_dirs" rows="3" spellcheck="false"></textarea></label>
     </div>
     <p class="hint" data-mode="nicotine">Sharing is set up in Nicotine+.</p>
+
+    <h3>File checks</h3>
+    <p class="hint" id="set-checks-status"></p>
+    <div class="row2">
+      <label class="field"><span>Length may differ from SoundCloud by</span>
+        <select name="check_length_margin">
+          <option value="5">5 seconds</option>
+          <option value="10">10 seconds</option>
+          <option value="20">20 seconds</option>
+          <option value="30">30 seconds</option>
+        </select>
+      </label>
+      <label class="field"><span>Reject silence at start or end longer than</span>
+        <select name="check_silence_seconds">
+          <option value="5">5 seconds</option>
+          <option value="10">10 seconds</option>
+          <option value="20">20 seconds</option>
+          <option value="30">30 seconds</option>
+        </select>
+      </label>
+    </div>
 
     <h3>Quality</h3>
     <label class="field"><span>Prefer</span>

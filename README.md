@@ -58,6 +58,14 @@ Releases page and install it over the old one; your channels and settings are ke
 
 The app only checks while it's open.
 
+## File checks (optional: ffmpeg)
+
+If [ffmpeg](https://ffmpeg.org) is installed (on a Mac: `brew install ffmpeg`), every download is
+checked before it goes to your music folder: it must play all the way through, be the format its name
+says (no MP3 renamed to .flac), be about as long as on SoundCloud, and not start or end with a long
+silence. Files that fail end up under **Quarantine** with the reason; you can approve or delete them,
+and the app tries another peer. Without ffmpeg the checks are skipped (Settings shows this).
+
 ## Use it responsibly
 
 Soulseek is a network where people share their own music folders. Only download music you have

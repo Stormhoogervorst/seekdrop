@@ -48,6 +48,19 @@ CREATE TABLE IF NOT EXISTS tracks (
     updated_at REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS tracks_state ON tracks(state, next_attempt);
+-- Files that failed the file checks (roadmap step 2). A row also blocks that peer + file for the
+-- track, so it is never tried again. path is the file in quarantine ('' once approved or deleted).
+CREATE TABLE IF NOT EXISTS rejects (
+    id INTEGER PRIMARY KEY,
+    track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+    peer TEXT NOT NULL,
+    remote_file TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    path TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'quarantined',   -- quarantined | approved | deleted
+    created_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS rejects_track ON rejects(track_id);
 """
 
 # Track states
@@ -139,6 +152,29 @@ class Database:
         fields["updated_at"] = time.time()
         cols = ", ".join(f"{k}=?" for k in fields)
         self._x(f"UPDATE tracks SET {cols} WHERE id=?", (*fields.values(), tid))
+
+    # Rejects / quarantine ------------------------------------------------
+    def add_reject(self, track_id: int, peer: str, remote_file: str, reason: str, path: str) -> int:
+        return self._x("INSERT INTO rejects(track_id, peer, remote_file, reason, path, created_at) VALUES (?,?,?,?,?,?)",
+                       (track_id, peer, remote_file, reason, path, time.time()))
+
+    def reject(self, rid: int) -> Optional[dict]:
+        rows = self._q("SELECT * FROM rejects WHERE id=?", (rid,))
+        return rows[0] if rows else None
+
+    def update_reject(self, rid: int, **fields: Any) -> None:
+        cols = ", ".join(f"{k}=?" for k in fields)
+        self._x(f"UPDATE rejects SET {cols} WHERE id=?", (*fields.values(), rid))
+
+    def quarantined(self, limit: int = 200) -> list[dict]:
+        return self._q("""
+            SELECT r.*, t.artist, t.title, t.version, t.url, t.state AS track_state, c.name AS channel_name
+            FROM rejects r JOIN tracks t ON t.id=r.track_id JOIN channels c ON c.id=t.channel_id
+            WHERE r.status='quarantined' ORDER BY r.created_at DESC LIMIT ?""", (limit,))
+
+    def blocked(self, track_id: int) -> set[tuple[str, str]]:
+        """Peer + file combinations that failed the checks for this track."""
+        return {(r["peer"], r["remote_file"]) for r in self._q("SELECT peer, remote_file FROM rejects WHERE track_id=?", (track_id,))}
 
     def track(self, tid: int) -> Optional[dict]:
         rows = self._q("SELECT * FROM tracks WHERE id=?", (tid,))

@@ -8,7 +8,8 @@ over (`config.migrate_legacy_data`, `nicotine.migrate_legacy_plugin`). UI copy i
 Repo: github.com/Stormhoogervorst/nicotinesync.
 
 ## Run / test
-- Python 3.11 to 3.13 (not 3.14: deps). `python3.13 -m venv .venv && .venv/bin/pip install -e ".[dev]"`.
+- Python 3.11 to 3.13 (not 3.14: deps). ffmpeg is optional (`brew install ffmpeg`); without it the
+  file-check tests are skipped and the app skips the checks. `python3.13 -m venv .venv && .venv/bin/pip install -e ".[dev]"`.
 - `python -m seekdrop` (window) or `--browser` / `--headless`.
 - `pytest -q` (unit + engine tests with fakes). `tests/conftest.py` points XDG_DATA_HOME, APPDATA and
   SEEKDROP_HOME at a temp dir, so no test can touch the real Nicotine+ plugins or app data.
@@ -49,7 +50,10 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   reject reason or None), then `publish_file()` to `download_dir/<channel>/Artist - Title (Version).ext`
   in one go. Start-up removes staging leftovers and hidden `.…seekdrop-part` files.
   Retries 1h/3h/6h/12h/daily up to `give_up_days`.
-- **Storage**: `db.py` (SQLite: `channels`, `tracks`), `config.py` (settings.json, data dir, migration).
+- **File checks** (`checks.py`): `FileChecker` is in `Engine.checks`; ffprobe/ffmpeg (optional, found on
+  PATH or in Homebrew dirs) for decode errors, cut-off, format vs extension, length vs SoundCloud,
+  silence. Rejects go to `quarantine/` + table `rejects` (also the per-track peer/file blocklist).
+- **Storage**: `db.py` (SQLite: `channels`, `tracks`, `rejects`), `config.py` (settings.json, data dir, migration).
 - **UI**: `server.py` (aiohttp JSON API with a per-run key) + `ui/` (plain HTML/CSS/JS, no build),
   shown in a pywebview window by `__main__.py`; `updates.py` checks GitHub releases.
 

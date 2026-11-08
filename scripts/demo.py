@@ -90,6 +90,17 @@ if not db.channels() and not SETUP:
                      remote_file=(f"@@music\\{a} - {t}.flac" if peer else ""),
                      file_path=(str(home / "Music" / f"{a} - {t}.flac") if st == "done" else ""))
 
+    # Two files that failed the file checks, to design the Quarantine view.
+    tracks = {t["title"]: t["id"] for t in db.tracks()}
+    qdir = home / "quarantine"
+    qdir.mkdir(exist_ok=True)
+    for title, peer, remote, reason in [
+            ("Overdrive", "bassbin", "@@music\\Juno Raske - Overdrive.flac", "Not really FLAC (it's MP3)"),
+            ("Glasshouse", "crate_digger", "@@dl\\Taro Vell - Glasshouse (Someone Remix).wav", "30 s of silence at the end")]:
+        f = qdir / remote.split("\\")[-1]
+        f.write_bytes(b"demo")
+        db.add_reject(tracks[title], peer, remote, reason, str(f))
+
 setup_logging()
 
 # Keep the demo rows as they are: no searching, polling or reconnecting.

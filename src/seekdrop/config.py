@@ -116,6 +116,8 @@ class Settings:
     give_up_days: int = 30
     listen_port: int = 60000
     check_updates: bool = True              # look for a newer release on GitHub twice a day
+    check_length_margin: int = 10           # file may differ this many seconds from SoundCloud
+    check_silence_seconds: int = 10         # longer silence at the start or end rejects the file
 
     @property
     def configured(self) -> bool:
@@ -170,7 +172,8 @@ class SettingsStore:
                 continue
             if key == "soulseek_password" and not value:
                 continue  # empty means "keep current"
-            if key in ("min_bitrate", "check_interval_minutes", "max_parallel_downloads", "give_up_days", "listen_port", "nicotine_port"):
+            if key in ("min_bitrate", "check_interval_minutes", "max_parallel_downloads", "give_up_days", "listen_port", "nicotine_port",
+                       "check_length_margin", "check_silence_seconds"):
                 value = int(value)
             if key in ("accepted_terms", "share_downloads", "organize_by_channel", "check_updates"):
                 value = bool(value)

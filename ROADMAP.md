@@ -67,7 +67,7 @@ Klaar als:
 
 ### Stap 2: bestandscontrole en quarantaine
 
-**Status: bestaat niet.** Er wordt alleen vóór de download gekeken naar lengte en bitrate uit de zoekresultaten. Mislukt een peer, dan probeert de app de volgende kandidaat, maar er is geen controle van het bestand, geen quarantaine en geen blokkeerlijst per track.
+**Status: klaar (nov 2026).** `checks.py` (ffprobe + één ffmpeg-decode met `silencedetect`, ±0,5 s per track) controleert decodeerbaarheid, afkappen, formaat tegen extensie, lengte tegen SoundCloud (instelbaar, standaard 10 s; een *Extended*-bestand mag langer zijn) en stilte aan begin of eind (instelbaar, standaard 10 s). Afgekeurd gaat naar `quarantine/` in de app-data en in de tabel `rejects`, die ook dient als blokkeerlijst (peer + bestand per track). In de interface: filter *Quarantine* met *Approve anyway* en *Delete*. ffmpeg wordt ook gezocht in `/opt/homebrew/bin` en `/usr/local/bin`, omdat macOS-apps het shell-PATH niet krijgen. Getest met echte tracks via Nicotine+.
 
 Doel: kapotte, afgekapte of verkeerde bestanden worden tegengehouden, met een reden die de gebruiker kan lezen.
 
@@ -79,8 +79,8 @@ Bouwen:
 
 Klaar als:
 
-- [ ] Tests met een afgekapt bestand, een bestand met 30 seconden stilte en een MP3 met .flac-extensie worden alle drie afgekeurd, elk met een eigen reden.
-- [ ] Zonder ffmpeg werkt de app nog, slaat de controle over en toont dat in de instellingen.
+- [x] Tests met een afgekapt bestand, een bestand met 30 seconden stilte en een MP3 met .flac-extensie worden alle drie afgekeurd, elk met een eigen reden.
+- [x] Zonder ffmpeg werkt de app nog, slaat de controle over en toont dat in de instellingen.
 
 ### Stap 3: nep-lossless herkennen
 

@@ -2,6 +2,9 @@
 
 ## 0.4.0
 
+- File checks with ffmpeg (optional): damaged, cut-off, wrong-format, wrong-length and silent files
+  go to Quarantine with a reason instead of your music folder. Approve or delete them there.
+- Downloads wait in a staging folder and appear in your music folder in one go.
 - **New name: SeekDrop** (was Nicotine+ Sync). Your channels, settings and downloads are taken over
   automatically on first start. The Nicotine+ plugin is now called *SeekDrop Bridge*: in Nicotine+,
   turn off *Nicotine+ Sync Bridge* and turn on *SeekDrop Bridge* once (the app reminds you).
