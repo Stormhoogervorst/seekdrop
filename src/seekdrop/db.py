@@ -1,6 +1,7 @@
 """SQLite storage for channels and tracks."""
 from __future__ import annotations
 
+import json
 import sqlite3
 import threading
 import time
@@ -50,6 +51,7 @@ CREATE TABLE IF NOT EXISTS tracks (
     next_upgrade REAL NOT NULL DEFAULT 0, -- done but below target: when to look for a better copy (0 = not)
     upgrade_path TEXT NOT NULL DEFAULT '',-- better copy waiting for the user ("ask" mode)
     upgrade_tier TEXT NOT NULL DEFAULT '',
+    custom_query TEXT NOT NULL DEFAULT '', -- the user's own search term, tried first
     created_at REAL NOT NULL,
     updated_at REAL NOT NULL
 );
@@ -67,6 +69,17 @@ CREATE TABLE IF NOT EXISTS rejects (
     created_at REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS rejects_track ON rejects(track_id);
+-- Search attempts for "Why not?" (roadmap step 5): the queries with their result counts and the
+-- 10 closest files with their score or the reason they were turned down. Last 3 per track.
+CREATE TABLE IF NOT EXISTS searches (
+    id INTEGER PRIMARY KEY,
+    track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+    created_at REAL NOT NULL,
+    queries TEXT NOT NULL DEFAULT '[]',      -- JSON [{"query": ..., "results": n}]
+    candidates TEXT NOT NULL DEFAULT '[]',   -- JSON, see Engine._save_search
+    summary TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS searches_track ON searches(track_id, created_at);
 """
 
 # Track states
@@ -98,7 +111,8 @@ class Database:
             if "quality" not in tcols:
                 self.conn.execute("ALTER TABLE tracks ADD COLUMN quality TEXT NOT NULL DEFAULT ''")
             for col, ddl in (("tier", "TEXT NOT NULL DEFAULT ''"), ("next_upgrade", "REAL NOT NULL DEFAULT 0"),
-                             ("upgrade_path", "TEXT NOT NULL DEFAULT ''"), ("upgrade_tier", "TEXT NOT NULL DEFAULT ''")):
+                             ("upgrade_path", "TEXT NOT NULL DEFAULT ''"), ("upgrade_tier", "TEXT NOT NULL DEFAULT ''"),
+                             ("custom_query", "TEXT NOT NULL DEFAULT ''")):
                 if col not in tcols:   # databases from before quality profiles
                     self.conn.execute(f"ALTER TABLE tracks ADD COLUMN {col} {ddl}")
 
@@ -186,6 +200,24 @@ class Database:
             SELECT r.*, t.artist, t.title, t.version, t.url, t.state AS track_state, c.name AS channel_name
             FROM rejects r JOIN tracks t ON t.id=r.track_id JOIN channels c ON c.id=t.channel_id
             WHERE r.status='quarantined' ORDER BY r.created_at DESC LIMIT ?""", (limit,))
+
+    # Search attempts ------------------------------------------------------
+    KEEP_SEARCHES = 3
+
+    def add_search(self, track_id: int, queries: list[dict], candidates: list[dict], summary: str) -> int:
+        sid = self._x("INSERT INTO searches(track_id, created_at, queries, candidates, summary) VALUES (?,?,?,?,?)",
+                      (track_id, time.time(), json.dumps(queries), json.dumps(candidates), summary))
+        self._x("""DELETE FROM searches WHERE track_id=? AND id NOT IN
+                   (SELECT id FROM searches WHERE track_id=? ORDER BY id DESC LIMIT ?)""",
+                (track_id, track_id, self.KEEP_SEARCHES))
+        return sid
+
+    def searches(self, track_id: int) -> list[dict]:
+        rows = self._q("SELECT * FROM searches WHERE track_id=? ORDER BY id DESC", (track_id,))
+        for r in rows:
+            r["queries"] = json.loads(r["queries"] or "[]")
+            r["candidates"] = json.loads(r["candidates"] or "[]")
+        return rows
 
     def blocked_last_id(self, track_id: int) -> int:
         rows = self._q("SELECT MAX(id) AS id FROM rejects WHERE track_id=?", (track_id,))

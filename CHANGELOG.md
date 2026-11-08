@@ -2,6 +2,9 @@
 
 ## 0.4.0
 
+- "Why not?": every track that didn't come in says why, and shows the closest files with the
+  reason each was turned down. Download one of them anyway (still checked), search with your own
+  term (kept for later attempts), or stop looking.
 - Quality profiles (Club, Balanced, Space saver) replace the format and bitrate settings, with
   automatic upgrades: a track that came in below your goal is replaced by a better copy when one
   turns up (asks first by default). The old file goes to SeekDrop's trash for 30 days.

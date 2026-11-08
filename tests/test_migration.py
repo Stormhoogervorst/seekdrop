@@ -88,3 +88,19 @@ def test_old_database_gets_quality_columns(tmp_path):
     Database(path)
     cols = {r[1] for r in sqlite3.connect(path).execute("PRAGMA table_info(tracks)")}
     assert {"cutoff_hz", "quality"} <= cols
+
+
+def test_old_database_gets_search_history(tmp_path):
+    import sqlite3
+    from seekdrop.db import Database
+    path = tmp_path / "old.db"
+    Database(path).conn.close()
+    con = sqlite3.connect(path)
+    con.execute("DROP TABLE searches")
+    con.execute("ALTER TABLE tracks DROP COLUMN custom_query")
+    con.commit()
+    con.close()
+    db = Database(path)
+    tables = {r[0] for r in db.conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    cols = {r[1] for r in db.conn.execute("PRAGMA table_info(tracks)")}
+    assert "searches" in tables and "custom_query" in cols

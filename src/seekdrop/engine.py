@@ -15,7 +15,7 @@ from . import db as states
 from .config import SettingsStore
 from .config import data_dir
 from .db import Database
-from .matching import Candidate, MatchPrefs, rank
+from .matching import Candidate, MatchPrefs, closest, rank, summary
 from .nicotine import migrate_legacy_plugin, update_plugin_if_outdated
 from .soundcloud import SoundCloudClient, TrackStub
 from .quality import (TIER_LABELS, UPGRADE_DAYS, UPGRADE_EVERY, is_better, profile, tier_of,
@@ -440,15 +440,22 @@ class Engine:
         p = parse_title(t["raw_title"], uploader=t["uploader"], publisher_artist=t["publisher_artist"])
         self.db.update_track(tid, state=states.SEARCHING, attempts=t["attempts"] + 1)
         ranked: list[Candidate] = []
+        tried: list[dict] = []                 # {"query", "results"} for "Why not?"
+        evaluated: dict[tuple, Candidate] = {}
         try:
-            for q in search_queries(p):
+            for q in self._queries(t, p):
                 wait = SEARCH_SPACING - (time.time() - self._last_search)
                 if wait > 0:
                     await asyncio.sleep(wait)
                 self._last_search = time.time()
                 results = await self.slsk.search(q, wait=SEARCH_WAIT)
+                tried.append({"query": q, "results": len(results)})
                 ranked = rank(p, t["duration"], results, self._prefs())
                 blocked = self.db.blocked(tid)      # files that failed the checks before
+                for c in results:
+                    if (c.username, c.filename) in blocked and not c.rejected:
+                        c.rejected, c.stage = "Failed the file check before", 5
+                    evaluated.setdefault((c.username, c.filename), c)
                 ranked = [c for c in ranked if (c.username, c.filename) not in blocked]
                 if ranked:
                     break
@@ -460,16 +467,67 @@ class Engine:
                                  last_error="Search failed, retrying in 5 minutes")
             return
 
+        # Count each file once, even when several search terms found it.
+        why = summary(len(evaluated), list(evaluated.values()), [x["query"] for x in tried]) if not ranked else ""
+        self._save_search(tid, tried, list(evaluated.values()), why)
         current = self.db.track(tid)
         if not current or current["state"] != states.SEARCHING:   # user skipped meanwhile
             return
         if not ranked:
-            self._schedule_retry(current, "Not on Soulseek yet")
+            self._schedule_retry(current, why)
             return
 
         self.db.update_track(tid, state=states.DOWNLOADING, progress=0, last_error="")
         task = asyncio.create_task(self._download(current, ranked[:MAX_CANDIDATES]))
         self.active[tid] = {"task": task, "transfer": None, "candidate": None}
+
+    @staticmethod
+    def _queries(t: dict, p) -> list[str]:
+        """The user's own search term first (step 5), then the automatic ones."""
+        out = []
+        for q in ([t.get("custom_query") or ""] + search_queries(p)):
+            q = q.strip()
+            if q and q not in out:
+                out.append(q)
+        return out
+
+    def _save_search(self, tid: int, tried: list[dict], evaluated: list[Candidate], why: str) -> None:
+        keep = [{
+            "username": c.username, "filename": c.filename, "size": c.size, "ext": c.ext,
+            "bitrate": c.bitrate, "duration": c.duration, "sample_rate": c.sample_rate, "bit_depth": c.bit_depth,
+            "free_slots": c.has_free_slots, "queue": c.queue_size, "speed": c.avg_speed,
+            "score": c.score, "rejected": c.rejected, "notes": c.reasons,
+        } for c in closest(evaluated, 10)]
+        try:
+            self.db.add_search(tid, tried, keep, why)
+        except Exception:
+            log.debug("couldn't store search attempt", exc_info=True)
+
+    # ------------------------------------------------------------------ "Why not?" actions (step 5)
+    def pick(self, tid: int, cand: dict) -> bool:
+        """The user picks a file from "Why not?". It still goes through staging and the file checks."""
+        t = self.db.track(tid)
+        if not t or tid in self.active or t["state"] not in (states.WANTED, states.WAITING, states.GAVE_UP, states.SKIPPED):
+            return False
+        c = Candidate(username=cand["username"], filename=cand["filename"], size=int(cand.get("size") or 0),
+                      ext=cand.get("ext") or "", bitrate=cand.get("bitrate"), duration=cand.get("duration"),
+                      sample_rate=cand.get("sample_rate"), bit_depth=cand.get("bit_depth"))
+        self.db.update_track(tid, state=states.DOWNLOADING, progress=0, last_error="")
+        task = asyncio.create_task(self._download(self.db.track(tid), [c]))
+        self.active[tid] = {"task": task, "transfer": None, "candidate": None}
+        self.note(f"Getting {c.basename} from {c.username}, as you asked")
+        return True
+
+    def set_query(self, tid: int, query: str) -> None:
+        """Save the user's own search term (kept for every later attempt) and search right away."""
+        self.db.update_track(tid, custom_query=" ".join((query or "").split())[:200])
+        t = self.db.track(tid)
+        if t and t["state"] in (states.WAITING, states.GAVE_UP, states.SKIPPED, states.WANTED):
+            self.retry_now(tid)
+
+    def stop_looking(self, tid: int) -> None:
+        self.skip(tid)
+        self.db.update_track(tid, last_error="Stopped by you")
 
     async def _download(self, t: dict, candidates: list[Candidate]) -> None:
         tid = t["id"]

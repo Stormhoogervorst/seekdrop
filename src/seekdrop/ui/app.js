@@ -247,6 +247,7 @@ function actionsOf(t) {
   }
   if (t.state === "done") a.push(`<button class="rowbtn" data-act="show" data-id="${t.id}">Show file</button>`);
   if (["waiting", "gave_up", "skipped"].includes(t.state)) a.push(`<button class="rowbtn" data-act="retry" data-id="${t.id}">${t.state === "skipped" ? "Get it" : "Search now"}</button>`);
+  if (t.attempts > 0 && ["wanted", "waiting", "gave_up", "skipped"].includes(t.state)) a.push(`<button class="rowbtn" data-act="why" data-id="${t.id}">Why not?</button>`);
   if (["wanted", "searching", "downloading", "waiting", "gave_up"].includes(t.state)) a.push(`<button class="rowbtn" data-act="skip" data-id="${t.id}">Skip</button>`);
   return a.join("");
 }
@@ -493,6 +494,7 @@ $("#list").addEventListener("click", async (e) => {
     if (b.dataset.act === "show") await api("POST", "/api/open", { track: Number(id) });
     if (b.dataset.act === "retry") { await api("POST", `/api/tracks/${id}/retry`); toast("Searching again"); }
     if (b.dataset.act === "skip") await api("POST", `/api/tracks/${id}/skip`);
+    if (b.dataset.act === "why") return openWhy(Number(id));
     if (b.dataset.act === "replace") { await api("POST", `/api/tracks/${id}/upgrade/replace`); toast("Replaced. The old file is in SeekDrop's trash."); }
     if (b.dataset.act === "keep") { await api("POST", `/api/tracks/${id}/upgrade/keep`); toast("Kept your file"); }
   } catch (ex) { toast(ex.message); }
@@ -550,7 +552,63 @@ $("#set-nic-install").addEventListener("click", async () => {
   } catch (e) { showError($("#set-error"), e.message); }
 });
 
-function closeSettings() { $("#drawer").hidden = $("#scrim").hidden = true; }
+function closeSettings() { $("#drawer").hidden = $("#why").hidden = $("#scrim").hidden = true; ui.why = null; }
+
+/* ---------------- "Why not?" (roadmap step 5) ---------------- */
+const mmss = (s) => s ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}` : "";
+function candMeta(c) {
+  const fmt = (c.ext || "").toUpperCase() + (c.bitrate ? ` ${c.bitrate} kbps` : "") + (c.bit_depth ? ` ${c.bit_depth}-bit` : "");
+  return [c.username, fmt.trim(), mmss(c.duration), c.free_slots ? "free slot" : (c.queue ? `queue ${c.queue}` : "")].filter(Boolean).join(" · ");
+}
+async function openWhy(id) {
+  let d;
+  try { d = await api("GET", `/api/tracks/${id}/why`); } catch (ex) { return toast(ex.message); }
+  ui.why = id;
+  const t = d.track, last = d.searches[0];
+  const v = t.version ? ` <span class="v">(${esc(t.version)})</span>` : "";
+  let html = `<p class="why-title"><b>${esc(t.title)}</b>${v}<br><span class="hint">${esc(t.artist || "")} · ${esc(mmss(t.duration))} on SoundCloud</span></p>`;
+  if (!last) {
+    html += `<p class="hint">No search yet.</p>`;
+  } else {
+    html += `<p class="why-summary">${esc(last.summary || t.last_error || "Found a match, but the download didn't work out.")}</p>`;
+    html += `<h3>Searched for</h3><ul class="why-queries">${last.queries.map((q) => `<li><span>${esc(q.query)}</span><span class="n">${q.results} results</span></li>`).join("")}</ul>`;
+    html += `<h3>Closest files</h3>`;
+    html += last.candidates.length ? `<ul class="why-cands">${last.candidates.map((c, i) => `
+      <li class="${c.rejected ? "no" : "yes"}">
+        <div class="cand-main">
+          <div class="cand-name" title="${esc(c.filename)}">${esc(c.filename.split(/[\\/]/).pop())}</div>
+          <div class="cand-meta">${esc(candMeta(c))}</div>
+          <div class="cand-why">${c.rejected ? esc(c.rejected) : "Match"}</div>
+        </div>
+        <button class="rowbtn" data-pick="${i}" ${d.busy || t.state === "done" ? "disabled" : ""}>Download this anyway</button>
+      </li>`).join("")}</ul>` : `<p class="hint">Nothing came back.</p>`;
+    if (d.searches.length > 1) html += `<p class="hint">Earlier: ${d.searches.slice(1).map((s) => esc(s.summary || "found a match")).join(" · ")}</p>`;
+  }
+  html += `<h3>Search with another term</h3>
+    <form class="why-query" id="why-query"><input class="plain" name="q" value="${esc(t.custom_query || "")}" placeholder="e.g. artist title remixer" spellcheck="false">
+    <button class="btn soft" type="submit">Search</button></form>
+    <p class="hint">Saved for this track and tried first from now on.</p>
+    <div class="why-foot"><button class="btn soft" id="why-stop" ${t.state === "skipped" ? "disabled" : ""}>Stop looking</button></div>`;
+  const body = $("#why-body");
+  body.innerHTML = html;
+  body.querySelectorAll("[data-pick]").forEach((b) => b.addEventListener("click", async () => {
+    try { await api("POST", `/api/tracks/${id}/pick`, { candidate: last.candidates[Number(b.dataset.pick)] }); toast("Downloading. It's still checked first."); closeSettings(); }
+    catch (ex) { toast(ex.message); }
+    refresh();
+  }));
+  $("#why-query").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try { await api("POST", `/api/tracks/${id}/query`, { query: e.target.q.value }); toast(e.target.q.value.trim() ? "Searching with your term" : "Back to the automatic terms"); closeSettings(); }
+    catch (ex) { toast(ex.message); }
+    refresh();
+  });
+  $("#why-stop").addEventListener("click", async () => {
+    try { await api("POST", `/api/tracks/${id}/stop`); toast("Stopped looking"); closeSettings(); } catch (ex) { toast(ex.message); }
+    refresh();
+  });
+  $("#why").hidden = $("#scrim").hidden = false;
+}
+$("#close-why").addEventListener("click", closeSettings);
 $("#open-settings").addEventListener("click", openSettings);
 $("#close-settings").addEventListener("click", closeSettings);
 $("#scrim").addEventListener("click", closeSettings);

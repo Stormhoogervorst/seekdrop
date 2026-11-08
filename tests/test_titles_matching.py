@@ -167,3 +167,41 @@ def test_quoted_title_unwrapped():
     assert (p.title, p.version) == ("You & Me", "Moby Remix")
     assert parse_title("Artist - “Track”").title == "Track"
     assert parse_title("Artist - Don't Stop 'Til").title == "Don't Stop 'Til"
+
+
+# --- Roadmap step 5: every rejection has a reason ---------------------------------------------
+
+def test_rejections_explain_themselves():
+    from seekdrop.matching import closest, summary
+    p = parse_title("Artist - Track")
+    cases = {
+        "Artist - Track.mp3|192": "192 kbps, under your minimum (MP3 320)",
+        "Artist - Other Song.mp3|320": "Title doesn't match (missing: track)",
+        "Artist - Track (Bob Remix).mp3|320": "This is a remix, you want the original",
+        "Artist - Track.ogg|320": "Format not used (.ogg)",
+        "Artist - Track (Clean).mp3|320": "DJ-pool edit (clean)",
+    }
+    for spec, why in cases.items():
+        name, br = spec.split("|")
+        c = cand(name, bitrate=int(br))
+        assert score_candidate(p, 300, c, PREFS) is None and c.rejected == why, (name, c.rejected)
+    short = cand("Artist - Track.mp3", duration=192)
+    assert score_candidate(p, 405, short, PREFS) is None
+    assert short.rejected == "3:12 long, expected 6:45 (radio edit?)"
+    other = cand("Track.mp3", filename="@@x\\Someone Else\\Track.mp3")
+    assert score_candidate(p, 300, other, PREFS) is None and other.rejected == "Different artist"
+    remix = parse_title("Artist - Track (Bob Remix)")
+    alice = cand("Artist - Track (Alice Remix).mp3")
+    assert score_candidate(remix, 300, alice, PREFS) is None and alice.rejected == "Not the Bob Remix"
+    spam = cand("Artist - Track [promo.com].flac", username="https://www.promo.com", bitrate=None)
+    assert score_candidate(p, 300, spam, PREFS) is None and spam.rejected.startswith("Spam peer")
+
+    # Closest first: a right title at a low bitrate beats a different song.
+    low = cand("Artist - Track.mp3", bitrate=128)
+    wrong = cand("Artist - Other Song.mp3")
+    good = cand("Artist - Track.flac", bitrate=None)
+    for c in (low, wrong, good):
+        score_candidate(p, 300, c, PREFS)
+    assert closest([wrong, low, good], 3) == [good, low, wrong]
+    assert summary(2, [wrong, low], ["artist track"]) == "2 results, none matched: closest was 128 kbps, under your minimum (MP3 320)"
+    assert summary(0, [], ["artist track", "track"]) == "No results for 'artist track', 'track'"

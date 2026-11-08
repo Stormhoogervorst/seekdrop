@@ -610,3 +610,87 @@ def test_new_download_gets_tier_and_upgrade_date(setup):
     asyncio.run(eng._download(db.track(t["id"]), [Candidate("peer", "@@a\\Fresh Artist - Brand New.mp3", bitrate=320)]))
     t = db.track(t["id"])
     assert t["state"] == "done" and t["tier"] == "mp3_320" and t["next_upgrade"] > time.time()
+
+
+# --- Roadmap step 5: "Why not?" ---------------------------------------------------------------
+
+def test_search_attempts_are_kept_with_reasons(setup):
+    eng, db, sc, slsk, tmp = setup
+    t = _fresh_track(eng, db, sc)
+    low = Candidate("lowpeer", "@@a\\Fresh Artist - Brand New.mp3", size=8_000_000, bitrate=192, duration=301)
+    wrong = Candidate("w", "@@b\\Fresh Artist - Other Thing.flac", size=30_000_000, duration=301)
+    slsk.search = _results(low, wrong)
+    for _ in range(4):
+        asyncio.run(eng._search_track(db.track(t["id"])))
+    t = db.track(t["id"])
+    assert t["state"] == "waiting"
+    assert t["last_error"] == "2 results, none matched: closest was 192 kbps, under your minimum (MP3 320)"
+    attempts = db.searches(t["id"])
+    assert len(attempts) == 3                                     # only the last 3 are kept
+    a = attempts[0]
+    assert a["queries"][0] == {"query": "fresh artist brand new", "results": 2}
+    assert [c["username"] for c in a["candidates"]] == ["lowpeer", "w"]
+    assert a["candidates"][0]["rejected"].startswith("192 kbps")
+
+
+def test_no_results_still_gives_a_reason(setup):
+    eng, db, sc, slsk, tmp = setup
+    t = _fresh_track(eng, db, sc)
+    slsk.search = _results()
+    asyncio.run(eng._search_track(db.track(t["id"])))
+    assert db.track(t["id"])["last_error"] == "No results for 'fresh artist brand new', 'brand new'"
+
+
+def test_pick_a_file_anyway_is_still_checked(setup):
+    eng, db, sc, slsk, tmp = setup
+    t = _fresh_track(eng, db, sc)
+    db.update_track(t["id"], state="waiting")
+    picked = {"username": "lowpeer", "filename": "@@a\\Fresh Artist - Brand New.mp3", "bitrate": 192, "ext": "mp3"}
+
+    # A picked file that fails the checks still ends up in quarantine, not in the music folder.
+    eng.checks.append(lambda track, path: "Fake 320 kbps: audio stops at 16.7 kHz (about 128 kbps)")
+
+    async def go():
+        assert eng.pick(t["id"], picked)
+        await eng.active[t["id"]]["task"]
+    asyncio.run(go())
+    assert db.quarantined()[0]["peer"] == "lowpeer"
+    assert not (tmp / "out").exists() or _files(tmp / "out") == []
+
+    # Without a failing check it is downloaded.
+    eng.checks.clear()
+    db.update_track(t["id"], state="waiting")
+    picked2 = dict(picked, username="other")
+    asyncio.run(_pick_and_wait(eng, t["id"], picked2))
+    t = db.track(t["id"])
+    assert t["state"] == "done" and t["peer"] == "other" and os.path.exists(t["file_path"])
+
+
+async def _pick_and_wait(eng, tid, cand):
+    assert eng.pick(tid, cand)
+    await eng.active[tid]["task"]
+
+
+def test_own_search_term_is_kept_and_used_first(setup):
+    eng, db, sc, slsk, tmp = setup
+    t = _fresh_track(eng, db, sc)
+    db.update_track(t["id"], state="waiting")
+    eng.set_query(t["id"], "  fresh   artist alias  brand new ")
+    t = db.track(t["id"])
+    assert t["custom_query"] == "fresh artist alias brand new" and t["state"] == "wanted"
+    slsk.search = _results()
+    asyncio.run(eng._search_track(db.track(t["id"])))
+    asyncio.run(eng._search_track(db.track(t["id"])))     # next attempt: still first
+    attempts = db.searches(t["id"])
+    assert all(a["queries"][0]["query"] == "fresh artist alias brand new" for a in attempts)
+    eng.set_query(t["id"], "")                             # back to the automatic terms
+    assert db.track(t["id"])["custom_query"] == ""
+
+
+def test_stop_looking(setup):
+    eng, db, sc, slsk, tmp = setup
+    t = _fresh_track(eng, db, sc)
+    db.update_track(t["id"], state="waiting")
+    eng.stop_looking(t["id"])
+    t = db.track(t["id"])
+    assert t["state"] == "skipped" and t["last_error"] == "Stopped by you"

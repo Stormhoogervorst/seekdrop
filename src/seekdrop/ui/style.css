@@ -332,6 +332,25 @@ h3 { font-size: 16px; line-height: 22px; font-weight: 600; letter-spacing: -0.01
 .drawer-body h3 { margin: 24px 0 12px; }
 .drawer-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 20px; }
 
+/* "Why not?" drawer */
+.why-title { font-size: 16px; line-height: 22px; margin: 4px 0 8px; }
+.why-title .v { color: var(--text-muted); font-weight: 400; }
+.why-summary { font-size: 14px; line-height: 18px; color: var(--text-primary); background: var(--surface-muted); border-radius: var(--radius-inner); padding: 12px 14px; margin: 8px 0 0; }
+.why-queries, .why-cands { list-style: none; margin: 0; padding: 0; }
+.why-queries li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--surface-muted); font-size: 14px; }
+.why-queries .n { color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.why-cands li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--surface-muted); }
+.cand-main { flex: 1; min-width: 0; }
+.cand-name { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cand-meta { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cand-why { font-size: 13px; color: var(--text-body); margin-top: 2px; }
+.why-cands li.yes .cand-why { color: var(--text-primary); font-weight: 500; }
+.rowbtn:disabled { opacity: .4; cursor: default; background: none; }
+.why-query { display: flex; gap: 8px; margin-bottom: 6px; }
+.why-query input.plain { flex: 1; min-width: 0; height: 40px; padding: 0 14px; border: 1px solid transparent; border-radius: var(--radius-pill); background: var(--surface-muted); color: var(--text-primary); }
+.why-query input.plain:focus { outline: none; border-color: var(--border-strong); }
+.why-foot { margin-top: 24px; }
+
 .toast {
   position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
   background: var(--surface-inverse); color: var(--text-inverse);

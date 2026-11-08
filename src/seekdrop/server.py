@@ -76,6 +76,10 @@ class Api:
         r.add_post("/api/check-now", self.check_now)
         r.add_post("/api/tracks/{id}/retry", self.retry_track)
         r.add_post("/api/tracks/{id}/skip", self.skip_track)
+        r.add_get("/api/tracks/{id}/why", self.why)
+        r.add_post("/api/tracks/{id}/pick", self.pick)
+        r.add_post("/api/tracks/{id}/query", self.set_query)
+        r.add_post("/api/tracks/{id}/stop", self.stop_looking)
         r.add_post("/api/tracks/{id}/upgrade/replace", self.replace_upgrade)
         r.add_post("/api/tracks/{id}/upgrade/keep", self.keep_current)
         r.add_post("/api/rejects/{id}/approve", self.approve_reject)
@@ -201,6 +205,33 @@ class Api:
 
     async def skip_track(self, request: web.Request):
         self.engine.skip(int(request.match_info["id"]))
+        return web.json_response({"ok": True})
+
+    # "Why not?" (roadmap step 5)
+    async def why(self, request: web.Request):
+        tid = int(request.match_info["id"])
+        t = self.db.track(tid)
+        if not t:
+            return web.json_response({"error": "Track not found."}, status=404)
+        return web.json_response({"track": t, "searches": self.db.searches(tid),
+                                  "busy": tid in self.engine.active})
+
+    async def pick(self, request: web.Request):
+        data = await self.body(request)
+        cand = data.get("candidate") or {}
+        if not cand.get("username") or not cand.get("filename"):
+            return web.json_response({"error": "Pick a file first."}, status=400)
+        if not self.engine.pick(int(request.match_info["id"]), cand):
+            return web.json_response({"error": "This track is busy or already downloaded."}, status=409)
+        return web.json_response({"ok": True})
+
+    async def set_query(self, request: web.Request):
+        data = await self.body(request)
+        self.engine.set_query(int(request.match_info["id"]), str(data.get("query") or ""))
+        return web.json_response({"ok": True})
+
+    async def stop_looking(self, request: web.Request):
+        self.engine.stop_looking(int(request.match_info["id"]))
         return web.json_response({"ok": True})
 
     async def replace_upgrade(self, request: web.Request):

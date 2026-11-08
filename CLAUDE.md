@@ -60,7 +60,10 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   Done tracks below target (lossy only) get `next_upgrade`; the search loop runs `_upgrade_search` with a
   free slot, downloads with `record=False` (track row untouched), and either replaces (`auto`, old file
   to `trash/`) or parks the copy in `upgrades/` for Replace/Keep (`ask`, default).
-- **Storage**: `db.py` (SQLite: `channels`, `tracks`, `rejects`), `config.py` (settings.json, data dir, migration).
+- **Why not?** (step 5): rejections carry `Candidate.rejected` + `stage`; `_search_track` stores each
+  attempt (`searches` table, last 3) and puts `matching.summary()` in `last_error`. Engine `pick()` /
+  `set_query()` / `stop_looking()`; `tracks.custom_query` is tried before the automatic queries.
+- **Storage**: `db.py` (SQLite: `channels`, `tracks`, `rejects`, `searches`), `config.py` (settings.json, data dir, migration).
 - **UI**: `server.py` (aiohttp JSON API with a per-run key) + `ui/` (plain HTML/CSS/JS, no build),
   shown in a pywebview window by `__main__.py`; `updates.py` checks GitHub releases.
 

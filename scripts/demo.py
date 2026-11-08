@@ -90,6 +90,25 @@ if not db.channels() and not SETUP:
                      remote_file=(f"@@music\\{a} - {t}.flac" if peer else ""),
                      file_path=(str(home / "Music" / f"{a} - {t}.flac") if st == "done" else ""))
 
+    # A stored search attempt, for the "Why not?" drawer (roadmap step 5).
+    for t in db.tracks():
+        if t["title"] == "Glasshouse":
+            cands = [
+                {"username": "crate_digger", "filename": "@@dl\\Taro Vell\\Taro Vell - Glasshouse (Someone Remix).mp3",
+                 "size": 9_200_000, "ext": "mp3", "bitrate": 192, "duration": 341, "free_slots": True, "queue": 0,
+                 "speed": 900_000, "score": 0, "rejected": "192 kbps, under your minimum (MP3 320)", "notes": []},
+                {"username": "bassbin", "filename": "@@music\\Taro Vell - Glasshouse (Radio Edit).flac",
+                 "size": 21_000_000, "ext": "flac", "bitrate": None, "duration": 192, "free_slots": False, "queue": 12,
+                 "speed": 2_400_000, "score": 0, "rejected": "3:12 long, expected 5:41 (radio edit?)", "notes": []},
+                {"username": "nightowl", "filename": "@@x\\Taro Vell - Glasshouse (Other Guy Remix).flac",
+                 "size": 38_000_000, "ext": "flac", "bitrate": None, "duration": 356, "free_slots": True, "queue": 0,
+                 "speed": 5_000_000, "score": 0, "rejected": "Not the Someone Remix", "notes": []},
+            ]
+            db.add_search(t["id"], [{"query": "taro vell glasshouse someone", "results": 3},
+                                    {"query": "glasshouse someone", "results": 3}], cands,
+                          "3 results, none matched: closest was 192 kbps, under your minimum (MP3 320)")
+            db.update_track(t["id"], attempts=2, last_error="3 results, none matched: closest was 192 kbps, under your minimum (MP3 320)")
+
     # Measured cutoff (roadmap step 3): one full-range file, one suspect.
     for t in db.tracks():
         if t["title"] == "Lights Out":       # step 4: a better copy is waiting for the user's OK

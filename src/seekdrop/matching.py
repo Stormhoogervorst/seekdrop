@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional
 
-from .quality import DEFAULT_PROFILE, candidate_position, profile
+from .quality import TIER_LABELS, DEFAULT_PROFILE, candidate_position, profile, tier_of
 from .titles import DIFFERENT_VERSION_WORDS, ParsedTitle, tokens, version_is_different
 
 LOSSLESS = {"flac", "wav", "aiff", "aif", "alac"}
@@ -27,6 +27,8 @@ class Candidate:
     avg_speed: int = 0            # bytes/s
     score: float = 0.0
     reasons: list[str] = field(default_factory=list)
+    rejected: str = ""            # why it isn't a match ("" = accepted), shown under "Why not?"
+    stage: int = 0                # how far it got before being rejected (higher = closer to a match)
 
     @property
     def basename(self) -> str:
@@ -79,20 +81,35 @@ def file_ext(filename: str) -> str:
     return m.group(1).lower() if m else ""
 
 
+# Rejection stages: the later a file is turned down, the closer it was to a match.
+STAGE_FILE, STAGE_TITLE, STAGE_ARTIST, STAGE_VERSION, STAGE_LENGTH, STAGE_QUALITY, STAGE_OK = range(7)
+
+
+def _mmss(sec: float) -> str:
+    sec = int(round(sec))
+    return f"{sec // 60}:{sec % 60:02d}"
+
+
+def _reject(c: Candidate, stage: int, why: str) -> None:
+    c.rejected, c.stage, c.score = why, stage, 0.0
+    return None
+
+
 def score_candidate(target: ParsedTitle, target_duration: Optional[float], c: Candidate,
                     prefs: MatchPrefs) -> Optional[float]:
-    """Return a score (higher = better) or None if the file is not a match."""
+    """Return a score (higher = better) or None if the file is not a match; then c.rejected says why."""
     reasons: list[str] = []
+    c.rejected, c.stage = "", STAGE_OK
     ext = (c.ext or file_ext(c.filename)).lower().lstrip(".")
     if not ext:
         ext = file_ext(c.filename)
     c.ext = ext
     if ext not in ALLOWED_EXT:
-        return None
+        return _reject(c, STAGE_FILE, f"Format not used (.{ext})" if ext else "Not an audio file")
     if is_spam(c):
-        return None
+        return _reject(c, STAGE_FILE, "Spam peer (advertises a website)")
     if c.size and c.size < 1_000_000:
-        return None
+        return _reject(c, STAGE_FILE, "File too small to be the track")
 
     name = c.basename.rsplit(".", 1)[0]
     name_t = set(tokens(name))
@@ -101,11 +118,11 @@ def score_candidate(target: ParsedTitle, target_duration: Optional[float], c: Ca
     # 1. Title words must be in the file name.
     title_t = tokens(target.title, drop_stop=True) or tokens(target.title)
     if not title_t:
-        return None
+        return _reject(c, STAGE_FILE, "No title to compare with")
     missing = [t for t in title_t if t not in name_t]
     allowed_missing = 1 if len(title_t) >= 4 else 0
     if len(missing) > allowed_missing:
-        return None
+        return _reject(c, STAGE_TITLE, f"Title doesn't match (missing: {', '.join(missing)})")
     score = 40.0 - 10 * len(missing)
 
     # 2. Artist words: anywhere in file name or parent folder.
@@ -116,7 +133,7 @@ def score_candidate(target: ParsedTitle, target_duration: Optional[float], c: Ca
             # A different artist with the same title is a different track.
             extra_t = [t for a in target.extra_artists for t in tokens(a, drop_stop=True)]
             if not any(t in path_t for t in extra_t):
-                return None
+                return _reject(c, STAGE_ARTIST, "Different artist")
         score += 25 * frac
         if frac < 1:
             reasons.append("artist partly in name")
@@ -124,18 +141,19 @@ def score_candidate(target: ParsedTitle, target_duration: Optional[float], c: Ca
     # 3. Version (remix / edit / extended). DJ-pool edits only when that's what we want.
     target_words = set(tokens(target.version)) | set(tokens(target.title))
     pool = pool_edit_words(c.basename)
-    if any(not set(w.split()) <= target_words for w in pool):
-        return None
+    bad_pool = [w for w in pool if not set(w.split()) <= target_words]
+    if bad_pool:
+        return _reject(c, STAGE_VERSION, f"DJ-pool edit ({', '.join(sorted(bad_pool))})")
 
     file_versions = {t for t in name_t if t in DIFFERENT_VERSION_WORDS} - set(title_t)
     if target.version and version_is_different(target.version):
         remixer = target.remixer_tokens
         if remixer and not all(t in name_t for t in remixer):
-            return None
+            return _reject(c, STAGE_VERSION, f"Not the {target.version}")
         score += 10
     elif file_versions:
         # We want the original, this file is a remix/bootleg/etc.
-        return None
+        return _reject(c, STAGE_VERSION, f"This is a {'/'.join(sorted(file_versions))}, you want the original")
     target_v = set(tokens(target.version))
     if "extended" in name_t:
         score += 6 if "extended" in target_v else 3
@@ -159,13 +177,17 @@ def score_candidate(target: ParsedTitle, target_duration: Optional[float], c: Ca
             score -= 20
             reasons.append(f"length differs {int(diff)}s")
         else:
-            return None
+            hint = " (radio edit?)" if c.duration < target_duration else ""
+            return _reject(c, STAGE_LENGTH, f"{_mmss(c.duration)} long, expected {_mmss(target_duration)}{hint}")
 
     # 5. Format & quality: the profile's ladder. Under the floor = not a match.
     prof = profile(prefs.profile)
     pos = candidate_position(prof, ext, c.bitrate, c.bit_depth)
     if pos is None:
-        return None
+        have = TIER_LABELS.get(tier_of(ext, c.bitrate, c.bit_depth) or "", ext.upper())
+        if ext == "mp3" and c.bitrate:
+            have = f"{c.bitrate} kbps"
+        return _reject(c, STAGE_QUALITY, f"{have}, under your minimum ({TIER_LABELS[prof['order'][-1]]})")
     score += (len(prof["order"]) - pos) * 10
     if ext == "mp3" and not c.bitrate:
         score -= 8
@@ -183,6 +205,23 @@ def score_candidate(target: ParsedTitle, target_duration: Optional[float], c: Ca
     c.score = round(score, 1)
     c.reasons = reasons
     return c.score
+
+
+def closest(evaluated: list[Candidate], n: int = 10) -> list[Candidate]:
+    """For "Why not?": accepted files by score, then rejected ones that came closest to a match."""
+    ok = sorted([c for c in evaluated if not c.rejected], key=lambda c: c.score, reverse=True)
+    near = sorted([c for c in evaluated if c.rejected], key=lambda c: (c.stage, c.has_free_slots, c.size), reverse=True)
+    return (ok + near)[:n]
+
+
+def summary(results: int, evaluated: list[Candidate], queries: list[str]) -> str:
+    """One line for a track that didn't get a match."""
+    if not results:
+        return "No results for " + ", ".join(f"'{q}'" for q in queries) if queries else "No results on Soulseek"
+    best = closest(evaluated, 1)
+    if best and best[0].rejected:
+        return f"{results} results, none matched: closest was {best[0].rejected[0].lower()}{best[0].rejected[1:]}"
+    return f"{results} results, none matched"
 
 
 def rank(target: ParsedTitle, target_duration: Optional[float], candidates: list[Candidate],

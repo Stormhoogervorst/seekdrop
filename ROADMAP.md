@@ -124,7 +124,7 @@ Klaar als:
 
 ### Stap 5: uitleg waarom niet, en zelf kiezen
 
-**Status: deels.** Een track toont een korte reden ("Not on Soulseek yet", "Peers didn't deliver") en heeft de knoppen Search now en Skip. Mist: zoekpogingen met kandidaten en afwijsredenen opslaan, de knop "Waarom niet?", zelf een kandidaat kiezen en een eigen zoekterm.
+**Status: klaar (nov 2026).** `matching.score_candidate` geeft elke afwijzing een leesbare reden (`Candidate.rejected`) en een fase (hoe dicht bij een match); `closest()` kiest de 10 dichtstbijzijnde, `summary()` maakt er één regel van. Per zoekpoging slaat de engine zoektermen met aantallen en de 10 kandidaten op (tabel `searches`, laatste 3 per track). De reden in de lijst is nu concreet ("No results for …", "54 results, none matched: closest was 3:54 long, expected 5:50 (radio edit?)"). Paneel *Why not?* met *Download this anyway* (gaat door staging en stap 2/3), *Search with another term* (bewaard in `tracks.custom_query`, voortaan als eerste geprobeerd) en *Stop looking*. Echt getest via Nicotine+: DC01 toonde per kandidaat de reden; een zelf gekozen AIFF werd gedownload en door de lengtecontrole naar quarantaine gestuurd.
 
 Doel: bij elke track die niet binnenkomt, ziet de DJ waarom, en kan hij zelf een kandidaat kiezen of de zoekterm aanpassen.
 
@@ -136,9 +136,9 @@ Bouwen:
 
 Klaar als:
 
-- [ ] Elke track zonder download toont minstens één concrete reden.
-- [ ] Een handmatig gekozen kandidaat wordt gedownload en gecontroleerd.
-- [ ] Een aangepaste zoekterm blijft bewaard voor volgende pogingen.
+- [x] Elke track zonder download toont minstens één concrete reden.
+- [x] Een handmatig gekozen kandidaat wordt gedownload en gecontroleerd.
+- [x] Een aangepaste zoekterm blijft bewaard voor volgende pogingen.
 
 ## Fase 2: matching en Soulseek
 
@@ -146,7 +146,7 @@ Na deze fase vindt de app meer van de juiste tracks, pakt hij minder vaak de ver
 
 ### Stap 6: slimmere matching
 
-**Status: deels.** `titles.py` en `matching.py` normaliseren accenten, hoofdletters, "&"/"and" en "feat.", herkennen versies (remix van een ander wordt geweigerd, Extended mag voor Original), labelnamen, catalogusnummers en DJ-pool-edits. Mist: andere schriften naar Latijn, aliassen per artiest, handmatige correcties per track, matchregels in één module (nu verdeeld over twee) en 30 echte titels uit de kanalen van de gebruiker in de tests.
+**Status: deels.** `titles.py` en `matching.py` normaliseren accenten, hoofdletters, "&"/"and" en "feat.", herkennen versies (remix van een ander wordt geweigerd, Extended mag voor Original), labelnamen, catalogusnummers en DJ-pool-edits. Mist: "VIP" telt niet mee als versie, waardoor bij "Larse VIP" ook "Larse Vocal" matcht (gezien in stap 5); andere schriften naar Latijn, aliassen per artiest, handmatige correcties per track, matchregels in één module (nu verdeeld over twee) en 30 echte titels uit de kanalen van de gebruiker in de tests.
 
 Doel: minder gemiste tracks door schrijfwijzen en aliassen, en nooit de verkeerde versie.
 
