@@ -31,6 +31,25 @@ Repo: github.com/Stormhoogervorst/nicotinesync.
    enter it; don't create accounts).
 2. Windows app beyond the CI smoke test; signed/notarized macOS build (needs Apple secrets).
 
+## Architectuur
+Feature work follows `ROADMAP.md` (one step per session, plan first, wait for approval).
+- **SoundCloud** (`soundcloud.py`): yt-dlp, metadata only. `latest()` lists a profile's uploads or
+  every track of a playlist; `track()` gives title, uploader, duration, artwork. Never downloads audio.
+- **Titles** (`titles.py`): `parse_title()` → artist / title / version (drops promo text, label and
+  catalog suffixes, quotes), `is_mix()`, `search_queries()`.
+- **Matching** (`matching.py`): `score_candidate()` hard-rejects (wrong title/artist/remixer, length,
+  bitrate, spam peers, DJ-pool edits) and scores the rest (format, length, free slot, speed); `rank()`.
+- **Soulseek**, two interchangeable services: `soulseek.py` (own login via aioslsk) and `nicotine.py`
+  (HTTP to the `seekdrop_bridge` plugin running inside Nicotine+, 127.0.0.1 + key). Chosen by
+  `settings.soulseek_mode`. Steps that touch peers (4, 8) must work through both.
+- **Engine** (`engine.py`): poll loop checks channels → `tracks` rows (state wanted…done); search
+  loop: queries → rank → up to 3 candidates → download into the service's incoming folder in the
+  app data → `_finalize()` moves it to `download_dir/<channel>/Artist - Title (Version).ext`.
+  Retries 1h/3h/6h/12h/daily up to `give_up_days`.
+- **Storage**: `db.py` (SQLite: `channels`, `tracks`), `config.py` (settings.json, data dir, migration).
+- **UI**: `server.py` (aiohttp JSON API with a per-run key) + `ui/` (plain HTML/CSS/JS, no build),
+  shown in a pywebview window by `__main__.py`; `updates.py` checks GitHub releases.
+
 ## Design notes
 - Engine (`engine.py`) only uses the service interface: start/stop/status/error/connected/
   retryable/search/download/transfer_info/abort/forget/rescan_shares/lookup/cancel.
