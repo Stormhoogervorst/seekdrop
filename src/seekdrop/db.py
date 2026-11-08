@@ -46,6 +46,10 @@ CREATE TABLE IF NOT EXISTS tracks (
     progress REAL NOT NULL DEFAULT 0,
     cutoff_hz REAL,                        -- where the audio stops (Hz); 22050 = full range
     quality TEXT NOT NULL DEFAULT '',     -- '' (not measured) | genuine | suspect | fake
+    tier TEXT NOT NULL DEFAULT '',        -- rung on the quality ladder (quality.py), e.g. mp3_320
+    next_upgrade REAL NOT NULL DEFAULT 0, -- done but below target: when to look for a better copy (0 = not)
+    upgrade_path TEXT NOT NULL DEFAULT '',-- better copy waiting for the user ("ask" mode)
+    upgrade_tier TEXT NOT NULL DEFAULT '',
     created_at REAL NOT NULL,
     updated_at REAL NOT NULL
 );
@@ -93,6 +97,10 @@ class Database:
                 self.conn.execute("ALTER TABLE tracks ADD COLUMN cutoff_hz REAL")
             if "quality" not in tcols:
                 self.conn.execute("ALTER TABLE tracks ADD COLUMN quality TEXT NOT NULL DEFAULT ''")
+            for col, ddl in (("tier", "TEXT NOT NULL DEFAULT ''"), ("next_upgrade", "REAL NOT NULL DEFAULT 0"),
+                             ("upgrade_path", "TEXT NOT NULL DEFAULT ''"), ("upgrade_tier", "TEXT NOT NULL DEFAULT ''")):
+                if col not in tcols:   # databases from before quality profiles
+                    self.conn.execute(f"ALTER TABLE tracks ADD COLUMN {col} {ddl}")
 
     def _q(self, sql: str, args: tuple = ()) -> list[dict]:
         with self.lock:
@@ -179,6 +187,10 @@ class Database:
             FROM rejects r JOIN tracks t ON t.id=r.track_id JOIN channels c ON c.id=t.channel_id
             WHERE r.status='quarantined' ORDER BY r.created_at DESC LIMIT ?""", (limit,))
 
+    def blocked_last_id(self, track_id: int) -> int:
+        rows = self._q("SELECT MAX(id) AS id FROM rejects WHERE track_id=?", (track_id,))
+        return rows[0]["id"] if rows and rows[0]["id"] else 0
+
     def blocked(self, track_id: int) -> set[tuple[str, str]]:
         """Peer + file combinations that failed the checks for this track."""
         return {(r["peer"], r["remote_file"]) for r in self._q("SELECT peer, remote_file FROM rejects WHERE track_id=?", (track_id,))}
@@ -200,6 +212,14 @@ class Database:
             SELECT t.*, c.name AS channel_name FROM tracks t JOIN channels c ON c.id=t.channel_id
             WHERE c.enabled=1 AND t.state IN ('wanted','waiting') AND t.next_attempt<=?
             ORDER BY t.state='waiting', t.next_attempt, t.id LIMIT ?""", (now, limit))
+
+    def due_upgrades(self, now: float, since: float, limit: int = 5) -> list[dict]:
+        """Downloaded tracks below their quality target whose next upgrade search is due."""
+        return self._q("""
+            SELECT t.*, c.name AS channel_name FROM tracks t JOIN channels c ON c.id=t.channel_id
+            WHERE c.enabled=1 AND t.state='done' AND t.next_upgrade>0 AND t.next_upgrade<=?
+              AND t.upgrade_path='' AND t.created_at>=?
+            ORDER BY t.next_upgrade LIMIT ?""", (now, since, limit))
 
     def interrupted_transfers(self) -> list[dict]:
         """Tracks that were downloading when the app stopped (their transfer may still exist)."""

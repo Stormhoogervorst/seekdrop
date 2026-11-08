@@ -165,3 +165,25 @@ def test_suspect_setting_and_result_kept_on_track(spectra):
     S.suspect_quality = "reject"
     assert fc({"duration": 30}, str(spectra / "lp195.flac")).startswith("Suspect lossless")
     assert fc({"duration": 30}, str(spectra / "lp16.flac")).startswith("Fake lossless")
+
+
+# --- Roadmap step 4: quality floor on the measured file --------------------------------------
+
+@needs_ffmpeg
+def test_measured_tier_and_floor(spectra):
+    class S:
+        check_length_margin = 10
+        check_silence_seconds = 10
+        suspect_quality = "label"
+        quality_profile = "club"
+    fc = FileChecker(lambda: S, TOOLS)
+    assert fc({"duration": 30}, str(spectra / "p128.mp3")) == "Below your quality minimum (MP3 under 192)"
+    track = {"duration": 30}
+    assert fc(track, str(spectra / "real320.mp3")) is None and track["_meta"]["tier"] == "mp3_320"
+    track = {"duration": 30}
+    assert fc(track, str(spectra / "noise.flac")) is None and track["_meta"]["tier"] == "flac24"   # ffmpeg writes 24-bit here
+    track = {"duration": 30}
+    assert fc(track, str(spectra / "lp195.flac")) is None
+    assert track["_meta"]["tier"] == "mp3_320"            # suspect lossless counts as MP3 320
+    S.quality_profile = "space"
+    assert fc({"duration": 30}, str(spectra / "p128.mp3")) == "Below your quality minimum (MP3 under 192)"

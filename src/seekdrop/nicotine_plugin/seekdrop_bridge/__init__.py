@@ -167,6 +167,8 @@ class Plugin(BasePlugin):
                 "ext": ext or "",
                 "bitrate": attrs.get(0),
                 "duration": attrs.get(1),
+                "sample_rate": attrs.get(4),
+                "bit_depth": attrs.get(5),
                 "free_slots": bool(msg.freeulslots),
                 "speed": msg.ulspeed or 0,
                 "queue": msg.inqueue or 0,

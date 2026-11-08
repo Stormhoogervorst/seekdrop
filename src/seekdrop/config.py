@@ -109,8 +109,8 @@ class Settings:
     share_dirs: list[str] = field(default_factory=list)
     share_downloads: bool = True
     organize_by_channel: bool = True
-    preferred_format: str = "lossless"      # "lossless" | "mp3"
-    min_bitrate: int = 320
+    quality_profile: str = "club"           # club | balanced | space (quality.PROFILES)
+    upgrade_mode: str = "ask"               # better copy found later: "ask" | "auto" | "off"
     check_interval_minutes: int = 60
     max_parallel_downloads: int = 3
     give_up_days: int = 30
@@ -147,6 +147,10 @@ class SettingsStore:
         if self.path.exists():
             try:
                 raw = json.loads(self.path.read_text("utf-8"))
+                if "quality_profile" not in raw and "preferred_format" in raw:   # from before profiles
+                    from .quality import profile_from_old_settings
+                    raw["quality_profile"] = profile_from_old_settings(raw.get("preferred_format", "lossless"),
+                                                                       int(raw.get("min_bitrate") or 320))
                 known = {f.name for f in fields(Settings)}
                 return Settings(**{k: v for k, v in raw.items() if k in known})
             except Exception:
@@ -173,7 +177,7 @@ class SettingsStore:
                 continue
             if key == "soulseek_password" and not value:
                 continue  # empty means "keep current"
-            if key in ("min_bitrate", "check_interval_minutes", "max_parallel_downloads", "give_up_days", "listen_port", "nicotine_port",
+            if key in ("check_interval_minutes", "max_parallel_downloads", "give_up_days", "listen_port", "nicotine_port",
                        "check_length_margin", "check_silence_seconds"):
                 value = int(value)
             if key in ("accepted_terms", "share_downloads", "organize_by_channel", "check_updates"):
@@ -182,7 +186,9 @@ class SettingsStore:
                 value = [str(v).strip() for v in (value or []) if str(v).strip()]
             if key in ("soulseek_username", "download_dir"):
                 value = str(value).strip()
-            if key == "preferred_format" and value not in ("lossless", "mp3"):
+            if key == "quality_profile" and value not in ("club", "balanced", "space"):
+                continue
+            if key == "upgrade_mode" and value not in ("ask", "auto", "off"):
                 continue
             if key == "soulseek_mode" and value not in ("builtin", "nicotine"):
                 continue

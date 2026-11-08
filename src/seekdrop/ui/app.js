@@ -200,6 +200,12 @@ function renderFilters(s) {
 // Real failures (not "not found yet"): the engine's "Error: …" and "Search failed…" messages.
 function isError(msg) { return /^(Error:|Search failed)/.test(msg || ""); }
 
+// Last day the app looks for a better copy (step 4).
+function untilDate(createdAt) {
+  const d = new Date((createdAt + (ui.state.upgrade_days || 30) * 86400) * 1000);
+  return d.toLocaleDateString([], { day: "numeric", month: "short" });
+}
+
 // Where the audio stops (roadmap step 3), e.g. "21.9 kHz" or "Suspect: stops at 20.3 kHz".
 function qualityOf(t) {
   if (!t.cutoff_hz) return "";
@@ -219,7 +225,14 @@ function statusOf(t) {
       return { cls: "work spinning", ic: "loader-circle", lbl: `Waiting for peer${q}`, sub: t.peer };
     }
     case "waiting": return { cls: isError(t.last_error) ? "err" : "wait", ic: "clock", lbl: t.last_error || "Not found yet", sub: `Tries again ${inTime(t.retry_in)}` };
-    case "done": return { cls: "done", ic: "check", lbl: "Downloaded", sub: [qualityOf(t), (t.file_path || "").split(/[\\/]/).pop()].filter(Boolean).join(" · ") };
+    case "done": {
+      const tier = (ui.state.tier_labels || {})[t.tier] || "";
+      if (t.upgrade_path) return { cls: "done", ic: "check", lbl: "Better copy found", sub: `${(ui.state.tier_labels || {})[t.upgrade_tier] || "Higher quality"} instead of ${tier || "this file"}` };
+      if (t.transfer_state) return { cls: "work spinning", ic: "loader-circle", lbl: "Getting a better copy", sub: tier ? `You have ${tier}` : "" };
+      const bits = [tier, qualityOf(t), (t.file_path || "").split(/[\\/]/).pop()];
+      if (t.next_upgrade > 0) bits.splice(1, 0, `looking for better until ${untilDate(t.created_at)}`);
+      return { cls: "done", ic: "check", lbl: "Downloaded", sub: bits.filter(Boolean).join(" · ") };
+    }
     case "gave_up": return { cls: "gone", ic: "circle", lbl: "Stopped looking", sub: t.last_error };
     case "skipped": return { cls: "gone", ic: "circle", lbl: "Skipped", sub: t.last_error };
     default: return { cls: "", ic: "", lbl: t.state };
@@ -228,6 +241,10 @@ function statusOf(t) {
 
 function actionsOf(t) {
   const a = [];
+  if (t.state === "done" && t.upgrade_path) {
+    a.push(`<button class="rowbtn" data-act="replace" data-id="${t.id}">Replace</button>`);
+    a.push(`<button class="rowbtn" data-act="keep" data-id="${t.id}">Keep</button>`);
+  }
   if (t.state === "done") a.push(`<button class="rowbtn" data-act="show" data-id="${t.id}">Show file</button>`);
   if (["waiting", "gave_up", "skipped"].includes(t.state)) a.push(`<button class="rowbtn" data-act="retry" data-id="${t.id}">${t.state === "skipped" ? "Get it" : "Search now"}</button>`);
   if (["wanted", "searching", "downloading", "waiting", "gave_up"].includes(t.state)) a.push(`<button class="rowbtn" data-act="skip" data-id="${t.id}">Skip</button>`);
@@ -476,6 +493,8 @@ $("#list").addEventListener("click", async (e) => {
     if (b.dataset.act === "show") await api("POST", "/api/open", { track: Number(id) });
     if (b.dataset.act === "retry") { await api("POST", `/api/tracks/${id}/retry`); toast("Searching again"); }
     if (b.dataset.act === "skip") await api("POST", `/api/tracks/${id}/skip`);
+    if (b.dataset.act === "replace") { await api("POST", `/api/tracks/${id}/upgrade/replace`); toast("Replaced. The old file is in SeekDrop's trash."); }
+    if (b.dataset.act === "keep") { await api("POST", `/api/tracks/${id}/upgrade/keep`); toast("Kept your file"); }
   } catch (ex) { toast(ex.message); }
   refresh();
 });
@@ -484,6 +503,12 @@ $("#check-now").addEventListener("click", async () => { await api("POST", "/api/
 $("#open-folder").addEventListener("click", () => api("POST", "/api/open", {}).catch((e) => toast(e.message)));
 
 /* ---------------- settings ---------------- */
+function profileHelp() {
+  const p = (ui.state.profiles || {})[$("#set-profile").value];
+  $("#set-profile-help").textContent = p ? `${p.help} Order: ${p.ladder.join(", ")}.` : "";
+}
+$("#set-profile").addEventListener("change", profileHelp);
+
 function openSettings() {
   const s = ui.state.settings, f = $("#settings-form");
   for (const el of f.elements) {
@@ -498,6 +523,7 @@ function openSettings() {
   $("#set-checks-status").textContent = ui.state.checks && ui.state.checks.available
     ? "On. Every download is checked with ffmpeg before it goes to your music folder."
     : "Off: ffmpeg isn't installed, so downloads aren't checked. Install ffmpeg (on a Mac: brew install ffmpeg) and restart SeekDrop.";
+  profileHelp();
   settingsMode();
   showError($("#set-error"), "");
   $("#drawer").hidden = $("#scrim").hidden = false;

@@ -103,7 +103,7 @@ Klaar als:
 
 ### Stap 4: kwaliteitsprofielen en automatisch upgraden
 
-**Status: deels.** Instelling voorkeur lossless of MP3, plus minimale MP3-bitrate. Mist: profielen met ladder, ondergrens en doel, upgradelijst, vervangen en prullenbakmap.
+**Status: klaar (nov 2026), op één punt na.** `quality.py`: ladder (FLAC 24, FLAC 16, WAV/AIFF, MP3 320/256/192) en drie profielen (Club, Balanced, Space saver) met ondergrens en doel; vervangt de oude instellingen (worden automatisch omgezet). De matching weigert kandidaten onder de ondergrens; na de download meet `checks.measured_tier` wat het bestand echt is (verdacht lossless telt als MP3 320) en weigert het onder de ondergrens. Tracks onder het doel (alleen lossy) krijgen `next_upgrade` en worden dagelijks opnieuw gezocht tot 30 dagen; alleen gemeten betere kopieën die stap 2 en 3 doorstaan tellen. Instelling *upgrade_mode*: eerst vragen (standaard, *Replace*/*Keep* in de lijst), automatisch, of uit. Het oude bestand gaat naar `trash/` in de app-data (30 dagen). Kolommen `tier`, `next_upgrade`, `upgrade_path`, `upgrade_tier`. Echt getest via Nicotine+: FLAC 16-bit kwam binnen zonder vervolg, MP3 320 kreeg een upgrade-zoektocht die een betere kopie vond (die bleef in de wachtrij van de peer); onderweg werden in het echt een nep-320 en bestanden met de verkeerde lengte tegengehouden. Nog open: de optie "alleen upgraden als de track nog niet in de DJ-software staat" volgt in stap 12.
 
 Doel: de DJ kiest welke kwaliteit hij wil. Een verse drop komt eerst binnen in de beste beschikbare kwaliteit, en wordt later vervangen als er iets beters opduikt.
 
@@ -118,9 +118,9 @@ Let op: Rekordbox en Serato koppelen cue points aan het pad van het bestand. Een
 
 Klaar als:
 
-- [ ] Een track die als MP3 320 binnenkwam, wordt in een test vervangen door een gevonden FLAC, en de MP3 staat in de prullenbak.
-- [ ] Een slechtere of nep-lossless kandidaat vervangt nooit een bestaand bestand.
-- [ ] De drie standaardprofielen staan in de instellingen.
+- [x] Een track die als MP3 320 binnenkwam, wordt in een test vervangen door een gevonden FLAC, en de MP3 staat in de prullenbak.
+- [x] Een slechtere of nep-lossless kandidaat vervangt nooit een bestaand bestand.
+- [x] De drie standaardprofielen staan in de instellingen.
 
 ### Stap 5: uitleg waarom niet, en zelf kiezen
 

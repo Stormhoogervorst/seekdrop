@@ -55,6 +55,11 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   silence, and (numpy) fake lossless / fake 320 via `measure_cutoff` + `classify`; the result is put in
   `track["_meta"]` and stored as `tracks.cutoff_hz` / `tracks.quality` when the file is published.
   Rejects go to `quarantine/` + table `rejects` (also the per-track peer/file blocklist).
+- **Quality** (`quality.py`): ladder of tiers + profiles (club/balanced/space: accepted order + target).
+  Matching scores by ladder position; `FileChecker` measures the real tier and enforces the floor.
+  Done tracks below target (lossy only) get `next_upgrade`; the search loop runs `_upgrade_search` with a
+  free slot, downloads with `record=False` (track row untouched), and either replaces (`auto`, old file
+  to `trash/`) or parks the copy in `upgrades/` for Replace/Keep (`ask`, default).
 - **Storage**: `db.py` (SQLite: `channels`, `tracks`, `rejects`), `config.py` (settings.json, data dir, migration).
 - **UI**: `server.py` (aiohttp JSON API with a per-run key) + `ui/` (plain HTML/CSS/JS, no build),
   shown in a pywebview window by `__main__.py`; `updates.py` checks GitHub releases.

@@ -66,6 +66,7 @@ class Analysis:
     container: str = ""                 # e.g. "flac", "mp3", "mov,mp4,m4a,3gp,3g2,mj2"
     codec: str = ""
     bit_rate: Optional[int] = None      # bits/s as the file claims (used for MP3s)
+    bit_depth: Optional[int] = None     # bits per sample for lossless
     header_duration: Optional[float] = None
     decoded_duration: Optional[float] = None
     errors: list[str] = field(default_factory=list)
@@ -81,7 +82,7 @@ def analyse(path: str, tools: Tools, silence_seconds: float, timeout: float = 12
     """One ffprobe call (container, codec, header length) and one full decode with silencedetect."""
     a = Analysis()
     out = subprocess.run(
-        [tools.ffprobe, "-v", "error", "-show_entries", "format=format_name,duration,bit_rate:stream=codec_type,codec_name,bit_rate",
+        [tools.ffprobe, "-v", "error", "-show_entries", "format=format_name,duration,bit_rate:stream=codec_type,codec_name,bit_rate,bits_per_raw_sample,bits_per_sample",
          "-of", "json", path], capture_output=True, text=True, timeout=timeout)
     try:
         info = json.loads(out.stdout or "{}")
@@ -101,6 +102,14 @@ def analyse(path: str, tools: Tools, silence_seconds: float, timeout: float = 12
             break
         except (KeyError, TypeError, ValueError):
             pass
+    if audio:
+        for key in ("bits_per_raw_sample", "bits_per_sample"):
+            try:
+                if int(audio[0][key]) > 0:
+                    a.bit_depth = int(audio[0][key])
+                    break
+            except (KeyError, TypeError, ValueError):
+                pass
     if out.returncode != 0 and out.stderr.strip():
         a.errors.append(out.stderr.strip().splitlines()[-1])
 
@@ -264,6 +273,24 @@ def classify(ext: str, cutoff_hz: Optional[float], bit_rate: Optional[int]) -> t
     return "genuine", ""
 
 
+def measured_tier(a: Analysis, quality: str) -> Optional[str]:
+    """Tier (quality.py) from what the file really is, not what its name says."""
+    from .quality import tier_of
+    if a.codec == "flac":
+        t = tier_of("flac", None, a.bit_depth)
+    elif a.codec.startswith("pcm_") or a.codec == "alac":
+        t = "wav"
+    elif a.codec == "mp3":
+        t = tier_of("mp3", (a.bit_rate or 0) / 1000 or None)
+    elif a.codec:
+        t = "other"
+    else:
+        return None
+    if quality == "suspect":          # maybe a converted MP3: count it one rung lower
+        t = {"flac24": "mp3_320", "flac16": "mp3_320", "wav": "mp3_320", "mp3_320": "mp3_256"}.get(t, t)
+    return t
+
+
 class FileChecker:
     """Engine check (see Engine.checks): returns a reject reason or None. Skips when ffmpeg is missing."""
 
@@ -286,16 +313,23 @@ class FileChecker:
             return why
         # Fake lossless / fake 320 (step 3). The result is kept on the track (see Engine).
         ext = os.path.splitext(path)[1].lower().lstrip(".")
-        if ext not in LOSSLESS_EXT and ext != "mp3":
-            return None
-        try:
-            cutoff = measure_cutoff(path, self.tools, a.decoded_duration or a.header_duration)
-        except subprocess.TimeoutExpired:
-            cutoff = None
-        quality, reason = classify(ext, cutoff, a.bit_rate)
         meta = track.setdefault("_meta", {})
-        if cutoff is not None:
-            meta.update(cutoff_hz=round(cutoff), quality=quality)
-        if quality == "fake" or (quality == "suspect" and s.suspect_quality == "reject"):
-            return reason
+        quality = ""
+        if ext in LOSSLESS_EXT or ext == "mp3":
+            try:
+                cutoff = measure_cutoff(path, self.tools, a.decoded_duration or a.header_duration)
+            except subprocess.TimeoutExpired:
+                cutoff = None
+            quality, reason = classify(ext, cutoff, a.bit_rate)
+            if cutoff is not None:
+                meta.update(cutoff_hz=round(cutoff), quality=quality)
+            if quality == "fake" or (quality == "suspect" and s.suspect_quality == "reject"):
+                return reason
+        # Quality floor (step 4), on what the file really is.
+        from .quality import TIER_LABELS, position, profile
+        tier = measured_tier(a, quality)
+        if tier:
+            meta["tier"] = tier
+            if position(profile(getattr(s, "quality_profile", "club")), tier) is None:
+                return f"Below your quality minimum ({TIER_LABELS.get(tier, tier)})"
         return None

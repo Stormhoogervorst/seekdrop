@@ -2,6 +2,9 @@
 
 ## 0.4.0
 
+- Quality profiles (Club, Balanced, Space saver) replace the format and bitrate settings, with
+  automatic upgrades: a track that came in below your goal is replaced by a better copy when one
+  turns up (asks first by default). The old file goes to SeekDrop's trash for 30 days.
 - Fake lossless detection: MP3s converted to FLAC/WAV and fake 320 kbps MP3s are recognised by
   their spectrum. Fakes go to Quarantine; suspect files are kept with a label (or rejected, your choice).
   Every track shows where its audio stops.

@@ -15,6 +15,7 @@ from aiohttp import web
 from . import __version__
 from .db import Database
 from .engine import Engine
+from .quality import PROFILES, TIER_LABELS, UPGRADE_DAYS
 from .nicotine import install_plugin, new_token, nicotine_plugins_dir, plugin_installed
 from .soundcloud import ChannelError, is_playlist_url, normalize_channel_url
 
@@ -75,6 +76,8 @@ class Api:
         r.add_post("/api/check-now", self.check_now)
         r.add_post("/api/tracks/{id}/retry", self.retry_track)
         r.add_post("/api/tracks/{id}/skip", self.skip_track)
+        r.add_post("/api/tracks/{id}/upgrade/replace", self.replace_upgrade)
+        r.add_post("/api/tracks/{id}/upgrade/keep", self.keep_current)
         r.add_post("/api/rejects/{id}/approve", self.approve_reject)
         r.add_post("/api/rejects/{id}/delete", self.delete_reject)
         r.add_post("/api/open", self.open_path)
@@ -113,6 +116,10 @@ class Api:
             "tracks": tracks,
             "rejects": self.db.quarantined(),
             "checks": {"available": bool(e.file_checker and e.file_checker.tools.available)},
+            "profiles": {k: {"label": v["label"], "help": v["help"], "ladder": [TIER_LABELS[x] for x in v["order"]]}
+                         for k, v in PROFILES.items()},
+            "tier_labels": TIER_LABELS,
+            "upgrade_days": UPGRADE_DAYS,
             "stats": self.db.stats(),
             "activity": list(e.activity)[:30],
             "next_check_in": max(0, int(e.next_poll_at - now)) if e.next_poll_at else 0,
@@ -194,6 +201,17 @@ class Api:
 
     async def skip_track(self, request: web.Request):
         self.engine.skip(int(request.match_info["id"]))
+        return web.json_response({"ok": True})
+
+    async def replace_upgrade(self, request: web.Request):
+        # Re-measuring the file can take a moment: keep the server responsive.
+        path = await asyncio.to_thread(self.engine.replace_upgrade, int(request.match_info["id"]))
+        if not path:
+            return web.json_response({"error": "That copy is no longer there."}, status=404)
+        return web.json_response({"ok": True, "path": path})
+
+    async def keep_current(self, request: web.Request):
+        self.engine.keep_current(int(request.match_info["id"]))
         return web.json_response({"ok": True})
 
     async def approve_reject(self, request: web.Request):

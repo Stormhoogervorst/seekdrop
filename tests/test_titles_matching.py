@@ -62,7 +62,7 @@ def test_quality_and_duration_rules():
     flac = cand("Artist - Track.flac", bitrate=None)
     mp3 = cand("Artist - Track.mp3")
     assert rank(p, 300, [mp3, flac], PREFS)[0] is flac
-    assert rank(p, 300, [mp3, flac], MatchPrefs(preferred_format="mp3"))[0] is mp3
+    assert rank(p, 300, [mp3, flac], MatchPrefs(profile="space"))[0] is mp3
 
 
 def test_prefers_free_slots_and_artist_in_folder():

@@ -142,6 +142,8 @@ class SoulseekService:
                     ext=(item.extension or file_ext(item.filename)).lower(),
                     bitrate=attrs.get(AttributeKey.BITRATE),
                     duration=attrs.get(AttributeKey.DURATION),
+                    sample_rate=attrs.get(AttributeKey.SAMPLE_RATE),
+                    bit_depth=attrs.get(AttributeKey.BIT_DEPTH),
                     has_free_slots=r.has_free_slots,
                     queue_size=r.queue_size,
                     avg_speed=r.avg_speed,

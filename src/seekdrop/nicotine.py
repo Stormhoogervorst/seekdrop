@@ -222,6 +222,7 @@ class NicotineBridge:
             out.append(Candidate(
                 username=r["username"], filename=r["path"], size=int(r.get("size") or 0),
                 ext=(r.get("ext") or file_ext(r["path"])).lower(), bitrate=r.get("bitrate"),
+                sample_rate=r.get("sample_rate"), bit_depth=r.get("bit_depth"),
                 duration=r.get("duration"), has_free_slots=bool(r.get("free_slots")),
                 queue_size=int(r.get("queue") or 0), avg_speed=int(r.get("speed") or 0)))
         return out

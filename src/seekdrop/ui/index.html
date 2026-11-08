@@ -197,19 +197,22 @@
     </label>
 
     <h3>Quality</h3>
-    <label class="field"><span>Prefer</span>
-      <select name="preferred_format">
-        <option value="lossless">Lossless (FLAC, WAV, AIFF), MP3 if that's all there is</option>
-        <option value="mp3">MP3, lossless is fine too</option>
+    <label class="field"><span>Profile</span>
+      <select name="quality_profile" id="set-profile">
+        <option value="club">Club</option>
+        <option value="balanced">Balanced</option>
+        <option value="space">Space saver</option>
       </select>
     </label>
-    <label class="field"><span>Lowest MP3 bitrate</span>
-      <select name="min_bitrate">
-        <option value="320">320 kbps</option>
-        <option value="256">256 kbps</option>
-        <option value="192">192 kbps</option>
+    <p class="hint" id="set-profile-help"></p>
+    <label class="field"><span>When a better copy turns up later</span>
+      <select name="upgrade_mode">
+        <option value="ask">Ask me first (keeps your cue points safe)</option>
+        <option value="auto">Replace the file right away</option>
+        <option value="off">Don't look for better copies</option>
       </select>
     </label>
+    <p class="hint">Replacing an MP3 with a FLAC changes the file name, so Rekordbox or Serato lose the cue points of the old file. The old file goes to SeekDrop's trash for 30 days.</p>
 
     <h3>Schedule</h3>
     <div class="row2">

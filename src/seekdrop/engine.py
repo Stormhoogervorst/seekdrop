@@ -18,6 +18,8 @@ from .db import Database
 from .matching import Candidate, MatchPrefs, rank
 from .nicotine import migrate_legacy_plugin, update_plugin_if_outdated
 from .soundcloud import SoundCloudClient, TrackStub
+from .quality import (TIER_LABELS, UPGRADE_DAYS, UPGRADE_EVERY, is_better, profile, tier_of,
+                      wants_upgrade)
 from .titles import is_mix, parse_title, search_queries
 
 log = logging.getLogger(__name__)
@@ -29,6 +31,7 @@ MAX_CANDIDATES = 3            # peers to try per search round
 SEARCH_SPACING = 8.0          # seconds between Soulseek searches (be a good citizen)
 SEARCH_WAIT = 12.0            # seconds to collect results per search
 MAX_TRACK_SECONDS = 10 * 60   # longer uploads are mixes/sets, not tracks
+TRASH_DAYS = 30               # replaced files stay in the app's trash this long
 
 
 PART_SUFFIX = ".seekdrop-part"   # hidden temp name while a file is copied to another disk
@@ -58,6 +61,13 @@ def publish_file(src: str, dest: str) -> None:
             pass
         raise
     os.remove(src)
+
+
+def _remove(path: str) -> None:
+    try:
+        os.remove(path)
+    except OSError:
+        pass
 
 
 def _clear_dir(path: str) -> int:
@@ -92,6 +102,11 @@ class Engine:
         self.staging_dir = staging_dir or str(data_dir() / "staging")
         # Files that failed a check, kept so the user can look at them, approve or delete them.
         self.quarantine_dir = quarantine_dir or str(data_dir() / "quarantine")
+        # Step 4: a replaced file goes to the trash (kept TRASH_DAYS); a better copy waiting for the
+        # user's OK ("ask" mode) waits in upgrades/.
+        root = os.path.dirname(self.quarantine_dir)
+        self.trash_dir = os.path.join(root, "trash")
+        self.upgrades_dir = os.path.join(root, "upgrades")
         self.checks: list[Check] = []   # file checks (roadmap steps 2, 3, 10) run on the staged file
         self.file_checker = None        # the ffmpeg check (checks.FileChecker), shown in Settings
         self._clean_incoming = True     # once per start, after leftover transfers were dealt with
@@ -151,6 +166,15 @@ class Engine:
         """Leftovers of a crash or forced quit: anything in staging, and hidden half-copied files in
         the music folder. Incoming is cleaned later, once leftover transfers have been dealt with."""
         n = _clear_dir(self.staging_dir)
+        if os.path.isdir(self.trash_dir):
+            cutoff = time.time() - TRASH_DAYS * 86400
+            for name in os.listdir(self.trash_dir):
+                full = os.path.join(self.trash_dir, name)
+                try:
+                    if os.path.getmtime(full) < cutoff:
+                        shutil.rmtree(full) if os.path.isdir(full) else os.remove(full)
+                except OSError:
+                    pass
         root = self.settings.download_dir
         if root and os.path.isdir(root):
             dirs = [root] + [os.path.join(root, d) for d in os.listdir(root) if os.path.isdir(os.path.join(root, d))]
@@ -186,7 +210,7 @@ class Engine:
                     await self.slsk.cancel(t["peer"], t["remote_file"])   # clears the finished entry
                     if path:
                         self.db.update_track(t["id"], state=states.DONE, file_path=path, progress=1.0, last_error="",
-                                             **t.pop("_meta", {}))
+                                             **self._done_fields(t, c))
                         self.note(f"Downloaded {os.path.basename(path)}")
                 elif info:
                     await self.slsk.cancel(t["peer"], t["remote_file"])
@@ -392,6 +416,12 @@ class Engine:
                         if not self.slsk.connected:
                             break
                         await self._search_track(t)
+                    # Better copies (step 4): only with a free slot, one at a time.
+                    if self.settings.upgrade_mode != "off" and len(self.active) < self.settings.max_parallel_downloads:
+                        now = time.time()
+                        for t in self.db.due_upgrades(now, now - UPGRADE_DAYS * 86400, limit=1):
+                            if t["id"] not in self.active:
+                                await self._upgrade_search(t)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -403,7 +433,7 @@ class Engine:
                 pass
 
     def _prefs(self) -> MatchPrefs:
-        return MatchPrefs(preferred_format=self.settings.preferred_format, min_bitrate=self.settings.min_bitrate)
+        return MatchPrefs(profile=self.settings.quality_profile)
 
     async def _search_track(self, t: dict) -> None:
         tid = t["id"]
@@ -454,7 +484,7 @@ class Engine:
                         await self.slsk.forget(info["transfer"])
                     if path:
                         self.db.update_track(tid, state=states.DONE, file_path=path, progress=1.0, last_error="",
-                                             **t.pop("_meta", {}))
+                                             **self._done_fields(t, c))
                         self.note(f"Downloaded {os.path.basename(path)}")
                         self._schedule_share_rescan()
                         return
@@ -477,13 +507,16 @@ class Engine:
             self.active.pop(tid, None)
             self._wake_search.set()
 
-    async def _try_candidate(self, t: dict, c: Candidate) -> tuple[bool, dict]:
+    async def _try_candidate(self, t: dict, c: Candidate, record: bool = True) -> tuple[bool, dict]:
+        """Download one candidate. record=False (upgrades) leaves the track row alone: it describes
+        the file the user already has."""
         tid = t["id"]
         transfer = await self.slsk.download(c.username, c.filename)
         entry = self.active.get(tid)
         if entry is not None:
             entry["transfer"], entry["candidate"] = transfer, c
-        self.db.update_track(tid, peer=c.username, remote_file=c.filename, progress=0)
+        if record:
+            self.db.update_track(tid, peer=c.username, remote_file=c.filename, progress=0)
         started = last_change = time.time()
         last_bytes = -1
         info: dict = {}
@@ -500,7 +533,7 @@ class Engine:
                 now = time.time()
                 if info["bytes"] != last_bytes:
                     last_bytes, last_change = info["bytes"], now
-                    if info["size"]:
+                    if info["size"] and record:
                         self.db.update_track(tid, progress=round(info["bytes"] / info["size"], 3))
                 if st == "DOWNLOADING" and now - last_change > STALL_TIMEOUT:
                     info["fail_reason"] = "stalled"
@@ -518,10 +551,19 @@ class Engine:
                 # Removing an unfinished transfer also lets aioslsk drop the partial file.
                 await self.slsk.forget(transfer)
 
-    async def _stage_and_publish(self, t: dict, src: str, c: Candidate) -> tuple[Optional[str], str]:
-        """incoming -> staging -> checks -> music folder. Returns (published path, "") or
-        (None, reason) when a check rejected the file. A rejected file goes to quarantine and its
-        peer + file are blocked for this track; it never reaches the music folder."""
+    def _done_fields(self, t: dict, c: Candidate) -> dict:
+        """Columns for a freshly published file: measured quality/tier and when to look for better."""
+        meta = t.pop("_meta", {}) or {}
+        tier = meta.get("tier") or tier_of(c.ext or os.path.splitext(c.filename)[1], c.bitrate, c.bit_depth) or ""
+        meta["tier"] = tier
+        prof = profile(self.settings.quality_profile)
+        later = wants_upgrade(prof, tier) and self.settings.upgrade_mode != "off"
+        meta["next_upgrade"] = time.time() + UPGRADE_EVERY if later else 0
+        return meta
+
+    async def _stage_and_check(self, t: dict, src: str, c: Candidate) -> tuple[Optional[str], str]:
+        """incoming -> staging -> checks. Returns (staged path, "") or (None, reason); a rejected file
+        is in quarantine and its peer + file are blocked for this track."""
         staged = self._stage(t, src)
         for check in self.checks:
             try:
@@ -532,6 +574,15 @@ class Engine:
             if why:
                 self._quarantine(t, staged, c, why)
                 return None, why
+        return staged, ""
+
+    async def _stage_and_publish(self, t: dict, src: str, c: Candidate) -> tuple[Optional[str], str]:
+        """incoming -> staging -> checks -> music folder. Returns (published path, "") or
+        (None, reason) when a check rejected the file. A rejected file goes to quarantine and its
+        peer + file are blocked for this track; it never reaches the music folder."""
+        staged, why = await self._stage_and_check(t, src, c)
+        if not staged:
+            return None, why
         return self._finalize(t, staged, c), ""
 
     def _quarantine(self, t: dict, staged: str, c: Candidate, why: str) -> None:
@@ -585,6 +636,147 @@ class Engine:
             pass
         return dest
 
+    # ------------------------------------------------------------------ upgrades (step 4)
+    def _candidate_tier(self, c: Candidate) -> Optional[str]:
+        return tier_of(c.ext or os.path.splitext(c.filename)[1], c.bitrate, c.bit_depth)
+
+    async def _upgrade_search(self, t: dict) -> None:
+        """Look for a copy that is higher on the quality ladder than the file the user has."""
+        tid = t["id"]
+        prof = profile(self.settings.quality_profile)
+        self.db.update_track(tid, next_upgrade=time.time() + UPGRADE_EVERY)   # not again today
+        p = parse_title(t["raw_title"], uploader=t["uploader"], publisher_artist=t["publisher_artist"])
+        better: list[Candidate] = []
+        try:
+            for q in search_queries(p):
+                wait = SEARCH_SPACING - (time.time() - self._last_search)
+                if wait > 0:
+                    await asyncio.sleep(wait)
+                self._last_search = time.time()
+                results = await self.slsk.search(q, wait=SEARCH_WAIT)
+                blocked = self.db.blocked(tid)
+                better = [c for c in rank(p, t["duration"], results, self._prefs())
+                          if (c.username, c.filename) not in blocked
+                          and is_better(prof, self._candidate_tier(c), t["tier"])]
+                if better:
+                    break
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            log.info("upgrade search failed for %s: %s", p.display, e)
+            return
+        if not better or tid in self.active:
+            return
+        task = asyncio.create_task(self._upgrade_download(t, better[:MAX_CANDIDATES]))
+        self.active[tid] = {"task": task, "transfer": None, "candidate": None, "upgrade": True}
+
+    async def _upgrade_download(self, t: dict, candidates: list[Candidate]) -> None:
+        tid = t["id"]
+        prof = profile(self.settings.quality_profile)
+        try:
+            for c in candidates:
+                ok, info = await self._try_candidate(t, c, record=False)
+                if not ok:
+                    continue
+                try:
+                    staged, why = await self._stage_and_check(t, info["local_path"], c)
+                finally:
+                    await self.slsk.forget(info["transfer"])
+                if not staged:
+                    t.pop("_meta", None)
+                    continue
+                meta = t.pop("_meta", {}) or {}
+                new_tier = meta.get("tier") or self._candidate_tier(c)
+                if not is_better(prof, new_tier, t["tier"]):
+                    # Measured, it's no better than what the user has: drop it, never try it again.
+                    _remove(staged)
+                    self.db.add_reject(tid, c.username, c.filename,
+                                       f"Not better than your copy ({TIER_LABELS.get(new_tier, new_tier)})", "")
+                    self.db.update_reject(self.db.blocked_last_id(tid), status="deleted")
+                    continue
+                cur = self.db.track(tid)
+                if not cur or cur["state"] != states.DONE:
+                    _remove(staged)
+                    return
+                if self.settings.upgrade_mode == "auto":
+                    self._replace(cur, staged, c, meta, new_tier)
+                else:
+                    folder = os.path.join(self.upgrades_dir, str(tid))
+                    _clear_dir(folder)
+                    os.makedirs(folder, exist_ok=True)
+                    pending = os.path.join(folder, os.path.basename(staged))
+                    shutil.move(staged, pending)
+                    self.db.update_track(tid, upgrade_path=pending, upgrade_tier=new_tier, next_upgrade=0)
+                    self.note(f"Better copy found for {cur['title']} ({TIER_LABELS.get(new_tier, new_tier)})")
+                return
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.exception("upgrade failed")
+        finally:
+            self.active.pop(tid, None)
+            self._wake_search.set()
+
+    def _to_trash(self, path: str, tid: int) -> Optional[str]:
+        if not path or not os.path.exists(path):
+            return None
+        folder = os.path.join(self.trash_dir, f"{tid}-{int(time.time())}")
+        os.makedirs(folder, exist_ok=True)
+        dest = os.path.join(folder, os.path.basename(path))
+        shutil.move(path, dest)
+        os.utime(folder)          # the trash is emptied by age of this folder
+        return dest
+
+    def _replace(self, t: dict, new_file: str, c: Candidate, meta: dict, new_tier: str) -> str:
+        """Put a better copy in place of the current file; the old file goes to the app's trash."""
+        old = t["file_path"]
+        self._to_trash(old, t["id"])
+        path = self._finalize(t, new_file, c)
+        prof = profile(self.settings.quality_profile)
+        later = wants_upgrade(prof, new_tier) and self.settings.upgrade_mode != "off"
+        self.db.update_track(t["id"], file_path=path, tier=new_tier, peer=c.username, remote_file=c.filename,
+                             upgrade_path="", upgrade_tier="", cutoff_hz=meta.get("cutoff_hz"),
+                             quality=meta.get("quality", ""),
+                             next_upgrade=time.time() + UPGRADE_EVERY if later else 0)
+        self.note(f"Upgraded {os.path.basename(path)} ({TIER_LABELS.get(new_tier, new_tier)})")
+        return path
+
+    def replace_upgrade(self, tid: int) -> Optional[str]:
+        """User said yes to a waiting better copy ("ask" mode)."""
+        t = self.db.track(tid)
+        if not t or not t["upgrade_path"]:
+            return None
+        pending = t["upgrade_path"]
+        if not os.path.exists(pending):
+            self.db.update_track(tid, upgrade_path="", upgrade_tier="")
+            return None
+        probe = dict(t)
+        for check in self.checks:         # measure it again for the cutoff/quality columns
+            try:
+                check(probe, pending)
+            except Exception:
+                log.debug("re-measure failed", exc_info=True)
+        meta = probe.get("_meta", {}) or {}
+        path = self._replace(t, pending, Candidate(t["peer"], os.path.basename(pending)), meta, t["upgrade_tier"])
+        try:
+            os.rmdir(os.path.dirname(pending))
+        except OSError:
+            pass
+        return path
+
+    def keep_current(self, tid: int) -> None:
+        """User keeps the file they have: drop the waiting copy and stop looking for this track."""
+        t = self.db.track(tid)
+        if not t:
+            return
+        if t["upgrade_path"]:
+            _remove(t["upgrade_path"])
+            try:
+                os.rmdir(os.path.dirname(t["upgrade_path"]))
+            except OSError:
+                pass
+        self.db.update_track(tid, upgrade_path="", upgrade_tier="", next_upgrade=0)
+
     def _schedule_retry(self, t: Optional[dict], reason: str) -> None:
         if not t:
             return
@@ -629,9 +821,12 @@ class Engine:
         t = self.db.track(r["track_id"])
         if not t:
             return None
+        if t["state"] == states.DONE:     # it was a candidate for a better copy: replace, keep the old in trash
+            self._to_trash(t["file_path"], t["id"])
         path = self._finalize(t, r["path"], Candidate(r["peer"], r["remote_file"]))
         self.db.update_track(t["id"], state=states.DONE, file_path=path, progress=1.0, last_error="",
-                             peer=r["peer"], remote_file=r["remote_file"])
+                             peer=r["peer"], remote_file=r["remote_file"],
+                             tier=tier_of(os.path.splitext(path)[1]) or "", next_upgrade=0)
         self.db.update_reject(rid, status="approved", path="")
         entry = self.active.get(t["id"])
         if entry:

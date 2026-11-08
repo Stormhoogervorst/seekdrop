@@ -479,3 +479,134 @@ def test_measured_quality_is_stored_on_the_track(setup):
     asyncio.run(eng._download(db.track(t["id"]), [Candidate("peer", "@@a\\Fresh Artist - Brand New.flac")]))
     t = db.track(t["id"])
     assert t["state"] == "done" and t["cutoff_hz"] == 20300 and t["quality"] == "suspect"
+
+
+# --- Roadmap step 4: quality profiles and upgrades -------------------------------------------
+
+def _done_mp3(eng, db, sc, tmp):
+    t = _fresh_track(eng, db, sc)
+    label = tmp / "out" / "Label"
+    label.mkdir(parents=True, exist_ok=True)
+    mp3 = label / "Fresh Artist - Brand New.mp3"
+    mp3.write_bytes(b"old mp3")
+    db.update_track(t["id"], state="done", file_path=str(mp3), tier="mp3_320", next_upgrade=time.time() - 1,
+                    peer="first", remote_file="@@x\\Fresh Artist - Brand New.mp3")
+    return db.track(t["id"]), mp3
+
+
+def _results(*cands):
+    async def search(query, wait=0):
+        return list(cands)
+    return search
+
+
+FLAC = Candidate("goodpeer", "@@a\\Fresh Artist\\Fresh Artist - Brand New.flac", size=30_000_000,
+                 duration=301, has_free_slots=True)
+
+
+def _measured(tier):
+    def check(track, path):
+        track.setdefault("_meta", {}).update(tier=tier, cutoff_hz=22050, quality="genuine")
+        return None
+    return check
+
+
+def _run_upgrade(eng, db, tid):
+    async def go():
+        await eng._upgrade_search(db.track(tid))
+        if tid in eng.active:
+            await eng.active[tid]["task"]
+    asyncio.run(go())
+
+
+def test_mp3_320_is_replaced_by_flac_and_old_file_goes_to_trash(setup):
+    eng, db, sc, slsk, tmp = setup
+    eng.store.update({"upgrade_mode": "auto"})
+    t, mp3 = _done_mp3(eng, db, sc, tmp)
+    assert [r["id"] for r in db.due_upgrades(time.time(), time.time() - 30 * 86400)] == [t["id"]]
+    slsk.search = _results(FLAC)
+    eng.checks.append(_measured("flac16"))
+    _run_upgrade(eng, db, t["id"])
+
+    t = db.track(t["id"])
+    assert t["file_path"].endswith("Fresh Artist - Brand New.flac") and os.path.exists(t["file_path"])
+    assert t["tier"] == "flac16" and t["next_upgrade"] == 0 and t["state"] == "done"
+    assert not mp3.exists()
+    trashed = [f for f in _files(eng.trash_dir)]
+    assert len(trashed) == 1 and trashed[0].endswith("Fresh Artist - Brand New.mp3")
+
+
+def test_worse_or_fake_never_replaces(setup):
+    eng, db, sc, slsk, tmp = setup
+    eng.store.update({"upgrade_mode": "auto"})
+    t, mp3 = _done_mp3(eng, db, sc, tmp)
+
+    # Only an MP3 256 around: not better, nothing is even downloaded.
+    worse = Candidate("w", "@@w\\Fresh Artist - Brand New.mp3", size=9_000_000, bitrate=256, duration=301)
+    slsk.search = _results(worse)
+    _run_upgrade(eng, db, t["id"])
+    assert db.track(t["id"])["file_path"] == str(mp3) and mp3.read_bytes() == b"old mp3"
+
+    # A "FLAC" that the spectrum check calls fake: quarantined, file untouched.
+    db.update_track(t["id"], next_upgrade=time.time() - 1)
+    slsk.search = _results(FLAC)
+    eng.checks.append(lambda track, path: "Fake lossless: audio stops at 16.4 kHz (MP3 at about 128 kbps)")
+    _run_upgrade(eng, db, t["id"])
+    assert db.track(t["id"])["file_path"] == str(mp3) and mp3.exists()
+    assert ("goodpeer", FLAC.filename) in db.blocked(t["id"])
+
+    # A "FLAC" that measures as MP3 320 (suspect): no better than what we have.
+    eng.checks.clear()
+    eng.checks.append(_measured("mp3_320"))
+    other = Candidate("peer3", "@@c\\Fresh Artist\\Fresh Artist - Brand New.flac", size=30_000_000, duration=301)
+    db.update_track(t["id"], next_upgrade=time.time() - 1)
+    slsk.search = _results(other)
+    _run_upgrade(eng, db, t["id"])
+    t2 = db.track(t["id"])
+    assert t2["file_path"] == str(mp3) and t2["tier"] == "mp3_320" and mp3.exists()
+    assert ("peer3", other.filename) in db.blocked(t["id"])
+    assert _files(eng.trash_dir) == []
+
+
+def test_ask_first_then_replace_or_keep(setup):
+    eng, db, sc, slsk, tmp = setup
+    assert eng.settings.upgrade_mode == "ask"          # the default
+    t, mp3 = _done_mp3(eng, db, sc, tmp)
+    slsk.search = _results(FLAC)
+    eng.checks.append(_measured("flac16"))
+    _run_upgrade(eng, db, t["id"])
+    t = db.track(t["id"])
+    assert t["upgrade_path"] and os.path.exists(t["upgrade_path"]) and t["upgrade_tier"] == "flac16"
+    assert t["file_path"] == str(mp3) and mp3.exists()              # nothing replaced yet
+
+    path = eng.replace_upgrade(t["id"])
+    assert path.endswith(".flac") and os.path.exists(path) and not mp3.exists()
+    assert db.track(t["id"])["upgrade_path"] == "" and db.track(t["id"])["tier"] == "flac16"
+
+    # Keep: the waiting copy goes, the user's file stays, no more searching.
+    db.update_track(t["id"], tier="mp3_320", next_upgrade=time.time() - 1)
+    slsk.search = _results(Candidate("peer4", "@@d\\Fresh Artist\\Fresh Artist - Brand New.flac", size=30_000_000, duration=301))
+    _run_upgrade(eng, db, t["id"])
+    pending = db.track(t["id"])["upgrade_path"]
+    assert pending and os.path.exists(pending)
+    eng.keep_current(t["id"])
+    t3 = db.track(t["id"])
+    assert t3["upgrade_path"] == "" and t3["next_upgrade"] == 0 and not os.path.exists(pending)
+    assert os.path.exists(t3["file_path"])
+
+
+def test_upgrades_stop_after_30_days(setup):
+    eng, db, sc, slsk, tmp = setup
+    t, _ = _done_mp3(eng, db, sc, tmp)
+    db.update_track(t["id"], created_at=time.time() - 31 * 86400)
+    assert db.due_upgrades(time.time(), time.time() - 30 * 86400) == []
+
+
+def test_new_download_gets_tier_and_upgrade_date(setup):
+    eng, db, sc, slsk, tmp = setup
+    t = _fresh_track(eng, db, sc)
+    eng.checks.append(_measured("mp3_320"))
+    db.update_track(t["id"], state="downloading")
+    asyncio.run(eng._download(db.track(t["id"]), [Candidate("peer", "@@a\\Fresh Artist - Brand New.mp3", bitrate=320)]))
+    t = db.track(t["id"])
+    assert t["state"] == "done" and t["tier"] == "mp3_320" and t["next_upgrade"] > time.time()

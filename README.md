@@ -17,7 +17,10 @@ For DJs and producers who don't want to check twenty label pages every day.
 - Results are scored on title, artist, remix name, length, format, bitrate and how fast the peer
   can send it. Remixes are never accepted when you want the original, and the other way round.
   DJ-pool edits (`(Clean)`, `(Intro)`, `TMU …`) and spam peers that advertise a website are skipped.
-- Lossless (FLAC/WAV/AIFF) or 320 kbps MP3, your choice.
+- Quality profiles: **Club** (lossless, MP3 320 at least), **Balanced** (MP3 320 or better) or
+  **Space saver**. If a track first comes in below your goal (say MP3 320 while you want lossless),
+  the app keeps looking for a better copy for 30 days and asks before it replaces your file (cue
+  points in Rekordbox or Serato are tied to the file name). Replaced files go to SeekDrop's trash.
 - Not on Soulseek yet? It tries again after 1 h, 3 h, 6 h, 12 h, then daily, for up to 30 days.
 - Files land in `Music/SeekDrop/<channel or playlist>/Artist - Title (Version).flac`.
 

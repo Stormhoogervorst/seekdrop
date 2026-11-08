@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional
 
+from .quality import DEFAULT_PROFILE, candidate_position, profile
 from .titles import DIFFERENT_VERSION_WORDS, ParsedTitle, tokens, version_is_different
 
 LOSSLESS = {"flac", "wav", "aiff", "aif", "alac"}
@@ -19,6 +20,8 @@ class Candidate:
     ext: str = ""
     bitrate: Optional[int] = None  # kbps
     duration: Optional[int] = None  # seconds
+    sample_rate: Optional[int] = None  # Hz, when the peer sends it
+    bit_depth: Optional[int] = None    # bits, when the peer sends it
     has_free_slots: bool = False
     queue_size: int = 0
     avg_speed: int = 0            # bytes/s
@@ -37,8 +40,7 @@ class Candidate:
 
 @dataclass
 class MatchPrefs:
-    preferred_format: str = "lossless"   # "lossless" or "mp3"
-    min_bitrate: int = 320
+    profile: str = DEFAULT_PROFILE       # quality profile (quality.PROFILES)
     duration_tolerance: int = 8          # seconds that still count as "same length"
 
 
@@ -159,21 +161,15 @@ def score_candidate(target: ParsedTitle, target_duration: Optional[float], c: Ca
         else:
             return None
 
-    # 5. Format & quality.
-    if ext in LOSSLESS:
-        score += 30 if prefs.preferred_format == "lossless" else 15
-    elif ext == "mp3":
-        if c.bitrate and c.bitrate < prefs.min_bitrate:
-            return None
-        if c.bitrate:
-            score += 30 if prefs.preferred_format == "mp3" else 20
-        else:
-            score += 12
-            reasons.append("bitrate unknown")
-    else:  # m4a / aac
-        if prefs.min_bitrate >= 320:
-            return None
-        score += 5
+    # 5. Format & quality: the profile's ladder. Under the floor = not a match.
+    prof = profile(prefs.profile)
+    pos = candidate_position(prof, ext, c.bitrate, c.bit_depth)
+    if pos is None:
+        return None
+    score += (len(prof["order"]) - pos) * 10
+    if ext == "mp3" and not c.bitrate:
+        score -= 8
+        reasons.append("bitrate unknown")
 
     # 6. Will the peer actually send it soon?
     if c.has_free_slots:
