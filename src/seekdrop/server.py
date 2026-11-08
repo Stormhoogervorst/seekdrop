@@ -80,6 +80,7 @@ class Api:
         r.add_post("/api/tracks/{id}/pick", self.pick)
         r.add_post("/api/tracks/{id}/query", self.set_query)
         r.add_post("/api/tracks/{id}/stop", self.stop_looking)
+        r.add_post("/api/tracks/{id}/fix", self.set_fix)
         r.add_post("/api/tracks/{id}/upgrade/replace", self.replace_upgrade)
         r.add_post("/api/tracks/{id}/upgrade/keep", self.keep_current)
         r.add_post("/api/rejects/{id}/approve", self.approve_reject)
@@ -228,6 +229,12 @@ class Api:
     async def set_query(self, request: web.Request):
         data = await self.body(request)
         self.engine.set_query(int(request.match_info["id"]), str(data.get("query") or ""))
+        return web.json_response({"ok": True})
+
+    async def set_fix(self, request: web.Request):
+        data = await self.body(request)
+        self.engine.set_fix(int(request.match_info["id"]), str(data.get("artist") or ""),
+                            str(data.get("title") or ""), str(data.get("version") or ""))
         return web.json_response({"ok": True})
 
     async def stop_looking(self, request: web.Request):

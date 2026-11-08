@@ -104,3 +104,17 @@ def test_old_database_gets_search_history(tmp_path):
     tables = {r[0] for r in db.conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     cols = {r[1] for r in db.conn.execute("PRAGMA table_info(tracks)")}
     assert "searches" in tables and "custom_query" in cols
+
+
+def test_old_database_gets_correction_columns(tmp_path):
+    import sqlite3
+    from seekdrop.db import Database
+    path = tmp_path / "old.db"
+    Database(path).conn.close()
+    con = sqlite3.connect(path)
+    for col in ("fix_artist", "fix_title", "fix_version"):
+        con.execute(f"ALTER TABLE tracks DROP COLUMN {col}")
+    con.commit()
+    con.close()
+    db = Database(path)
+    assert {"fix_artist", "fix_title", "fix_version"} <= {r[1] for r in db.conn.execute("PRAGMA table_info(tracks)")}

@@ -39,7 +39,10 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   every track of a playlist; `track()` gives title, uploader, duration, artwork. Never downloads audio.
 - **Titles** (`titles.py`): `parse_title()` → artist / title / version (drops promo text, label and
   catalog suffixes, quotes), `is_mix()`, `search_queries()`.
-- **Matching** (`matching.py`): `score_candidate()` hard-rejects (wrong title/artist/remixer, length,
+- **Matching** (`matching.py`, all comparison rules; real-title tests in `tests/test_matching_real.py`):
+  `version_of()` / `version_conflict()` (kind + remixer), `parse_aliases()` for `settings.artist_aliases`.
+  `titles.normalize` uses anyascii (other scripts -> Latin). Engine `_parsed(t)` applies `fix_*` columns.
+ `score_candidate()` hard-rejects (wrong title/artist/remixer, length,
   bitrate, spam peers, DJ-pool edits) and scores the rest (format, length, free slot, speed); `rank()`.
 - **Soulseek**, two interchangeable services: `soulseek.py` (own login via aioslsk) and `nicotine.py`
   (HTTP to the `seekdrop_bridge` plugin running inside Nicotine+, 127.0.0.1 + key). Chosen by

@@ -9,13 +9,14 @@ import re
 import shutil
 import time
 from collections import deque
+from dataclasses import replace
 from typing import Callable, Optional
 
 from . import db as states
 from .config import SettingsStore
 from .config import data_dir
 from .db import Database
-from .matching import Candidate, MatchPrefs, closest, rank, summary
+from .matching import Candidate, MatchPrefs, aliases_of, closest, parse_aliases, rank, summary
 from .nicotine import migrate_legacy_plugin, update_plugin_if_outdated
 from .soundcloud import SoundCloudClient, TrackStub
 from .quality import (TIER_LABELS, UPGRADE_DAYS, UPGRADE_EVERY, is_better, profile, tier_of,
@@ -433,11 +434,11 @@ class Engine:
                 pass
 
     def _prefs(self) -> MatchPrefs:
-        return MatchPrefs(profile=self.settings.quality_profile)
+        return MatchPrefs(profile=self.settings.quality_profile, aliases=parse_aliases(self.settings.artist_aliases))
 
     async def _search_track(self, t: dict) -> None:
         tid = t["id"]
-        p = parse_title(t["raw_title"], uploader=t["uploader"], publisher_artist=t["publisher_artist"])
+        p = self._parsed(t)
         self.db.update_track(tid, state=states.SEARCHING, attempts=t["attempts"] + 1)
         ranked: list[Candidate] = []
         tried: list[dict] = []                 # {"query", "results"} for "Why not?"
@@ -482,10 +483,42 @@ class Engine:
         self.active[tid] = {"task": task, "transfer": None, "candidate": None}
 
     @staticmethod
-    def _queries(t: dict, p) -> list[str]:
-        """The user's own search term first (step 5), then the automatic ones."""
+    def _parsed(t: dict):
+        """What we look for: the automatic parse of the SoundCloud title, with the user's own
+        corrections (step 6) taking precedence field by field."""
+        p = parse_title(t["raw_title"], uploader=t["uploader"], publisher_artist=t["publisher_artist"])
+        fa, ft, fv = (t.get("fix_artist") or "").strip(), (t.get("fix_title") or "").strip(), (t.get("fix_version") or "").strip()
+        if fa:
+            fixed = parse_title(f"{fa} - x")           # splits "A x B" into main + extra artists
+            p = replace(p, artist=fixed.artist or fa, extra_artists=fixed.extra_artists, artist_from_uploader=False)
+        if ft:
+            p = replace(p, title=ft)
+        if fv:
+            p = replace(p, version="" if fv.lower() in ("original", "original mix") else fv)
+        return p
+
+    def set_fix(self, tid: int, artist: str, title: str, version: str) -> None:
+        """Save the user's correction of artist / title / version and search again with it."""
+        clean = lambda v: " ".join((v or "").split())[:200]
+        self.db.update_track(tid, fix_artist=clean(artist), fix_title=clean(title), fix_version=clean(version))
+        t = self.db.track(tid)
+        if not t:
+            return
+        p = self._parsed(t)
+        self.db.update_track(tid, artist=p.artist, title=p.title, version=p.version)   # what the list shows
+        if t["state"] in (states.WAITING, states.GAVE_UP, states.SKIPPED, states.WANTED):
+            self.retry_now(tid)
+
+    def _queries(self, t: dict, p) -> list[str]:
+        """The user's own search term first (step 5), then the automatic ones, then the same under
+        each alias of the artist (step 6)."""
+        auto = search_queries(p)
+        alias_q = []
+        main = p.artist.split(",")[0]
+        for alias in aliases_of(main, parse_aliases(self.settings.artist_aliases)):
+            alias_q += search_queries(replace(p, artist=alias, extra_artists=[]))[:1]
         out = []
-        for q in ([t.get("custom_query") or ""] + search_queries(p)):
+        for q in ([t.get("custom_query") or ""] + auto[:1] + alias_q + auto[1:]):
             q = q.strip()
             if q and q not in out:
                 out.append(q)
@@ -703,7 +736,7 @@ class Engine:
         tid = t["id"]
         prof = profile(self.settings.quality_profile)
         self.db.update_track(tid, next_upgrade=time.time() + UPGRADE_EVERY)   # not again today
-        p = parse_title(t["raw_title"], uploader=t["uploader"], publisher_artist=t["publisher_artist"])
+        p = self._parsed(t)
         better: list[Candidate] = []
         try:
             for q in search_queries(p):

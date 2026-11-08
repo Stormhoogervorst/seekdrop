@@ -2,6 +2,9 @@
 
 ## 0.4.0
 
+- Smarter matching: versions are compared properly (a VIP is not a Vocal mix, a radio edit or dub
+  is never taken for the original), titles in other scripts are found, artist aliases (Settings),
+  and you can correct a track's artist, title or version yourself.
 - "Why not?": every track that didn't come in says why, and shows the closest files with the
   reason each was turned down. Download one of them anyway (still checked), search with your own
   term (kept for later attempts), or stop looking.

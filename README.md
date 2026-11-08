@@ -14,6 +14,8 @@ For DJs and producers who don't want to check twenty label pages every day.
   (`- Drumcode - DC360`) are dropped.
 - DJ mixes, radio shows, podcasts and anything over 10 minutes are skipped (you can still get
   one on purpose).
+- Versions are told apart: Original and Extended go together, but a radio edit, dub, VIP or someone
+  else's remix is never taken for the one you want. Producers with several names can be given aliases.
 - Results are scored on title, artist, remix name, length, format, bitrate and how fast the peer
   can send it. Remixes are never accepted when you want the original, and the other way round.
   DJ-pool edits (`(Clean)`, `(Intro)`, `TMU …`) and spam peers that advertise a website are skipped.

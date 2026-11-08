@@ -350,6 +350,10 @@ h3 { font-size: 16px; line-height: 22px; font-weight: 600; letter-spacing: -0.01
 .why-query input.plain { flex: 1; min-width: 0; height: 40px; padding: 0 14px; border: 1px solid transparent; border-radius: var(--radius-pill); background: var(--surface-muted); color: var(--text-primary); }
 .why-query input.plain:focus { outline: none; border-color: var(--border-strong); }
 .why-foot { margin-top: 24px; }
+.why-fix .field { margin-bottom: 8px; }
+.why-fix input.plain { height: 40px; padding: 0 14px; border: 1px solid transparent; border-radius: var(--radius-inner); background: var(--surface-muted); color: var(--text-primary); }
+.why-fix input.plain:focus { outline: none; border-color: var(--border-strong); }
+.why-fix .btn { margin-top: 4px; }
 
 .toast {
   position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);

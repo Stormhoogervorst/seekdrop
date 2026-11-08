@@ -111,6 +111,7 @@ class Settings:
     organize_by_channel: bool = True
     quality_profile: str = "club"           # club | balanced | space (quality.PROFILES)
     upgrade_mode: str = "ask"               # better copy found later: "ask" | "auto" | "off"
+    artist_aliases: str = ""                # one line per artist: "Name = Alias 1, Alias 2" (step 6)
     check_interval_minutes: int = 60
     max_parallel_downloads: int = 3
     give_up_days: int = 30
@@ -184,6 +185,8 @@ class SettingsStore:
                 value = bool(value)
             if key == "share_dirs":
                 value = [str(v).strip() for v in (value or []) if str(v).strip()]
+            if key == "artist_aliases":
+                value = "\n".join(line.strip() for line in str(value or "").splitlines() if line.strip())[:5000]
             if key in ("soulseek_username", "download_dir"):
                 value = str(value).strip()
             if key == "quality_profile" and value not in ("club", "balanced", "space"):

@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from .quality import TIER_LABELS, DEFAULT_PROFILE, candidate_position, profile, tier_of
-from .titles import DIFFERENT_VERSION_WORDS, ParsedTitle, tokens, version_is_different
+from .titles import ParsedTitle, tokens
 
 LOSSLESS = {"flac", "wav", "aiff", "aif", "alac"}
 ALLOWED_EXT = LOSSLESS | {"mp3", "m4a"}
@@ -43,7 +43,29 @@ class Candidate:
 @dataclass
 class MatchPrefs:
     profile: str = DEFAULT_PROFILE       # quality profile (quality.PROFILES)
+    aliases: dict = field(default_factory=dict)   # see parse_aliases()
     duration_tolerance: int = 8          # seconds that still count as "same length"
+
+
+def parse_aliases(text: str) -> dict[str, list[str]]:
+    """ "Four Tet = Kieran Hebden, KH" -> every name maps to the other names of the same artist.
+    Keys are normalised; values keep the user's spelling (they are also used as search words)."""
+    out: dict[str, list[str]] = {}
+    for line in (text or "").splitlines():
+        if "=" not in line:
+            continue
+        main, rest = line.split("=", 1)
+        names = [n.strip() for n in [main] + rest.split(",") if n.strip()]
+        for n in names:
+            key = " ".join(tokens(n))
+            if key:
+                out.setdefault(key, [])
+                out[key] += [m for m in names if m != n and m not in out[key]]
+    return out
+
+
+def aliases_of(name: str, aliases: dict) -> list[str]:
+    return aliases.get(" ".join(tokens(name)), [])
 
 
 # Spam peers advertise a website in their username or file names and answer every search
@@ -79,6 +101,81 @@ def is_spam(c: "Candidate") -> bool:
 def file_ext(filename: str) -> str:
     m = re.search(r"\.([A-Za-z0-9]{2,5})$", filename)
     return m.group(1).lower() if m else ""
+
+
+# --- Versions (roadmap step 6) -----------------------------------------------------------------
+# A version is a kind plus, for remixes and the like, whose it is: "Jesper Dahlbäck Rework" is
+# (remix, {jesper, dahlback}). Remix, rework, refix and flip are one kind; VIP, Dub, Bootleg, Edit,
+# Radio Edit, Instrumental and Acapella each are their own. Extended goes with Original.
+REMIX_WORDS = {"remix", "rmx", "rework", "refix", "flip", "reinterpretation", "remake"}
+SPECIAL_KINDS = ("vip", "dub", "bootleg", "edit", "radio", "instrumental", "acapella")
+_MODIFIERS = {"extended", "original", "mix", "version", "club", "full", "length", "the", "and", "s", "feat", "ft"}
+_KIND_LABEL = {"remix": "remix", "vip": "VIP", "dub": "dub", "bootleg": "bootleg", "edit": "edit",
+               "radio": "radio edit", "instrumental": "instrumental", "acapella": "acapella"}
+
+
+@dataclass(frozen=True)
+class Version:
+    kind: str                  # original | extended | remix | vip | dub | bootleg | edit | radio | instrumental | acapella
+    names: frozenset = frozenset()   # remixer / editor words
+
+
+def version_of(text: str) -> Version:
+    """Kind and remixer of a version string like "Larse VIP" or "Bumpa's Xtra Smoov Mix"."""
+    words = set(tokens(text))
+    names = frozenset(w for w in words if w not in REMIX_WORDS and w not in SPECIAL_KINDS and w not in _MODIFIERS)
+    for kind in ("vip", "dub", "bootleg", "instrumental", "acapella"):
+        if kind in words or (kind == "acapella" and "acappella" in words):
+            return Version(kind, names)
+    if words & REMIX_WORDS or ("mix" in words and names):
+        return Version("remix", names)       # "X Mix" with a name is someone's remix
+    if "radio" in words:
+        return Version("radio", names)
+    if "edit" in words:
+        return Version("edit", names)
+    if "extended" in words:
+        return Version("extended", names)
+    return Version("original", names)
+
+
+def file_kinds(name_tokens: set[str], title_tokens: set[str]) -> set[str]:
+    """Version kinds a file name shows (words that are part of the title don't count)."""
+    w = name_tokens - title_tokens
+    kinds = {k for k in SPECIAL_KINDS if k in w}
+    if "acappella" in w:
+        kinds.add("acapella")
+    if w & REMIX_WORDS:
+        kinds.add("remix")
+    if "radio" in kinds:
+        kinds.discard("edit")            # "Radio Edit" is one thing
+    return kinds
+
+
+def version_conflict(target: ParsedTitle, name_tokens: set[str], title_tokens: set[str]) -> Optional[str]:
+    """Why this file is a different version than the one we want, or None."""
+    want = version_of(target.version)
+    have = file_kinds(name_tokens, title_tokens)
+    if want.kind in ("original", "extended"):
+        if have:
+            k = sorted(have, key=lambda k: (k != "remix", k))[0]
+            word = next((w for w in sorted(name_tokens - title_tokens) if w in REMIX_WORDS), k) if k == "remix" else _KIND_LABEL[k]
+            article = "an" if word[0] in "aeiou" else "a"
+            return f"This is {article} {word}, you want the original"
+        return None
+    if want.kind == "remix":
+        named_mix = "mix" in name_tokens and want.names <= name_tokens
+        if "remix" not in have and not named_mix:
+            return f"Not the {target.version}"
+        extra = have - {"remix"}
+    else:
+        if want.kind not in have:
+            return f"Not the {target.version}"
+        extra = have - {want.kind}
+    if want.names and not want.names <= name_tokens:
+        return f"Not the {target.version}"
+    if extra:
+        return f"Not the {target.version} (this is a {'/'.join(_KIND_LABEL[k] for k in sorted(extra))})"
+    return None
 
 
 # Rejection stages: the later a file is turned down, the closer it was to a match.
@@ -129,6 +226,14 @@ def score_candidate(target: ParsedTitle, target_duration: Optional[float], c: Ca
     artist_t = tokens(target.artist, drop_stop=True)
     if artist_t:
         frac = sum(t in path_t for t in artist_t) / len(artist_t)
+        if frac < 1 and prefs.aliases:
+            # The same producer under another name counts as the artist (user-set aliases).
+            names = [target.artist] + list(target.extra_artists)
+            for n in names:
+                for alias in aliases_of(n, prefs.aliases):
+                    at = tokens(alias, drop_stop=True)
+                    if at and all(t in path_t for t in at):
+                        frac = 1.0
         if frac == 0 and not target.artist_from_uploader:
             # A different artist with the same title is a different track.
             extra_t = [t for a in target.extra_artists for t in tokens(a, drop_stop=True)]
@@ -145,23 +250,15 @@ def score_candidate(target: ParsedTitle, target_duration: Optional[float], c: Ca
     if bad_pool:
         return _reject(c, STAGE_VERSION, f"DJ-pool edit ({', '.join(sorted(bad_pool))})")
 
-    file_versions = {t for t in name_t if t in DIFFERENT_VERSION_WORDS} - set(title_t)
-    if target.version and version_is_different(target.version):
-        remixer = target.remixer_tokens
-        if remixer and not all(t in name_t for t in remixer):
-            return _reject(c, STAGE_VERSION, f"Not the {target.version}")
+    conflict = version_conflict(target, name_t, set(tokens(target.title)))
+    if conflict:
+        return _reject(c, STAGE_VERSION, conflict)
+    want_kind = version_of(target.version).kind
+    if want_kind not in ("original", "extended"):
         score += 10
-    elif file_versions:
-        # We want the original, this file is a remix/bootleg/etc.
-        return _reject(c, STAGE_VERSION, f"This is a {'/'.join(sorted(file_versions))}, you want the original")
     target_v = set(tokens(target.version))
     if "extended" in name_t:
-        score += 6 if "extended" in target_v else 3
-    if "radio" in name_t and "radio" not in target_v:
-        score -= 12
-        reasons.append("radio edit")
-    if "edit" in name_t and "edit" not in target_v and "radio" not in name_t:
-        score -= 6
+        score += 6 if "extended" in target_v or want_kind == "original" else 3
 
     # 4. Duration.
     if target_duration and c.duration:

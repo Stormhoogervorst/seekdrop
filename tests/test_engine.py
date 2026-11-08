@@ -694,3 +694,53 @@ def test_stop_looking(setup):
     eng.stop_looking(t["id"])
     t = db.track(t["id"])
     assert t["state"] == "skipped" and t["last_error"] == "Stopped by you"
+
+
+# --- Roadmap step 6: aliases and manual corrections, end to end --------------------------------
+
+def test_alias_is_searched_and_matched(setup):
+    eng, db, sc, slsk, tmp = setup
+    eng.store.update({"artist_aliases": "Kieran Hebden = Four Tet"})
+    sc.tracks = [TrackStub("50", "https://soundcloud.com/lbl/ms", "Kieran Hebden - Morning Side")]
+    cid = db.add_channel("https://soundcloud.com/lbl", "Label", False, backlog=1)
+    asyncio.run(eng.check_channel(cid))
+    t = db.tracks()[0]
+    found = Candidate("p", "@@m\\Four Tet\\Four Tet - Morning Side.flac", size=30_000_000, duration=300, has_free_slots=True)
+    queries = []
+
+    async def search(q, wait=0):
+        queries.append(q)
+        return [found] if q.startswith("four tet") else []
+    slsk.search = search
+
+    async def go():
+        await eng._search_track(db.track(t["id"]))
+        await eng.active[t["id"]]["task"]
+    asyncio.run(go())
+    assert queries[:2] == ["kieran hebden morning side", "four tet morning side"]
+    t = db.track(t["id"])
+    assert t["state"] == "done" and t["peer"] == "p"
+
+
+def test_manual_correction_wins(setup):
+    eng, db, sc, slsk, tmp = setup
+    # Uploaded by a label without the artist in the title: read as the uploader's track.
+    sc.tracks = [TrackStub("60", "https://soundcloud.com/lbl/idg", "In Da Game")]
+    cid = db.add_channel("https://soundcloud.com/lbl", "Label", False, backlog=1)
+    asyncio.run(eng.check_channel(cid))
+    t = db.tracks()[0]
+    badstar = Candidate("p", "@@m\\Badstar\\Badstar - In Da Game (Dub).flac", size=30_000_000, duration=300, has_free_slots=True)
+    slsk.search = _results(badstar)
+    asyncio.run(eng._search_track(db.track(t["id"])))
+    assert db.track(t["id"])["state"] == "waiting"              # a dub: not the original
+
+    eng.set_fix(t["id"], "Badstar", "In Da Game", "Dub")
+    t = db.track(t["id"])
+    assert (t["artist"], t["title"], t["version"], t["state"]) == ("Badstar", "In Da Game", "Dub", "wanted")
+
+    async def go():
+        await eng._search_track(db.track(t["id"]))
+        await eng.active[t["id"]]["task"]
+    asyncio.run(go())
+    t = db.track(t["id"])
+    assert t["state"] == "done" and t["file_path"].endswith("Badstar - In Da Game (Dub).flac")

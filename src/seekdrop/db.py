@@ -52,6 +52,9 @@ CREATE TABLE IF NOT EXISTS tracks (
     upgrade_path TEXT NOT NULL DEFAULT '',-- better copy waiting for the user ("ask" mode)
     upgrade_tier TEXT NOT NULL DEFAULT '',
     custom_query TEXT NOT NULL DEFAULT '', -- the user's own search term, tried first
+    fix_artist TEXT NOT NULL DEFAULT '',   -- manual corrections (step 6): win over the automatic parse
+    fix_title TEXT NOT NULL DEFAULT '',
+    fix_version TEXT NOT NULL DEFAULT '',
     created_at REAL NOT NULL,
     updated_at REAL NOT NULL
 );
@@ -112,7 +115,8 @@ class Database:
                 self.conn.execute("ALTER TABLE tracks ADD COLUMN quality TEXT NOT NULL DEFAULT ''")
             for col, ddl in (("tier", "TEXT NOT NULL DEFAULT ''"), ("next_upgrade", "REAL NOT NULL DEFAULT 0"),
                              ("upgrade_path", "TEXT NOT NULL DEFAULT ''"), ("upgrade_tier", "TEXT NOT NULL DEFAULT ''"),
-                             ("custom_query", "TEXT NOT NULL DEFAULT ''")):
+                             ("custom_query", "TEXT NOT NULL DEFAULT ''"), ("fix_artist", "TEXT NOT NULL DEFAULT ''"),
+                             ("fix_title", "TEXT NOT NULL DEFAULT ''"), ("fix_version", "TEXT NOT NULL DEFAULT ''")):
                 if col not in tcols:   # databases from before quality profiles
                     self.conn.execute(f"ALTER TABLE tracks ADD COLUMN {col} {ddl}")
 

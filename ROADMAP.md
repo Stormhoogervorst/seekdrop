@@ -146,7 +146,7 @@ Na deze fase vindt de app meer van de juiste tracks, pakt hij minder vaak de ver
 
 ### Stap 6: slimmere matching
 
-**Status: deels.** `titles.py` en `matching.py` normaliseren accenten, hoofdletters, "&"/"and" en "feat.", herkennen versies (remix van een ander wordt geweigerd, Extended mag voor Original), labelnamen, catalogusnummers en DJ-pool-edits. Mist: "VIP" telt niet mee als versie, waardoor bij "Larse VIP" ook "Larse Vocal" matcht (gezien in stap 5); andere schriften naar Latijn, aliassen per artiest, handmatige correcties per track, matchregels in één module (nu verdeeld over twee) en 30 echte titels uit de kanalen van de gebruiker in de tests.
+**Status: klaar (nov 2026).** Alle vergelijkingsregels staan in `matching.py`: `version_of()` maakt van een versie een soort plus remixer (Original, Extended, Radio Edit, Remix/Rework/Refix/Flip, VIP, Dub, Bootleg, Edit, Instrumental, Acapella) en `version_conflict()` beslist: Extended mag voor Original, dezelfde remixer met remix/rework mag, een andere remixer of een ander soort nooit ("Larse Vocal" is niet "Larse VIP"). `titles.normalize` zet andere schriften om naar Latijn met `anyascii` (nieuwe afhankelijkheid, ISC) en voegt afkortingen samen ("A.B.C." → abc); bij niet-Latijnse titels wordt eerst in het originele schrift gezocht. Shows met een datum of "@ locatie" in de titel worden als set herkend. Aliassen per artiest in Settings (`artist_aliases`): extra zoekopdrachten en een bestand onder een alias telt als de artiest. Handmatige correcties per track (`fix_artist`, `fix_title`, `fix_version`, via *Why not?*) gaan voor de automatische opschoning. `tests/test_matching_real.py`: 34 echte titels en 12 shows van soundcloud.com/silvabumpa plus 21 versiegevallen. Echt getest via Nicotine+: bij *Larse VIP* zijn nu alle 10 beste kandidaten echte VIP-bestanden (in stap 5 waren dat nog *Larse Vocal*).
 
 Doel: minder gemiste tracks door schrijfwijzen en aliassen, en nooit de verkeerde versie.
 
@@ -160,8 +160,8 @@ Bouwen:
 
 Klaar als:
 
-- [ ] Minstens 30 echte SoundCloud-titels uit de kanalen van de gebruiker staan in de tests, met de verwachte artiest, titel en versie.
-- [ ] Een alias en een handmatige correctie werken in een test van begin tot eind.
+- [x] Minstens 30 echte SoundCloud-titels uit de kanalen van de gebruiker staan in de tests, met de verwachte artiest, titel en versie.
+- [x] Een alias en een handmatige correctie werken in een test van begin tot eind.
 
 ### Stap 7: AcoustID als extra controle (optioneel)
 

@@ -584,7 +584,15 @@ async function openWhy(id) {
       </li>`).join("")}</ul>` : `<p class="hint">Nothing came back.</p>`;
     if (d.searches.length > 1) html += `<p class="hint">Earlier: ${d.searches.slice(1).map((s) => esc(s.summary || "found a match")).join(" · ")}</p>`;
   }
-  html += `<h3>Search with another term</h3>
+  html += `<h3>Correct this track</h3>
+    <form class="why-fix" id="why-fix">
+      <label class="field"><span>Artist</span><input class="plain" name="artist" value="${esc(t.fix_artist || t.artist || "")}" spellcheck="false"></label>
+      <label class="field"><span>Title</span><input class="plain" name="title" value="${esc(t.fix_title || t.title || "")}" spellcheck="false"></label>
+      <label class="field"><span>Version</span><input class="plain" name="version" value="${esc(t.fix_version || t.version || "")}" placeholder="Original" spellcheck="false"></label>
+      <button class="btn soft" type="submit">Save and search again</button>
+    </form>
+    <p class="hint">Your correction wins over how SeekDrop read the SoundCloud title.</p>
+    <h3>Search with another term</h3>
     <form class="why-query" id="why-query"><input class="plain" name="q" value="${esc(t.custom_query || "")}" placeholder="e.g. artist title remixer" spellcheck="false">
     <button class="btn soft" type="submit">Search</button></form>
     <p class="hint">Saved for this track and tried first from now on.</p>
@@ -599,6 +607,13 @@ async function openWhy(id) {
   $("#why-query").addEventListener("submit", async (e) => {
     e.preventDefault();
     try { await api("POST", `/api/tracks/${id}/query`, { query: e.target.q.value }); toast(e.target.q.value.trim() ? "Searching with your term" : "Back to the automatic terms"); closeSettings(); }
+    catch (ex) { toast(ex.message); }
+    refresh();
+  });
+  $("#why-fix").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    try { await api("POST", `/api/tracks/${id}/fix`, { artist: f.artist.value, title: f.title.value, version: f.version.value }); toast("Saved. Searching again."); closeSettings(); }
     catch (ex) { toast(ex.message); }
     refresh();
   });

@@ -68,11 +68,31 @@ def strip_accents(s: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c))
 
 
+try:   # any script to Latin letters: "Мот" -> "Mot", "Ελληνικά" -> "Ellinika" (roadmap step 6)
+    from anyascii import anyascii as _to_latin
+except ImportError:      # pragma: no cover - optional at runtime
+    _to_latin = strip_accents
+
+_ACRONYM_RE = re.compile(r"\b((?:[A-Za-z]\.){2,})")   # "A.B.C." -> "ABC" (single letters would be dropped)
+
+
 def normalize(s: str) -> str:
-    s = strip_accents(s).lower()
+    """Lowercase ASCII words only: accents, other scripts, "&", quotes and punctuation normalised."""
+    s = _ACRONYM_RE.sub(lambda m: m.group(1).replace(".", ""), s or "")
+    s = _to_latin(s).lower()
     s = s.replace("&", " and ").replace("'", "").replace("’", "")
     s = re.sub(r"[^a-z0-9]+", " ", s)
     return re.sub(r"\s+", " ", s).strip()
+
+
+def _native_words(s: str) -> str:
+    """Words in their own script (for searching Soulseek, where files keep their original names)."""
+    s = re.sub(r"[^\w\s]+", " ", s or "", flags=re.UNICODE).lower()
+    return " ".join(s.split())
+
+
+def _non_latin(s: str) -> bool:
+    return any(ch.isalpha() and ord(ch) > 0x24F for ch in s or "")
 
 
 _STOP = {"the", "a", "an", "and", "of", "x", "vs", "feat", "ft", "featuring", "with"}
@@ -223,9 +243,20 @@ _MIX_RE = re.compile(
     r"live (?:at|from|in)|b2b|mix \d{2,}|podcast \d+)\b")
 
 
+_MONTHS = r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+# A title that ends in a date is a show or a set ("Silva Bumpa - 14 April 2026", "... 22.10.24",
+# "... @ The Lot Radio 11-24-2025"); tracks don't carry dates.
+_DATE_END_RE = re.compile(
+    rf"(?:\b\d{{1,2}}(?:st|nd|rd|th)?\s+{_MONTHS}(?:\s+\d{{2,4}})?"
+    rf"|\b{_MONTHS}\s+\d{{1,2}}(?:st|nd|rd|th)?(?:,?\s+\d{{4}})?"
+    r"|\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4})\s*\)?\s*$", re.I)
+_AT_VENUE_RE = re.compile(r"\s@\s+\S")          # "Artist @ Venue": a recorded set
+
+
 def is_mix(raw: str) -> bool:
     """True for uploads that look like a DJ mix, radio show or live set rather than a track."""
-    return bool(_MIX_RE.search(normalize(raw or "")))
+    raw = raw or ""
+    return bool(_MIX_RE.search(normalize(raw)) or _DATE_END_RE.search(raw.strip()) or _AT_VENUE_RE.search(raw))
 
 
 def search_queries(p: ParsedTitle) -> list[str]:
@@ -237,6 +268,9 @@ def search_queries(p: ParsedTitle) -> list[str]:
     remix_t = p.remixer_tokens[:2]
 
     queries = []
+    if _non_latin(main_artist + p.title):
+        # Files on Soulseek usually keep their own script: search that first.
+        queries.append(_native_words(f"{main_artist} {p.title}"))
     if artist_t:
         queries.append(" ".join(artist_t + title_t + remix_t))
     queries.append(" ".join(title_t + remix_t))
