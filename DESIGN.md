@@ -261,8 +261,7 @@ These override the sections above where they conflict. The goal is a calm, low-n
 - Top-bar actions: `--surface-muted` filled pills, no border, 14px medium, height 40. Settings stays a
   circular icon button.
 - Row actions: borderless text buttons, 14px medium `--text-muted`; on hover `--text-primary` on a
-  `--surface-muted` pill. Hidden (opacity 0) until the row is hovered or focused; keyboard focus
-  reveals them; always visible on touch and narrow screens.
+  `--surface-muted` pill. Always visible (hiding them until hover made them hard to find).
 - Inputs: white fill, no border, radius pill; a 1px `--border-strong` border only on focus.
 - Secondary sidebar controls (e.g. Activity): plain text button with icon, 14px medium `--text-body`.
 

@@ -313,10 +313,8 @@ h3 { font-size: 16px; line-height: 22px; font-weight: 600; letter-spacing: -0.01
 
 .tr.gave_up, .tr.skipped { opacity: .55; }
 
-/* Row actions: hidden until the row is hovered or has keyboard focus. */
-.acts { display: flex; justify-content: flex-end; gap: 4px; opacity: 0; transition: opacity .12s ease; }
-.tr:hover .acts, .tr:focus-within .acts { opacity: 1; }
-@media (hover: none) { .acts { opacity: 1; } }
+/* Row actions: always visible, quiet grey text buttons. */
+.acts { display: flex; justify-content: flex-end; gap: 4px; }
 
 .empty { max-width: 46ch; margin: 60px auto; text-align: center; color: var(--text-muted); font-size: 16px; line-height: 22px; }
 .empty h2 { margin-bottom: 10px; }
@@ -348,7 +346,7 @@ h3 { font-size: 16px; line-height: 22px; font-weight: 600; letter-spacing: -0.01
   .shell { grid-template-columns: 260px minmax(0, 1fr); }
   .thead { display: none; }
   .tr { grid-template-columns: 44px minmax(0, 1fr) 200px; }
-  .acts { grid-column: 2 / -1; justify-content: flex-start; opacity: 1; margin-left: -12px; }
+  .acts { grid-column: 2 / -1; justify-content: flex-start; margin-left: -12px; }
   .top { flex-wrap: wrap; }
 }
 @media (max-width: 760px) {
@@ -362,7 +360,6 @@ h3 { font-size: 16px; line-height: 22px; font-weight: 600; letter-spacing: -0.01
 }
 @media (prefers-reduced-motion: reduce) {
   .ring.busy, .ic.spin { animation: none; }
-  .acts { transition: none; }
   .drawer { animation: none; }
   .bar i { transition: none; }
 }
