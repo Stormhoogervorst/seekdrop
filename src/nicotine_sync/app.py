@@ -51,10 +51,11 @@ def acquire_instance_lock() -> Optional[socket.socket]:
 
 
 class Backend:
-    def __init__(self, port: int = 0, slsk=None, sc=None):
+    def __init__(self, port: int = 0, slsk=None, sc=None, token: Optional[str] = None, updates=None):
         self.port = port
         self.url = ""
-        self.token = ""
+        self.token = token or ""      # fixed key only for the demo/dev server; normally random
+        self._updates = updates
         self._slsk = slsk
         self._sc = sc
         self._ready = threading.Event()
@@ -99,8 +100,8 @@ class Backend:
         factory = None if self._slsk else make_slsk
         slsk = self._slsk or make_slsk(store.settings.soulseek_mode)
         engine = Engine(db, store, sc, slsk, slsk_factory=factory)
-        updates = UpdateChecker(store)
-        api = Api(engine, db, updates=updates)
+        updates = self._updates or UpdateChecker(store)
+        api = Api(engine, db, token=self.token or None, updates=updates)
         self.token = api.token
 
         runner = web.AppRunner(api.app(), access_log=None)

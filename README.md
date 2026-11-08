@@ -98,7 +98,10 @@ python -m nicotine_sync --browser  # UI in your browser
 pytest
 ```
 
-`scripts/demo.py` starts the UI with made-up data, without needing SoundCloud or Soulseek.
+**UI work:** `python scripts/demo.py` starts the real UI with made-up data at
+http://localhost:8765/#token=dev, without SoundCloud or Soulseek, in a throwaway data folder.
+Edits to `src/nicotine_sync/ui/` show up when you refresh the page; Python changes need a restart.
+`DEMO_SETUP=1` shows the first-run setup instead. (In Claude Code: `.claude/launch.json` → `ui-demo`.)
 Use a throwaway data folder with `NICOTINE_SYNC_HOME=/tmp/ns python -m nicotine_sync --browser`.
 
 ## Releases

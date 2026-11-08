@@ -48,7 +48,10 @@ class Api:
         if request.path.startswith("/api/"):
             if not secrets.compare_digest(request.headers.get("X-Token", ""), self.token):
                 return web.json_response({"error": "unauthorized"}, status=401)
-        return await handler(request)
+        resp = await handler(request)
+        if request.path.startswith("/ui/"):
+            resp.headers["Cache-Control"] = "no-cache"
+        return resp
 
     @staticmethod
     async def body(request: web.Request) -> dict:

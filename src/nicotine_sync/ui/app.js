@@ -1,7 +1,12 @@
 "use strict";
 
 const token = new URLSearchParams(location.hash.slice(1)).get("token") || sessionStorage.getItem("cw-token") || "";
-try { sessionStorage.setItem("cw-token", token); } catch (_) {}
+try { if (token) sessionStorage.setItem("cw-token", token); } catch (_) {}
+// A key added to the URL later (e.g. /#token=dev on the dev server) needs a fresh start.
+addEventListener("hashchange", () => {
+  const t = new URLSearchParams(location.hash.slice(1)).get("token");
+  if (t && t !== token) location.reload();
+});
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

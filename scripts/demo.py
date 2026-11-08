@@ -1,72 +1,117 @@
-"""Run the UI with fake data (no SoundCloud/Soulseek needed). For screenshots and UI work.
+"""Dev server for UI work: the real UI with made-up data, no SoundCloud or Soulseek needed.
 
-    NICOTINE_SYNC_HOME=/tmp/ns-demo python scripts/demo.py
+    python scripts/demo.py            -> http://localhost:8765/#token=dev
+    DEMO_SETUP=1 python scripts/demo.py   (shows the first-run setup instead)
+
+Edits to src/nicotine_sync/ui/* (HTML, CSS, JS) show up when you refresh the page.
+Python changes need a restart. Data lives in a throwaway folder, never in your real app data.
 """
-import os, sys, time, threading
+import os
+import sys
+import tempfile
+import threading
+import time
+
+# Never touch the real app data.
+os.environ.setdefault("NICOTINE_SYNC_HOME", os.path.join(tempfile.gettempdir(), "nicotine-sync-demo"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-from nicotine_sync.app import Backend, setup_logging
-from nicotine_sync.config import SettingsStore, data_dir
-from nicotine_sync.db import Database
+
+from nicotine_sync.app import Backend, setup_logging  # noqa: E402
+from nicotine_sync.config import SettingsStore, data_dir  # noqa: E402
+from nicotine_sync.db import Database  # noqa: E402
+
+PORT = int(os.environ.get("PORT", "8765"))
+TOKEN = os.environ.get("DEMO_TOKEN", "dev")
+SETUP = os.environ.get("DEMO_SETUP") == "1"
+
 
 class IdleSlsk:
-    status, error, connected, retryable = "connected", "", True, False
+    mode = "nicotine"
+    status, error, connected, retryable, username = "connected", "", True, False, "djnina"
     async def start(self, s): pass
     async def stop(self): pass
     async def search(self, q, wait=0): return []
     def transfer_info(self, t): return t
     async def forget(self, t): pass
     async def abort(self, t): pass
+    async def lookup(self, u, p): return None
+    async def cancel(self, u, p): pass
+
 
 class IdleSC:
     def latest(self, *a, **k): raise RuntimeError("demo mode")
     def channel_info(self, url):
-        from nicotine_sync.soundcloud import ChannelInfo
-        return ChannelInfo(url, url.rsplit("/", 1)[-1].replace("-", " ").title())
+        from nicotine_sync.soundcloud import ChannelInfo, is_playlist_url
+        name = url.rstrip("/").rsplit("/", 1)[-1].replace("-", " ").title()
+        return ChannelInfo(url, name, "playlist" if is_playlist_url(url) else "profile")
+
+
+class DemoUpdates:
+    """Pretend a newer release exists, so the update button shows."""
+    latest = {"version": "0.4.0", "url": "https://github.com/Stormhoogervorst/nicotinesync/releases"}
+    def start(self): pass
+    async def stop(self): pass
+
 
 home = data_dir()
 store = SettingsStore()
-if os.environ.get("DEMO_SETUP") != "1":
-    store.update({"accepted_terms": True, "soulseek_username": "djnina_cw", "soulseek_password": "x",
+if not SETUP:
+    store.update({"accepted_terms": True, "soulseek_mode": "nicotine", "nicotine_token": "demo",
                   "download_dir": str(home / "Music")})
 db = Database(home / "nicotine-sync.db")
-if not db.channels() and os.environ.get("DEMO_SETUP") != "1":
+if not db.channels() and not SETUP:
     now = time.time()
-    chans = [("https://soundcloud.com/nightshift-records", "Nightshift Records"), ("https://soundcloud.com/concrete-loop", "Concrete Loop"),
-             ("https://soundcloud.com/kellerraum", "Kellerraum"), ("https://soundcloud.com/deep-signal", "Deep Signal")]
-    ids = [db.add_channel(u, n, False, 0) for u, n in chans]
-    for i in ids: db.update_channel(i, initialized=1, last_checked=now - 600 * i)
+    chans = [("https://soundcloud.com/nightshift-records", "Nightshift Records", "profile"),
+             ("https://soundcloud.com/concrete-loop", "Concrete Loop", "profile"),
+             ("https://soundcloud.com/kellerraum", "Kellerraum", "profile"),
+             ("https://soundcloud.com/djnina/sets/friday-warmup", "Friday Warm-up", "playlist")]
+    ids = [db.add_channel(u, n, False, 0, kind=k) for u, n, k in chans]
+    for i in ids:
+        db.update_channel(i, initialized=1, last_checked=now - 600 * i)
     db.update_channel(ids[2], last_error="SoundCloud is blocking requests right now. Try again in a few minutes.")
     rows = [
-        (ids[0], "Mira Kova & Delen - Night Signal (Extended Mix)", "Mira Kova", "Night Signal", "Extended Mix", "downloading", 0.62, "", "vinyl_vault"),
-        (ids[1], "Juno Raske - Overdrive [CL045]", "Juno Raske", "Overdrive", "", "searching", 0, "", ""),
-        (ids[3], "PREMIERE: Taro Vell - Glasshouse (Someone Remix) [FREE DL]", "Taro Vell", "Glasshouse", "Someone Remix", "waiting", 0, "Not on Soulseek yet", ""),
-        (ids[0], "Ostin Pell - Lights Out", "Ostin Pell", "Lights Out", "", "done", 1, "", "deepcrates"),
-        (ids[1], "Lune Varga - Hypnotic Loop", "Lune Varga", "Hypnotic Loop", "", "done", 1, "", "berlin_bits"),
-        (ids[2], "Unknown Producer - Warehouse Tool 3", "Unknown Producer", "Warehouse Tool 3", "", "wanted", 0, "", ""),
-        (ids[3], "Sam Hollow - Places (Club Edit)", "Sam Hollow", "Places", "Club Edit", "gave_up", 0, "Not on Soulseek yet", ""),
-        (ids[2], "Old Upload - From Before", "Old Upload", "From Before", "", "skipped", 0, "", ""),
+        # channel, raw title, artist, title, version, state, progress, last_error, peer, duration
+        (ids[0], "Mira Kova & Delen - Night Signal (Extended Mix)", "Mira Kova & Delen", "Night Signal", "Extended Mix", "downloading", 0.62, "", "vinyl_vault", 372),
+        (ids[1], "Juno Raske - Overdrive [CL045]", "Juno Raske", "Overdrive", "", "searching", 0, "", "", 298),
+        (ids[3], "Taro Vell - Glasshouse (Someone Remix)", "Taro Vell", "Glasshouse", "Someone Remix", "waiting", 0, "Not on Soulseek yet", "", 341),
+        (ids[3], "Ostin Pell - Lights Out", "Ostin Pell", "Lights Out", "", "done", 1, "", "deepcrates", 305),
+        (ids[3], "Lune Varga - Hypnotic Loop", "Lune Varga", "Hypnotic Loop", "", "done", 1, "", "berlin_bits", 412),
+        (ids[3], "Kai Brenner - Drift (Original Mix)", "Kai Brenner", "Drift", "", "wanted", 0, "", "", 389),
+        (ids[1], "Sam Hollow - Places (Club Edit)", "Sam Hollow", "Places", "Club Edit", "gave_up", 0, "Not on Soulseek yet", "", 256),
+        (ids[0], "Nightshift Radio 042 w/ Mira Kova", "Nightshift Records", "Nightshift Radio 042 w/ Mira Kova", "", "skipped", 0, "Looks like a mix", "", 3600),
+        (ids[2], "Kellerraum Live at Tresor (4h set)", "Kellerraum", "Kellerraum Live at Tresor (4h set)", "", "skipped", 0, "Longer than 10 minutes", "", 14400),
+        (ids[2], "Old Upload - From Before", "Old Upload", "From Before", "", "skipped", 0, "", "", 280),
     ]
-    for n, (cid, raw, a, t, v, st, prog, err, peer) in enumerate(rows):
-        tid = db.add_track(channel_id=cid, sc_id=str(1000 + n), url="https://soundcloud.com/x/y", raw_title=raw,
-                           artist=a, title=t, version=v, duration=360, state=st, progress=prog, last_error=err,
-                           peer=peer, uploaded_at=now - n * 3600 * 5, next_attempt=now + 7200,
-                           file_path=(str(home / "Music" / f"{a} - {t}.flac") if st == "done" else ""))
+    for n, (cid, raw, a, t, v, st, prog, err, peer, dur) in enumerate(rows):
+        db.add_track(channel_id=cid, sc_id=str(1000 + n), url="https://soundcloud.com/x/y", raw_title=raw,
+                     artist=a, title=t, version=v, duration=dur, state=st, progress=prog, last_error=err,
+                     peer=peer, uploaded_at=now - n * 3600 * 5, next_attempt=now + 7200,
+                     remote_file=(f"@@music\\{a} - {t}.flac" if peer else ""),
+                     file_path=(str(home / "Music" / f"{a} - {t}.flac") if st == "done" else ""))
 
 setup_logging()
-b = Backend(port=int(os.environ.get("PORT", "8765")), slsk=IdleSlsk(), sc=IdleSC())
-# keep demo rows as they are: don't let the engine reset/search
-import nicotine_sync.engine as E
-async def _noop(self): pass
-E.Engine._search_loop = _noop
-E.Engine._poll_loop = _noop
-E.Engine._watchdog = _noop
-E.Engine.start_orig = E.Engine.start
-async def start(self):
-    self.note("Connected to Soulseek."); self.note("Concrete Loop: 1 new track(s).")
-    self.note("Kellerraum: couldn't check SoundCloud (blocked)", "warn"); self.note("Downloaded Ostin Pell - Lights Out.flac")
-    import asyncio
+
+# Keep the demo rows as they are: no searching, polling or reconnecting.
+import nicotine_sync.engine as E  # noqa: E402
+
+
+async def _noop(self):
+    pass
+
+
+async def _start(self):
+    self.note("Connected through Nicotine+ as djnina.")
+    self.note("Concrete Loop: 1 new track(s).")
+    self.note("Kellerraum: couldn't check SoundCloud (blocked)", "warn")
+    self.note("Downloaded Ostin Pell - Lights Out.flac")
     self._tasks = []
     self.next_poll_at = time.time() + 2400
-E.Engine.start = start
-print(b.start(), flush=True)
+
+
+E.Engine.start = _start
+E.Engine._search_loop = E.Engine._poll_loop = E.Engine._watchdog = _noop
+
+b = Backend(port=PORT, slsk=IdleSlsk(), sc=IdleSC(), token=TOKEN, updates=DemoUpdates())
+b.start()
+print(f"Demo UI: http://localhost:{PORT}/#token={TOKEN}   (data: {home})", flush=True)
 threading.Event().wait()

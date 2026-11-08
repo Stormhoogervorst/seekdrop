@@ -9,7 +9,8 @@ Repo: github.com/Stormhoogervorst/nicotinesync.
 - Python 3.11 to 3.13 (not 3.14: deps). `python3.13 -m venv .venv && .venv/bin/pip install -e ".[dev]"`.
 - `python -m nicotine_sync` (window) or `--browser` / `--headless`.
 - `pytest -q` (unit + engine tests with fakes).
-- `python scripts/demo.py` runs the UI with made-up data, no network.
+- UI dev server: `python scripts/demo.py` (launch.json `ui-demo`), open http://localhost:8765/#token=dev.
+  Made-up data in a temp folder, no network; UI file edits show on refresh.
 - Throwaway data dir: `NICOTINE_SYNC_HOME=/tmp/ns python -m nicotine_sync --headless --port 47900`.
   The printed URL has `#token=…`; send it as `X-Token` to `/api/*`.
 - Nicotine+ plugin harness: `pip download nicotine-plus --no-deps`, unzip the wheel, then
