@@ -158,6 +158,10 @@ class Database:
             WHERE c.enabled=1 AND t.state IN ('wanted','waiting') AND t.next_attempt<=?
             ORDER BY t.state='waiting', t.next_attempt, t.id LIMIT ?""", (now, limit))
 
+    def interrupted_transfers(self) -> list[dict]:
+        """Tracks that were downloading when the app stopped (their transfer may still exist)."""
+        return self._q("SELECT * FROM tracks WHERE state='downloading' AND peer!='' AND remote_file!=''")
+
     def reset_interrupted(self) -> None:
         """After a restart, anything that was mid-search/download is wanted again."""
         self._x("UPDATE tracks SET state='wanted', progress=0, next_attempt=0 WHERE state IN ('searching','downloading')")

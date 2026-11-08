@@ -36,9 +36,10 @@ def open_in_file_manager(path: str) -> None:
 
 
 class Api:
-    def __init__(self, engine: Engine, db: Database, token: str | None = None):
+    def __init__(self, engine: Engine, db: Database, token: str | None = None, updates=None):
         self.engine = engine
         self.db = db
+        self.updates = updates
         self.token = token or secrets.token_urlsafe(24)
 
     # -- helpers
@@ -98,6 +99,7 @@ class Api:
             c["checking"] = c["id"] in e.checking
         return web.json_response({
             "version": __version__,
+            "update": (self.updates.latest if self.updates and e.settings.check_updates else None),
             "settings": e.settings.public(),
             "soulseek": {"status": e.slsk.status, "error": e.slsk.error,
                          "username": getattr(e.slsk, "username", "") or e.settings.soulseek_username},
@@ -133,7 +135,7 @@ class Api:
         _, changed = store.update({"nicotine_token": token, "soulseek_mode": "nicotine"})
         if changed and store.settings.configured:
             asyncio.create_task(self.engine.apply_settings(changed))
-        self.engine.note("Installed the Cratewatch Bridge plugin for Nicotine+.")
+        self.engine.note("Installed the Nicotine+ Sync Bridge plugin for Nicotine+.")
         return web.json_response({"ok": True, "path": str(path)})
 
     async def add_channel(self, request: web.Request):

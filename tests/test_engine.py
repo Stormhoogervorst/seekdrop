@@ -5,12 +5,12 @@ import time
 
 import pytest
 
-from cratewatch import engine as engine_mod
-from cratewatch.config import SettingsStore
-from cratewatch.db import Database
-from cratewatch.engine import Engine
-from cratewatch.matching import Candidate
-from cratewatch.soundcloud import TrackInfo, TrackStub
+from nicotine_sync import engine as engine_mod
+from nicotine_sync.config import SettingsStore
+from nicotine_sync.db import Database
+from nicotine_sync.engine import Engine
+from nicotine_sync.matching import Candidate
+from nicotine_sync.soundcloud import TrackInfo, TrackStub
 
 
 class FakeSC:
@@ -249,3 +249,51 @@ def test_old_database_gets_kind_column(tmp_path):
     con.close()
     db = Database(path)
     assert db.channels()[0]["kind"] == "profile"
+
+
+def test_leftover_transfers_are_tidied_up_after_restart(setup):
+    eng, db, sc, slsk, tmp = setup
+    cid = db.add_channel("https://soundcloud.com/lbl", "Label", False, backlog=3)
+    asyncio.run(eng.check_channel(cid))
+    finished, queued, gone = sorted(db.tracks(), key=lambda t: t["id"])
+    for t, f in ((finished, "Old Three - Alpha.flac"), (queued, "Old Two - Beta.mp3"), (gone, "x.mp3")):
+        db.update_track(t["id"], state="downloading", peer="p", remote_file="@@a\\" + f)
+    landed = tmp / "in" / "Old Three - Alpha.flac"
+    landed.write_bytes(b"x")
+
+    cancelled = []
+
+    async def lookup(user, path):
+        if path.endswith("Alpha.flac"):
+            return {"state": "COMPLETE", "local_path": str(landed)}
+        if path.endswith("Beta.mp3"):
+            return {"state": "QUEUED", "local_path": None}
+        return None
+
+    async def cancel(user, path):
+        cancelled.append(path)
+
+    slsk.lookup, slsk.cancel = lookup, cancel
+
+    async def scenario():
+        await eng.start()          # what a restart does
+        await eng._recover_stale()
+        await eng.stop()
+
+    asyncio.run(scenario())
+    got = {t["id"]: t["state"] for t in db.tracks()}
+    assert got[finished["id"]] == "done" and os.path.exists(db.track(finished["id"])["file_path"])
+    assert got[queued["id"]] == "wanted" and got[gone["id"]] == "wanted"
+    assert sorted(cancelled) == ["@@a\\Old Three - Alpha.flac", "@@a\\Old Two - Beta.mp3"]
+    assert eng._stale == []
+
+
+def test_outdated_plugin_is_replaced(tmp_path, monkeypatch):
+    from nicotine_sync import nicotine
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    dest = nicotine.install_plugin(47820, "key")
+    assert not nicotine.update_plugin_if_outdated()            # same version: nothing to do
+    (dest / "PLUGININFO").write_text('Name = "x"\nVersion = "0.0.1"\n')
+    assert nicotine.update_plugin_if_outdated()
+    assert nicotine._plugin_version(dest) == nicotine._plugin_version(nicotine.PLUGIN_SRC)
+    assert '"token": "key"' in (dest / "bridge.json").read_text()

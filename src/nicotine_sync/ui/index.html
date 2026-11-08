@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cratewatch</title>
+<title>Nicotine+ Sync</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%2212%22 fill=%22none%22 stroke=%22%23f2a93b%22 stroke-width=%225%22/%3E%3C/svg%3E">
 <link rel="stylesheet" href="/ui/style.css">
 </head>
@@ -12,32 +12,32 @@
 <!-- First run -->
 <main id="setup" class="setup" hidden>
   <div class="setup-inner">
-    <h1 class="wordmark">Cratewatch</h1>
-    <p class="lede">Follow SoundCloud channels. When something new drops, Cratewatch looks for it on Soulseek and downloads the best copy it can find.</p>
+    <h1 class="wordmark">Nicotine+ Sync</h1>
+    <p class="lede">Follow SoundCloud channels and playlists. When a track shows up, Nicotine+ Sync looks for it on Soulseek and downloads the best copy it can find.</p>
 
     <ol class="steps">
       <li class="step">
         <h2>Before you start</h2>
-        <p>Cratewatch searches Soulseek, a network where people share their own music folders. You decide what you download and share. Only download music you have the right to have, such as free downloads, promos sent to you, or tracks you've bought. You're responsible for how you use it.</p>
-        <label class="check"><input type="checkbox" id="s-terms"> I understand and use Cratewatch at my own responsibility</label>
+        <p>Nicotine+ Sync searches Soulseek, a network where people share their own music folders. You decide what you download and share. Only download music you have the right to have, such as free downloads, promos sent to you, or tracks you've bought. You're responsible for how you use it.</p>
+        <label class="check"><input type="checkbox" id="s-terms"> I understand and use Nicotine+ Sync at my own responsibility</label>
       </li>
       <li class="step">
         <h2>Connect to Soulseek</h2>
         <div class="choice" role="radiogroup" aria-label="How to connect">
           <label class="opt"><input type="radio" name="s-mode" value="nicotine">
-            <span><b>Through Nicotine+</b><small>Uses the account and shared folders you already have in Nicotine+. Nicotine+ needs to be open while Cratewatch works.</small></span></label>
+            <span><b>Through Nicotine+</b><small>Uses the account and shared folders you already have in Nicotine+. Nicotine+ needs to be open while Nicotine+ Sync works.</small></span></label>
           <label class="opt"><input type="radio" name="s-mode" value="builtin" checked>
-            <span><b>With its own Soulseek account</b><small>Cratewatch logs in to Soulseek itself. You don't need any other app.</small></span></label>
+            <span><b>With its own Soulseek account</b><small>Nicotine+ Sync logs in to Soulseek itself. You don't need any other app.</small></span></label>
         </div>
         <div id="s-nicotine" hidden>
-          <p>Cratewatch adds a small plugin to Nicotine+ so the two apps can talk. It only works on this computer.</p>
+          <p>Nicotine+ Sync adds a small plugin to Nicotine+ so the two apps can talk. It only works on this computer.</p>
           <div class="nic-steps">
             <button class="btn" type="button" id="s-nic-install">Add plugin to Nicotine+</button>
             <p class="hint" id="s-nic-done" hidden></p>
           </div>
         </div>
         <div id="s-builtin">
-          <p>Use a separate account just for Cratewatch. A name that doesn't exist yet is created automatically when you log in. Logging in with the same account in another Soulseek app will disconnect one of them.</p>
+          <p>Use a separate account just for Nicotine+ Sync. A name that doesn't exist yet is created automatically when you log in. Logging in with the same account in another Soulseek app will disconnect one of them.</p>
           <div class="row2">
             <label class="field"><span>Username</span><input id="s-user" autocomplete="off" spellcheck="false"></label>
             <label class="field"><span>Password</span><input id="s-pass" type="password" autocomplete="new-password"></label>
@@ -64,7 +64,7 @@
 <!-- App -->
 <div id="app" class="shell" hidden>
   <aside class="side">
-    <div class="brand"><span class="wordmark small">Cratewatch</span></div>
+    <div class="brand"><span class="wordmark small">Nicotine+ Sync</span></div>
 
     <form class="add" id="add-form" autocomplete="off">
       <label for="add-url" class="add-label">Add a channel or playlist</label>
@@ -103,6 +103,7 @@
         </div>
       </div>
       <div class="top-actions">
+        <a class="btn primary" id="update-link" href="#" target="_blank" rel="noopener" hidden></a>
         <button class="btn ghost" id="check-now">Check now</button>
         <button class="btn ghost" id="open-folder">Open folder</button>
         <button class="btn ghost" id="open-settings" aria-label="Settings">Settings</button>
@@ -204,6 +205,9 @@
         <option>1</option><option>2</option><option>3</option><option>5</option>
       </select>
     </label>
+    <h3>Updates</h3>
+    <label class="check"><input type="checkbox" name="check_updates"> Tell me when a new version is out (asks GitHub twice a day)</label>
+
     <p class="error" id="set-error" hidden></p>
     <div class="drawer-foot">
       <span class="hint" id="version"></span>

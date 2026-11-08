@@ -4,18 +4,18 @@
 #endif
 
 [Setup]
-AppId={{1E7D6CF7-2399-422C-BAA0-73A5A475D319}
-AppName=Cratewatch
+AppId={{AFE9CD32-27AE-44FE-8A3C-548DA2EC0AF1}
+AppName=Nicotine+ Sync
 AppVersion={#AppVersion}
-AppPublisher=Cratewatch
-DefaultDirName={autopf}\Cratewatch
-DefaultGroupName=Cratewatch
+AppPublisher=Nicotine+ Sync
+DefaultDirName={autopf}\NicotineSync
+DefaultGroupName=Nicotine+ Sync
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=..\dist
-OutputBaseFilename=Cratewatch-{#AppVersion}-windows-setup
+OutputBaseFilename=NicotineSync-{#AppVersion}-windows-setup
 SetupIconFile=icon.ico
-UninstallDisplayIcon={app}\Cratewatch.exe
+UninstallDisplayIcon={app}\NicotineSync.exe
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -23,15 +23,15 @@ LicenseFile=..\LICENSE
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
-Name: "startup"; Description: "Start Cratewatch when I log in"; Flags: unchecked
+Name: "startup"; Description: "Start Nicotine+ Sync when I log in"; Flags: unchecked
 
 [Files]
-Source: "..\dist\Cratewatch\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
+Source: "..\dist\NicotineSync\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 
 [Icons]
-Name: "{group}\Cratewatch"; Filename: "{app}\Cratewatch.exe"
-Name: "{autodesktop}\Cratewatch"; Filename: "{app}\Cratewatch.exe"; Tasks: desktopicon
-Name: "{userstartup}\Cratewatch"; Filename: "{app}\Cratewatch.exe"; Tasks: startup
+Name: "{group}\Nicotine+ Sync"; Filename: "{app}\NicotineSync.exe"
+Name: "{autodesktop}\Nicotine+ Sync"; Filename: "{app}\NicotineSync.exe"; Tasks: desktopicon
+Name: "{userstartup}\Nicotine+ Sync"; Filename: "{app}\NicotineSync.exe"; Tasks: startup
 
 [Run]
-Filename: "{app}\Cratewatch.exe"; Description: "Open Cratewatch"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\NicotineSync.exe"; Description: "Open Nicotine+ Sync"; Flags: nowait postinstall skipifsilent

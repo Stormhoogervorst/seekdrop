@@ -1,12 +1,12 @@
 """Run the UI with fake data (no SoundCloud/Soulseek needed). For screenshots and UI work.
 
-    CRATEWATCH_HOME=/tmp/cw-demo python scripts/demo.py
+    NICOTINE_SYNC_HOME=/tmp/ns-demo python scripts/demo.py
 """
 import os, sys, time, threading
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-from cratewatch.app import Backend, setup_logging
-from cratewatch.config import SettingsStore, data_dir
-from cratewatch.db import Database
+from nicotine_sync.app import Backend, setup_logging
+from nicotine_sync.config import SettingsStore, data_dir
+from nicotine_sync.db import Database
 
 class IdleSlsk:
     status, error, connected, retryable = "connected", "", True, False
@@ -20,7 +20,7 @@ class IdleSlsk:
 class IdleSC:
     def latest(self, *a, **k): raise RuntimeError("demo mode")
     def channel_info(self, url):
-        from cratewatch.soundcloud import ChannelInfo
+        from nicotine_sync.soundcloud import ChannelInfo
         return ChannelInfo(url, url.rsplit("/", 1)[-1].replace("-", " ").title())
 
 home = data_dir()
@@ -28,7 +28,7 @@ store = SettingsStore()
 if os.environ.get("DEMO_SETUP") != "1":
     store.update({"accepted_terms": True, "soulseek_username": "djnina_cw", "soulseek_password": "x",
                   "download_dir": str(home / "Music")})
-db = Database(home / "cratewatch.db")
+db = Database(home / "nicotine-sync.db")
 if not db.channels() and os.environ.get("DEMO_SETUP") != "1":
     now = time.time()
     chans = [("https://soundcloud.com/nightshift-records", "Nightshift Records"), ("https://soundcloud.com/concrete-loop", "Concrete Loop"),
@@ -55,7 +55,7 @@ if not db.channels() and os.environ.get("DEMO_SETUP") != "1":
 setup_logging()
 b = Backend(port=int(os.environ.get("PORT", "8765")), slsk=IdleSlsk(), sc=IdleSC())
 # keep demo rows as they are: don't let the engine reset/search
-import cratewatch.engine as E
+import nicotine_sync.engine as E
 async def _noop(self): pass
 E.Engine._search_loop = _noop
 E.Engine._poll_loop = _noop

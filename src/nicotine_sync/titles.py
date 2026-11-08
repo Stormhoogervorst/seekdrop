@@ -117,6 +117,17 @@ def _clean_symbols(s: str) -> str:
     return s.strip(" -–—|:*~_.,")
 
 
+_QUOTES = "'\"‘’“”‚„`´"
+
+
+def _unquote(s: str) -> str:
+    """"'You & Me'" -> "You & Me" (only quotes wrapped around the whole title)."""
+    s = s.strip()
+    while len(s) > 2 and s[0] in _QUOTES and s[-1] in _QUOTES:
+        s = s[1:-1].strip()
+    return s
+
+
 def parse_title(raw: str, uploader: str = "", publisher_artist: str = "") -> ParsedTitle:
     p = ParsedTitle(raw=raw)
     s = raw or ""
@@ -198,7 +209,7 @@ def parse_title(raw: str, uploader: str = "", publisher_artist: str = "") -> Par
         p.extra_artists = [c.strip() for c in collab[1:] if c.strip()]
 
     p.artist = _clean_symbols(artist)
-    p.title = _clean_symbols(title) or _clean_symbols(raw)
+    p.title = _unquote(_clean_symbols(title)) or _clean_symbols(raw)
     # Prefer the most specific version (a remix beats "Extended Mix").
     versions.sort(key=lambda v: (not version_is_different(v), len(v)))
     p.version = versions[0] if versions else ""

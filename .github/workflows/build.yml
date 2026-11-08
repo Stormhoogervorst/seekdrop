@@ -25,19 +25,19 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - run: pip install -e ".[dev]"
-      - run: pyinstaller packaging/cratewatch.spec --noconfirm
+      - run: pyinstaller packaging/nicotine_sync.spec --noconfirm
       - name: Smoke test
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath dist\Cratewatch\Cratewatch.exe -ArgumentList "--headless","--port","8799" -PassThru
+          $p = Start-Process -FilePath dist\NicotineSync\NicotineSync.exe -ArgumentList "--headless","--port","8799" -PassThru
           Start-Sleep -Seconds 15
           $r = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8799/
-          if ($r.Content -notmatch "Cratewatch") { exit 1 }
+          if ($r.Content -notmatch "Nicotine") { exit 1 }
           Stop-Process -Id $p.Id
       - name: Build installer
         shell: pwsh
         run: |
-          $v = python -c "import sys; sys.path.insert(0,'src'); import cratewatch; print(cratewatch.__version__)"
+          $v = python -c "import sys; sys.path.insert(0,'src'); import nicotine_sync; print(nicotine_sync.__version__)"
           if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) { choco install innosetup -y --no-progress }
           iscc /DAppVersion=$v packaging\windows.iss
       - uses: actions/upload-artifact@v4
@@ -48,23 +48,64 @@ jobs:
   macos:
     needs: test
     runs-on: macos-latest   # Apple Silicon
+    env:
+      MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - run: pip install -e ".[dev]"
-      - run: pyinstaller packaging/cratewatch.spec --noconfirm
+      - run: pyinstaller packaging/nicotine_sync.spec --noconfirm
       - name: Smoke test
         run: |
-          dist/Cratewatch.app/Contents/MacOS/Cratewatch --headless --port 8799 &
+          "dist/Nicotine+ Sync.app/Contents/MacOS/NicotineSync" --headless --port 8799 &
           sleep 15
-          curl -sf http://127.0.0.1:8799/ | grep -q Cratewatch
+          curl -sf http://127.0.0.1:8799/ | grep -q Nicotine
           kill %1
+      # Optional: sign + notarize when the Apple secrets are set in the repo (Settings > Secrets > Actions):
+      #   MACOS_CERT_P12 (base64 of a "Developer ID Application" .p12), MACOS_CERT_PASSWORD,
+      #   APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD (app-specific password from appleid.apple.com).
+      # Without them the app is ad-hoc signed and users need "Open Anyway" (see README).
+      - name: Sign app
+        if: env.MACOS_CERT_P12 != ''
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          KC="$RUNNER_TEMP/build.keychain-db"; KP="$(openssl rand -hex 16)"
+          echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KP" "$KC"
+          security set-keychain-settings -lut 21600 "$KC"
+          security unlock-keychain -p "$KP" "$KC"
+          security import "$RUNNER_TEMP/cert.p12" -P "$MACOS_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KC"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KP" "$KC"
+          security list-keychains -d user -s "$KC" login.keychain
+          ID="Developer ID Application"
+          APP="dist/Nicotine+ Sync.app"
+          find "$APP/Contents" \( -name "*.so" -o -name "*.dylib" \) -print0 | \
+            xargs -0 codesign --force --timestamp --options runtime --sign "$ID"
+          codesign --force --deep --timestamp --options runtime \
+            --entitlements packaging/entitlements.plist --sign "$ID" "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
       - name: Build DMG
         run: |
-          V=$(python -c "import sys; sys.path.insert(0,'src'); import cratewatch; print(cratewatch.__version__)")
-          mkdir -p dmg && cp -R dist/Cratewatch.app dmg/ && ln -s /Applications dmg/Applications
-          hdiutil create -volname Cratewatch -srcfolder dmg -ov -format UDZO "dist/Cratewatch-$V-macos-arm64.dmg"
+          V=$(python -c "import sys; sys.path.insert(0,'src'); import nicotine_sync; print(nicotine_sync.__version__)")
+          mkdir -p dmg && cp -R "dist/Nicotine+ Sync.app" dmg/ && ln -s /Applications dmg/Applications
+          hdiutil create -volname "Nicotine+ Sync" -srcfolder dmg -ov -format UDZO "dist/NicotineSync-$V-macos-arm64.dmg"
+      - name: Notarize DMG
+        if: env.MACOS_CERT_P12 != ''
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          DMG=$(ls dist/*.dmg)
+          codesign --force --timestamp --sign "Developer ID Application" "$DMG"
+          xcrun notarytool submit "$DMG" --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" --wait
+          xcrun stapler staple "$DMG"
       - uses: actions/upload-artifact@v4
         with:
           name: macos

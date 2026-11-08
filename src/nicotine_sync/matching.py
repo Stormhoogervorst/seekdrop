@@ -51,6 +51,23 @@ _DOMAIN_RE = re.compile(
 MAX_PLAUSIBLE_SPEED = 50_000_000   # bytes/s
 
 
+# DJ-pool edits (The Mash Up, Club Killers, ...) mark their versions in brackets:
+# "(TMU Extended Mix) (Clean)", "(Intro)", "(Quick Hit)". Those aren't the release.
+_POOL_WORDS = {"clean", "dirty", "intro", "outro", "tmu", "quickhit", "transition", "redrum", "hype", "acap"}
+_POOL_PHRASES = ("quick hit", "short edit", "acapella in", "acapella out", "slam edit", "club killers", "dj tools")
+_BRACKETS_RE = re.compile(r"[(\[]([^()\[\]]*)[)\]]")
+
+
+def pool_edit_words(basename: str) -> set[str]:
+    """DJ-pool markers found inside brackets of a file name."""
+    found = set()
+    for inner in _BRACKETS_RE.findall(basename):
+        low = " ".join(tokens(inner))
+        found |= {w for w in low.split() if w in _POOL_WORDS}
+        found |= {ph for ph in _POOL_PHRASES if ph in low}
+    return found
+
+
 def is_spam(c: "Candidate") -> bool:
     return bool(_DOMAIN_RE.search(c.username) or _DOMAIN_RE.search(c.basename))
 
@@ -102,7 +119,12 @@ def score_candidate(target: ParsedTitle, target_duration: Optional[float], c: Ca
         if frac < 1:
             reasons.append("artist partly in name")
 
-    # 3. Version (remix / edit / extended).
+    # 3. Version (remix / edit / extended). DJ-pool edits only when that's what we want.
+    target_words = set(tokens(target.version)) | set(tokens(target.title))
+    pool = pool_edit_words(c.basename)
+    if any(not set(w.split()) <= target_words for w in pool):
+        return None
+
     file_versions = {t for t in name_t if t in DIFFERENT_VERSION_WORDS} - set(title_t)
     if target.version and version_is_different(target.version):
         remixer = target.remixer_tokens

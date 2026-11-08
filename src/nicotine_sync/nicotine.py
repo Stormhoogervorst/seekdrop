@@ -1,4 +1,4 @@
-"""Use Nicotine+ (with the Cratewatch Bridge plugin) instead of a built-in Soulseek login."""
+"""Use Nicotine+ (with the Nicotine+ Sync Bridge plugin) instead of a built-in Soulseek login."""
 from __future__ import annotations
 
 import asyncio
@@ -17,7 +17,7 @@ from .matching import Candidate, file_ext
 
 log = logging.getLogger(__name__)
 
-PLUGIN_NAME = "cratewatch_bridge"
+PLUGIN_NAME = "nicotine_sync_bridge"
 PLUGIN_SRC = Path(__file__).parent / "nicotine_plugin" / PLUGIN_NAME
 DEFAULT_PORT = 47820
 
@@ -31,7 +31,7 @@ STATUS_MAP = {
     "Cancelled": "ABORTED",
 }
 
-MSG_UNREACHABLE = ("Can't reach Nicotine+. Open Nicotine+ and turn on the Cratewatch Bridge plugin "
+MSG_UNREACHABLE = ("Can't reach Nicotine+. Open Nicotine+ and turn on the Nicotine+ Sync Bridge plugin "
                    "(Preferences, Plugins).")
 MSG_KEY = "The Nicotine+ plugin has a different key. Install the plugin again from Settings, then turn it off and on in Nicotine+."
 MSG_OFFLINE = "Nicotine+ is open but not connected to Soulseek."
@@ -62,6 +62,29 @@ def install_plugin(port: int, token: str) -> Path:
     except OSError:
         pass
     return dest
+
+
+def _plugin_version(folder: Path) -> str:
+    try:
+        for line in (folder / "PLUGININFO").read_text("utf-8").splitlines():
+            if line.strip().startswith("Version"):
+                return line.split("=", 1)[1].strip().strip('"')
+    except OSError:
+        pass
+    return ""
+
+
+def update_plugin_if_outdated() -> bool:
+    """After an app update, replace an older installed plugin (keeping its key).
+    Returns True if it was replaced; Nicotine+ then needs the plugin turned off and on."""
+    dest = nicotine_plugins_dir() / PLUGIN_NAME
+    if not (dest / "bridge.json").exists():
+        return False
+    if _plugin_version(dest) == _plugin_version(PLUGIN_SRC):
+        return False
+    for name in ("PLUGININFO", "__init__.py"):
+        shutil.copyfile(PLUGIN_SRC / name, dest / name)
+    return True
 
 
 def new_token() -> str:
@@ -232,6 +255,23 @@ class NicotineBridge:
             await self._post("/abort", {"username": h.username, "path": h.path, "clear": False})
         except Exception:
             pass
+
+    async def lookup(self, username: str, path: str) -> Optional[dict]:
+        """State of a transfer left over from an earlier session, or None if Nicotine+ has none."""
+        d = await self._get("/transfer", {"username": username, "path": path}, timeout=10)
+        status = d.get("status", "")
+        if status == "Missing":
+            return None
+        state, local = STATUS_MAP.get(status, "FAILED"), d.get("local_path")
+        if state == "COMPLETE" and not local:
+            # Nicotine+ was restarted too, so the plugin lost the path; look in our incoming folder.
+            guess = os.path.join(self.incoming_dir, path.replace("\\", "/").rsplit("/", 1)[-1])
+            local = guess if os.path.exists(guess) else None
+        return {"state": state, "local_path": local}
+
+    async def cancel(self, username: str, path: str) -> None:
+        """Stop and remove a leftover transfer so it can't land in the incoming folder later."""
+        await self._post("/abort", {"username": username, "path": path, "clear": True})
 
     async def forget(self, h: _Handle) -> None:
         if h.task:

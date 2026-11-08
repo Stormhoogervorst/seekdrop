@@ -14,6 +14,7 @@ from . import db as states
 from .config import SettingsStore
 from .db import Database
 from .matching import Candidate, MatchPrefs, rank
+from .nicotine import update_plugin_if_outdated
 from .soundcloud import SoundCloudClient, TrackStub
 from .titles import is_mix, parse_title, search_queries
 
@@ -50,6 +51,7 @@ class Engine:
         self._wake_poll = asyncio.Event()
         self._wake_search = asyncio.Event()
         self._tasks: list[asyncio.Task] = []
+        self._stale: list[dict] = []
         self._share_rescan: Optional[asyncio.Task] = None
         self._last_search = 0.0
 
@@ -63,6 +65,8 @@ class Engine:
         getattr(log, "warning" if level == "warn" else "info")(msg)
 
     async def start(self) -> None:
+        # Transfers from the last session may still sit in Nicotine+'s queue; tidy them up once connected.
+        self._stale = self.db.interrupted_transfers()
         self.db.reset_interrupted()
         if self.settings.configured:
             await self._connect()
@@ -70,18 +74,49 @@ class Engine:
             asyncio.create_task(self._poll_loop(), name="poll"),
             asyncio.create_task(self._search_loop(), name="search"),
             asyncio.create_task(self._watchdog(), name="watchdog"),
+            asyncio.create_task(self._status_watch(), name="status"),
         ]
 
     async def stop(self) -> None:
         for t in self._tasks:
             t.cancel()
-        for entry in list(self.active.values()):
-            entry["task"].cancel()
-        await asyncio.gather(*self._tasks, return_exceptions=True)
+        downloads = [entry["task"] for entry in self.active.values()]
+        for t in downloads:
+            t.cancel()
+        # Let cancelled downloads abort their transfers before the connection goes away.
+        try:
+            await asyncio.wait_for(asyncio.gather(*self._tasks, *downloads, return_exceptions=True), 10)
+        except asyncio.TimeoutError:
+            log.warning("some downloads didn't stop in time")
         await self.slsk.stop()
+
+    async def _recover_stale(self) -> None:
+        """Deal with transfers from the previous session: keep files that finished meanwhile,
+        cancel the rest (the track is searched again)."""
+        remaining = []
+        for t in self._stale:
+            try:
+                info = await self.slsk.lookup(t["peer"], t["remote_file"])
+                if info and info["state"] == "COMPLETE" and info.get("local_path") and os.path.exists(info["local_path"]):
+                    path = self._finalize(t, info["local_path"], Candidate(t["peer"], t["remote_file"]))
+                    await self.slsk.cancel(t["peer"], t["remote_file"])   # clears the finished entry
+                    self.db.update_track(t["id"], state=states.DONE, file_path=path, progress=1.0, last_error="")
+                    self.note(f"Downloaded {os.path.basename(path)}")
+                elif info:
+                    await self.slsk.cancel(t["peer"], t["remote_file"])
+            except Exception:
+                log.debug("couldn't tidy up %s", t["remote_file"], exc_info=True)
+                remaining.append(t)
+        self._stale = remaining
 
     async def _connect(self) -> None:
         if self.settings.soulseek_mode == "nicotine":
+            try:
+                if await asyncio.to_thread(update_plugin_if_outdated):
+                    self.note("Updated the Nicotine+ plugin. In Nicotine+, turn Nicotine+ Sync Bridge off and on "
+                              "(Preferences, Plugins) to use the new version.", "warn")
+            except OSError as e:
+                log.warning("couldn't update the Nicotine+ plugin: %s", e)
             self.note("Connecting to Nicotine+…")
             await self.slsk.start(self.settings)
             if self.slsk.connected:
@@ -118,6 +153,19 @@ class Engine:
             self.next_poll_at = 0
             self._wake_poll.set()
         self._wake_search.set()
+
+    async def _status_watch(self) -> None:
+        """Note in the activity list when the connection drops or comes back by itself."""
+        was = self.slsk.connected
+        while True:
+            await asyncio.sleep(3)
+            now = self.slsk.connected
+            if now and not was:
+                self.note("Connected through Nicotine+." if getattr(self.slsk, "mode", "") == "nicotine"
+                          else "Connected to Soulseek.")
+            elif was and not now and self.slsk.error:
+                self.note(self.slsk.error, "warn")
+            was = now
 
     async def _watchdog(self) -> None:
         while True:
@@ -245,6 +293,8 @@ class Engine:
         while True:
             try:
                 if self.settings.configured and self.slsk.connected:
+                    if self._stale:
+                        await self._recover_stale()
                     for t in self.db.due_tracks(time.time()):
                         if len(self.active) >= self.settings.max_parallel_downloads:
                             break

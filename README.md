@@ -1,94 +1,137 @@
-# Cratewatch
+# Nicotine+ Sync
 
-Follow SoundCloud channels. When something new drops, Cratewatch looks for it on
+Follow SoundCloud channels and playlists. When a track shows up, Nicotine+ Sync looks for it on
 Soulseek and downloads the best copy it can find.
 
 For DJs and producers who don't want to check twenty label pages every day.
 
-- Add any public SoundCloud profile: a label, artist, promo or repost channel.
-- New uploads are checked every hour (you can change this).
-- Messy titles are cleaned up: `PREMIERE: Artist - Track (Someone Remix) [FREE DL]`
-  becomes artist *Artist*, title *Track*, version *Someone Remix*.
-- Results are scored on title, artist, remix name, length, format, bitrate and how fast
-  the peer can send it. Remixes are never accepted when you want the original, and the
-  other way round.
+- **Channels:** add any public SoundCloud profile (a label, artist, promo or repost channel).
+  New uploads are checked every hour (you can change this).
+- **Playlists:** paste a playlist link (`soundcloud.com/name/sets/…`, private `…/s-xxxx` links
+  work too). Every track in it is searched and downloaded, and tracks added later are fetched too.
+- Messy titles are cleaned up: `PREMIERE: Artist - Track (Someone Remix) [FREE DL]` becomes
+  artist *Artist*, title *Track*, version *Someone Remix*. Label names and catalog numbers
+  (`- Drumcode - DC360`) are dropped.
+- DJ mixes, radio shows, podcasts and anything over 10 minutes are skipped (you can still get
+  one on purpose).
+- Results are scored on title, artist, remix name, length, format, bitrate and how fast the peer
+  can send it. Remixes are never accepted when you want the original, and the other way round.
+  DJ-pool edits (`(Clean)`, `(Intro)`, `TMU …`) and spam peers that advertise a website are skipped.
 - Lossless (FLAC/WAV/AIFF) or 320 kbps MP3, your choice.
-- Not on Soulseek yet? Cratewatch tries again after 1 h, 3 h, 6 h, 12 h, then daily,
-  for up to 30 days.
-- Files land in `Music/Cratewatch/<channel>/Artist - Title (Version).flac`.
+- Not on Soulseek yet? It tries again after 1 h, 3 h, 6 h, 12 h, then daily, for up to 30 days.
+- Files land in `Music/Nicotine+ Sync/<channel or playlist>/Artist - Title (Version).flac`.
 
-## Two ways to connect to Soulseek
-
-- **Through Nicotine+.** If you already use [Nicotine+](https://nicotine-plus.org), Cratewatch
-  can use your Nicotine+ account and shares. In setup (or Settings) click *Add plugin to
-  Nicotine+*, then in Nicotine+ open Preferences, Plugins and turn on **Cratewatch Bridge**.
-  The plugin only listens on 127.0.0.1 and only accepts Cratewatch's key. Cratewatch searches
-  don't create search tabs or history in Nicotine+; downloads show up in its Downloads tab.
-  Nicotine+ must be open while Cratewatch works.
-- **With its own account.** Cratewatch logs in to Soulseek itself. No other app needed.
-
-## Use it responsibly
-
-Soulseek is a network where people share their own music folders. Only download music
-you have the right to have, such as free downloads, promos sent to you, or tracks you
-bought elsewhere. You are responsible for what you download and share. Cratewatch
-reads only public SoundCloud pages and never downloads audio from SoundCloud itself.
+Nicotine+ Sync is an independent project. It is not made by or affiliated with the Nicotine+ team.
 
 ## Install
 
-Download the latest release:
+Download the latest version from the
+[Releases page](https://github.com/Stormhoogervorst/nicotinesync/releases/latest).
 
-- **Windows 10/11**: `Cratewatch-x.y.z-windows-setup.exe`. Windows may show a
-  SmartScreen warning because the app isn't code-signed yet: click *More info* and
-  *Run anyway*.
-- **macOS 11+ (Apple Silicon)**: `Cratewatch-x.y.z-macos-arm64.dmg`. Drag it to
-  Applications. The first time, right-click the app and choose *Open*, because the app
-  isn't notarized yet.
+**macOS 11 or newer, Apple Silicon (M1 and later):** `NicotineSync-x.y.z-macos-arm64.dmg`
 
-On first launch, pick a Soulseek username and password (a new name is created
-automatically) and a download folder. Use a separate Soulseek account for
-Cratewatch: logging in with the same account somewhere else disconnects one of them.
+1. Open the DMG and drag **Nicotine+ Sync** to Applications.
+2. Open it. If macOS says it can't check the app for malicious software: open
+   **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to
+   Nicotine+ Sync, then confirm. You only need to do this once.
 
-Cratewatch only checks while it's open. On Windows, the installer can start it when
-you log in.
+**Windows 10/11:** `NicotineSync-x.y.z-windows-setup.exe`
+
+Windows may show a SmartScreen warning because the app isn't code-signed: click
+**More info**, then **Run anyway**. The installer can start the app when you log in.
+
+The app tells you when a new version is out (Settings → Updates). Download it from the
+Releases page and install it over the old one; your channels and settings are kept.
+
+## Two ways to connect to Soulseek
+
+- **Through Nicotine+ (recommended if you already use it).** Uses your Nicotine+ account and
+  shares. In setup (or Settings) click *Add plugin to Nicotine+*, then in Nicotine+ open
+  **Preferences → Plugins** and turn on **Nicotine+ Sync Bridge**. If it isn't in the list,
+  close Preferences and open it again, or restart Nicotine+.
+  The plugin only listens on 127.0.0.1 and only accepts Nicotine+ Sync's key. Searches don't
+  create search tabs or history in Nicotine+; downloads show up in its Downloads tab.
+  Nicotine+ must be open while Nicotine+ Sync works.
+- **With its own account.** Nicotine+ Sync logs in to Soulseek itself; no other app needed.
+  Use a separate Soulseek account for it: logging in with the same account somewhere else
+  disconnects one of them. A name that doesn't exist yet is created when you first log in.
+
+The app only checks while it's open.
+
+## Use it responsibly
+
+Soulseek is a network where people share their own music folders. Only download music you have
+the right to have, such as free downloads, promos sent to you, or tracks you bought elsewhere.
+You are responsible for what you download and share. Nicotine+ Sync reads only public (or
+shared-with-you) SoundCloud pages and never downloads audio from SoundCloud itself.
+
+## Privacy
+
+Everything stays on your computer. The app talks to SoundCloud (to read channels and playlists),
+to Soulseek (directly or through Nicotine+), and twice a day to GitHub to see if there is a new
+version (you can turn that off in Settings). There is no tracking or analytics.
+
+Settings, database and logs live in `~/Library/Application Support/Nicotine+ Sync` (macOS) or
+`%LOCALAPPDATA%\Nicotine+ Sync` (Windows).
+
+## Troubleshooting
+
+- **"Can't reach Nicotine+"**: open Nicotine+ and check that Nicotine+ Sync Bridge is turned on
+  (Preferences → Plugins). After updating the app, turn the plugin off and on once.
+- **A track stays at "Waiting for peer"**: the peer has a queue. After 45 minutes the app tries
+  another peer.
+- **"Not on Soulseek yet"** for a track you can find by hand: open an issue with the SoundCloud
+  link and the file name you found. Title matching is strict on purpose.
+- Logs: `nicotine-sync.log` in the folder above. Please attach it to bug reports.
+
+Report problems on the [Issues page](https://github.com/Stormhoogervorst/nicotinesync/issues).
 
 ## Run from source
 
+Python 3.11 to 3.13.
+
 ```bash
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+python3.13 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
-python -m cratewatch            # app window
-python -m cratewatch --browser  # UI in your browser
+python -m nicotine_sync            # app window
+python -m nicotine_sync --browser  # UI in your browser
 pytest
 ```
 
 `scripts/demo.py` starts the UI with made-up data, without needing SoundCloud or Soulseek.
+Use a throwaway data folder with `NICOTINE_SYNC_HOME=/tmp/ns python -m nicotine_sync --browser`.
 
-## Build installers
+## Releases
 
-Push a tag like `v0.1.0`. GitHub Actions runs the tests, builds the Windows installer
-and the macOS DMG, smoke-tests both, and attaches them to a draft release.
+1. Update the version in `pyproject.toml`, `src/nicotine_sync/__init__.py` and (if the plugin
+   changed) `src/nicotine_sync/nicotine_plugin/nicotine_sync_bridge/PLUGININFO`, and add the
+   changes to `CHANGELOG.md`.
+2. Push a tag like `v0.3.0`. GitHub Actions runs the tests, builds the Windows installer and the
+   macOS DMG, smoke-tests both, and attaches them to a **draft** release.
+3. Check the draft on the Releases page and publish it. Only then do users get the update notice.
 
-Locally: `pyinstaller packaging/cratewatch.spec --noconfirm`.
+macOS signing and notarization run automatically once these repository secrets are set:
+`MACOS_CERT_P12` (base64 of a Developer ID Application certificate), `MACOS_CERT_PASSWORD`,
+`APPLE_ID`, `APPLE_TEAM_ID` and `APPLE_APP_PASSWORD`. That needs an Apple Developer account.
+
+Local build: `pyinstaller packaging/nicotine_sync.spec --noconfirm`.
 
 ## How it's built
 
 | Part | File |
 |---|---|
-| Read SoundCloud profiles (via yt-dlp) | `src/cratewatch/soundcloud.py` |
-| Clean up titles, build search queries | `src/cratewatch/titles.py` |
-| Score Soulseek results | `src/cratewatch/matching.py` |
-| Soulseek client (via aioslsk) | `src/cratewatch/soulseek.py` |
-| Nicotine+ client + plugin installer | `src/cratewatch/nicotine.py` |
-| Nicotine+ plugin (runs inside Nicotine+) | `src/cratewatch/nicotine_plugin/cratewatch_bridge/` |
-| Scheduler, retries, file naming | `src/cratewatch/engine.py` |
-| Local API + UI | `src/cratewatch/server.py`, `src/cratewatch/ui/` |
-| App window (pywebview) | `src/cratewatch/__main__.py` |
-
-Settings, database and logs live in the user data folder
-(`%LOCALAPPDATA%\Cratewatch` on Windows, `~/Library/Application Support/Cratewatch` on macOS).
+| Read SoundCloud profiles and playlists (via yt-dlp) | `src/nicotine_sync/soundcloud.py` |
+| Clean up titles, spot mixes, build search queries | `src/nicotine_sync/titles.py` |
+| Score Soulseek results | `src/nicotine_sync/matching.py` |
+| Soulseek client (via aioslsk) | `src/nicotine_sync/soulseek.py` |
+| Nicotine+ client + plugin installer | `src/nicotine_sync/nicotine.py` |
+| Nicotine+ plugin (runs inside Nicotine+) | `src/nicotine_sync/nicotine_plugin/nicotine_sync_bridge/` |
+| Scheduler, retries, file naming | `src/nicotine_sync/engine.py` |
+| Update notice | `src/nicotine_sync/updates.py` |
+| Local API + UI | `src/nicotine_sync/server.py`, `src/nicotine_sync/ui/` |
+| App window (pywebview) | `src/nicotine_sync/__main__.py` |
 
 ## License
 
-GPL-3.0-or-later (required because it builds on aioslsk). The bundled Archivo font is
-under the SIL Open Font License.
+GPL-3.0-or-later (required because it builds on aioslsk). The bundled Archivo font is under the
+SIL Open Font License.

@@ -9,18 +9,19 @@ from pathlib import Path
 
 from platformdirs import user_data_dir, user_log_dir, user_music_dir
 
-APP_NAME = "Cratewatch"
+APP_NAME = "Nicotine+ Sync"
+GITHUB_REPO = "Stormhoogervorst/nicotinesync"
 
 
 def data_dir() -> Path:
-    p = Path(os.environ.get("CRATEWATCH_HOME") or user_data_dir(APP_NAME, appauthor=False))
+    p = Path(os.environ.get("NICOTINE_SYNC_HOME") or user_data_dir(APP_NAME, appauthor=False))
     p.mkdir(parents=True, exist_ok=True)
     return p
 
 
 def log_dir() -> Path:
-    p = Path(os.environ.get("CRATEWATCH_HOME") or user_log_dir(APP_NAME, appauthor=False))
-    if os.environ.get("CRATEWATCH_HOME"):
+    p = Path(os.environ.get("NICOTINE_SYNC_HOME") or user_log_dir(APP_NAME, appauthor=False))
+    if os.environ.get("NICOTINE_SYNC_HOME"):
         p = p / "logs"
     p.mkdir(parents=True, exist_ok=True)
     return p
@@ -52,6 +53,7 @@ class Settings:
     max_parallel_downloads: int = 3
     give_up_days: int = 30
     listen_port: int = 60000
+    check_updates: bool = True              # look for a newer release on GitHub twice a day
 
     @property
     def configured(self) -> bool:
@@ -108,7 +110,7 @@ class SettingsStore:
                 continue  # empty means "keep current"
             if key in ("min_bitrate", "check_interval_minutes", "max_parallel_downloads", "give_up_days", "listen_port", "nicotine_port"):
                 value = int(value)
-            if key in ("accepted_terms", "share_downloads", "organize_by_channel"):
+            if key in ("accepted_terms", "share_downloads", "organize_by_channel", "check_updates"):
                 value = bool(value)
             if key == "share_dirs":
                 value = [str(v).strip() for v in (value or []) if str(v).strip()]

@@ -15,10 +15,11 @@ from .db import Database
 from .engine import Engine
 from .server import Api
 from .nicotine import NicotineBridge
+from .updates import UpdateChecker
 from .soulseek import SoulseekService
 from .soundcloud import SoundCloudClient
 
-log = logging.getLogger("cratewatch")
+log = logging.getLogger("nicotine_sync")
 
 INSTANCE_PORT = 47811  # localhost-only lock so two copies don't fight over one Soulseek account
 
@@ -28,7 +29,7 @@ def setup_logging(verbose: bool = False) -> None:
     if root.handlers:
         return
     root.setLevel(logging.DEBUG if verbose else logging.INFO)
-    fh = RotatingFileHandler(log_dir() / "cratewatch.log", maxBytes=2_000_000, backupCount=3, encoding="utf-8")
+    fh = RotatingFileHandler(log_dir() / "nicotine-sync.log", maxBytes=2_000_000, backupCount=3, encoding="utf-8")
     fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
     root.addHandler(fh)
     sh = logging.StreamHandler()
@@ -87,7 +88,7 @@ class Backend:
         self._loop = asyncio.get_running_loop()
         self._stop = asyncio.Event()
         home = data_dir()
-        db = Database(home / "cratewatch.db")
+        db = Database(home / "nicotine-sync.db")
         store = SettingsStore()
         sc = self._sc or SoundCloudClient(cache_dir=str(home / "cache"))
         def make_slsk(mode: str):
@@ -98,7 +99,8 @@ class Backend:
         factory = None if self._slsk else make_slsk
         slsk = self._slsk or make_slsk(store.settings.soulseek_mode)
         engine = Engine(db, store, sc, slsk, slsk_factory=factory)
-        api = Api(engine, db)
+        updates = UpdateChecker(store)
+        api = Api(engine, db, updates=updates)
         self.token = api.token
 
         runner = web.AppRunner(api.app(), access_log=None)
@@ -110,9 +112,11 @@ class Backend:
         log.info("UI at http://127.0.0.1:%s", self.port)
 
         await engine.start()
+        updates.start()
         self._ready.set()
         try:
             await self._stop.wait()
         finally:
+            await updates.stop()
             await engine.stop()
             await runner.cleanup()

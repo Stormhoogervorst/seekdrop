@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cratewatch"
-version = "0.2.0"
-description = "Watch SoundCloud channels and fetch new releases from Soulseek."
+name = "nicotine-sync"
+version = "0.3.0"
+description = "Follow SoundCloud channels and playlists and fetch the tracks from Soulseek, through Nicotine+ or its own login."
 readme = "README.md"
 license = "GPL-3.0-or-later"
 requires-python = ">=3.11,<3.14"
@@ -21,13 +21,13 @@ dependencies = [
 dev = ["pytest>=8", "pyinstaller>=6.10"]
 
 [project.gui-scripts]
-cratewatch = "cratewatch.__main__:main"
+nicotine-sync = "nicotine_sync.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-cratewatch = ["ui/*", "ui/fonts/*", "nicotine_plugin/cratewatch_bridge/*"]
+nicotine_sync = ["ui/*", "ui/fonts/*", "nicotine_plugin/nicotine_sync_bridge/*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

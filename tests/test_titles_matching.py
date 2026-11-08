@@ -1,5 +1,5 @@
-from cratewatch.matching import Candidate, MatchPrefs, rank, score_candidate
-from cratewatch.titles import parse_title, search_queries
+from nicotine_sync.matching import Candidate, MatchPrefs, rank, score_candidate
+from nicotine_sync.titles import parse_title, search_queries
 
 
 def test_premiere_and_free_dl_noise():
@@ -115,7 +115,7 @@ def test_implausible_speed_gets_no_bonus():
 
 
 def test_is_mix():
-    from cratewatch.titles import is_mix
+    from nicotine_sync.titles import is_mix
     for raw in ["Defected Radio Show Hosted by Monki w/ Special Guest: Elvis Guetta 06.11.26",
                 "Defected Radio Show Takeover by Ranger Trucco 30.10.26",
                 "Drumcode Live 812 - Adam Beyer Live at Awakenings", "Artist - Essential Mix 2026",
@@ -130,7 +130,7 @@ def test_is_mix():
 
 def test_playlist_urls():
     import pytest
-    from cratewatch.soundcloud import ChannelError, is_playlist_url, normalize_channel_url
+    from nicotine_sync.soundcloud import ChannelError, is_playlist_url, normalize_channel_url
     assert normalize_channel_url("https://soundcloud.com/DefectedRecords/sets/Somehow-It-Flies?si=abc") == \
         "https://soundcloud.com/defectedrecords/sets/somehow-it-flies"
     # Private playlists keep their (case-sensitive) secret token.
@@ -141,3 +141,29 @@ def test_playlist_urls():
     assert not is_playlist_url("https://soundcloud.com/drumcode")
     with pytest.raises(ChannelError):
         normalize_channel_url("soundcloud.com/drumcode/some-track")
+
+
+def test_dj_pool_edits_rejected():
+    p = parse_title("Majestic x Todd Terry - Rhythm In My Soul")
+    pool = cand("Todd Terry, Majestic - Rhythm In My Soul (TMU Extended Mix) (Clean) 8A 126.mp3",
+                filename="@@x\\Majestic\\Todd Terry, Majestic - Rhythm In My Soul (TMU Extended Mix) (Clean) 8A 126.mp3")
+    intro = cand("Majestic - Rhythm In My Soul (Quick Hit).mp3", filename="@@x\\Majestic\\Majestic - Rhythm In My Soul (Quick Hit).mp3")
+    real = cand("Majestic - Rhythm In My Soul (Extended Mix).mp3", filename="@@x\\Majestic\\Majestic - Rhythm In My Soul (Extended Mix).mp3")
+    assert score_candidate(p, 300, pool, PREFS) is None
+    assert score_candidate(p, 300, intro, PREFS) is None
+    assert score_candidate(p, 300, real, PREFS) is not None
+    # Words outside brackets (an artist called Clean Bandit, a track called Intro) are fine.
+    cb = parse_title("Clean Bandit - Rather Be")
+    assert score_candidate(cb, 300, cand("Clean Bandit - Rather Be.mp3", filename="@@x\\Clean Bandit\\Clean Bandit - Rather Be.mp3"), PREFS) is not None
+    it = parse_title("The xx - Intro")
+    assert score_candidate(it, 300, cand("The xx - Intro.mp3", filename="@@x\\The xx\\The xx - Intro.mp3"), PREFS) is not None
+    # And when the upload itself is the clean edit, the clean edit is fine.
+    ce = parse_title("Artist - Track (Clean Edit)")
+    assert score_candidate(ce, 300, cand("Artist - Track (Clean Edit).mp3"), PREFS) is not None
+
+
+def test_quoted_title_unwrapped():
+    p = parse_title("Moby x Anfisa Letyago - 'You & Me' (Moby Remix)")
+    assert (p.title, p.version) == ("You & Me", "Moby Remix")
+    assert parse_title("Artist - “Track”").title == "Track"
+    assert parse_title("Artist - Don't Stop 'Til").title == "Don't Stop 'Til"

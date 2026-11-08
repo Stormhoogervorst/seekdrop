@@ -1,7 +1,8 @@
-"""Entry point: `python -m cratewatch` or the packaged app."""
+"""Entry point: `python -m nicotine_sync` or the packaged app."""
 from __future__ import annotations
 
 import argparse
+import signal
 import sys
 import time
 import webbrowser
@@ -12,8 +13,8 @@ from .config import APP_NAME
 
 ALREADY_RUNNING_HTML = """<html><body style="font-family:system-ui;background:#111;color:#eee;
 display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
-<div style="text-align:center"><h2>Cratewatch is already running</h2>
-<p style="color:#999">Switch to the open Cratewatch window.</p></div></body></html>"""
+<div style="text-align:center"><h2>Nicotine+ Sync is already running</h2>
+<p style="color:#999">Switch to the open Nicotine+ Sync window.</p></div></body></html>"""
 
 
 class JsApi:
@@ -33,7 +34,7 @@ class JsApi:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(prog="cratewatch")
+    ap = argparse.ArgumentParser(prog="nicotine-sync")
     ap.add_argument("--browser", action="store_true", help="open the UI in your web browser instead of an app window")
     ap.add_argument("--headless", action="store_true", help="run without any UI (prints the UI address)")
     ap.add_argument("--port", type=int, default=0)
@@ -49,11 +50,18 @@ def main(argv: list[str] | None = None) -> int:
             webview.create_window(APP_NAME, html=ALREADY_RUNNING_HTML, width=460, height=220)
             webview.start()
         except Exception:
-            print("Cratewatch is already running.", file=sys.stderr)
+            print("Nicotine+ Sync is already running.", file=sys.stderr)
         return 1
 
     backend = Backend(port=args.port)
     url = backend.start()
+
+    def on_term(signum, frame):   # `kill` / logout: shut down like Ctrl+C so transfers get cleaned up
+        raise KeyboardInterrupt
+    try:
+        signal.signal(signal.SIGTERM, on_term)
+    except (ValueError, OSError):
+        pass
 
     use_window = not (args.browser or args.headless)
     if use_window:
