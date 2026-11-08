@@ -92,10 +92,12 @@ if not db.channels() and not SETUP:
 
     # Measured cutoff (roadmap step 3): one full-range file, one suspect.
     for t in db.tracks():
-        if t["title"] == "Lights Out":
-            db.update_track(t["id"], cutoff_hz=22050, quality="genuine")
-        if t["title"] == "Hypnotic Loop":
-            db.update_track(t["id"], cutoff_hz=20300, quality="suspect")
+        if t["title"] == "Lights Out":       # step 4: a better copy is waiting for the user's OK
+            db.update_track(t["id"], cutoff_hz=22050, quality="genuine", tier="mp3_320",
+                            upgrade_path=str(home / "upgrades" / "demo.flac"), upgrade_tier="flac16")
+        if t["title"] == "Hypnotic Loop":    # suspect FLAC counts as MP3 320: still looking for better
+            db.update_track(t["id"], cutoff_hz=20300, quality="suspect", tier="mp3_320",
+                            next_upgrade=now + 86400)
     # Two files that failed the file checks, to design the Quarantine view.
     tracks = {t["title"]: t["id"] for t in db.tracks()}
     qdir = home / "quarantine"
