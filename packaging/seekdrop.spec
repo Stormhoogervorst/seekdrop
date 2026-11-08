@@ -33,7 +33,7 @@ a = Analysis(
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
-    excludes=["tkinter", "matplotlib", "numpy", "PIL", "pytest", "playwright"],
+    excludes=["tkinter", "matplotlib", "PIL", "pytest", "playwright"],   # numpy is used (spectrum check)
     noarchive=False,
 )
 pyz = PYZ(a.pure)

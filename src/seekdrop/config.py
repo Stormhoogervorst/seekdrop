@@ -118,6 +118,7 @@ class Settings:
     check_updates: bool = True              # look for a newer release on GitHub twice a day
     check_length_margin: int = 10           # file may differ this many seconds from SoundCloud
     check_silence_seconds: int = 10         # longer silence at the start or end rejects the file
+    suspect_quality: str = "label"          # suspect lossless / 320: "label" (let through) or "reject"
 
     @property
     def configured(self) -> bool:
@@ -184,6 +185,8 @@ class SettingsStore:
             if key == "preferred_format" and value not in ("lossless", "mp3"):
                 continue
             if key == "soulseek_mode" and value not in ("builtin", "nicotine"):
+                continue
+            if key == "suspect_quality" and value not in ("label", "reject"):
                 continue
             if getattr(s, key) != value:
                 setattr(s, key, value)

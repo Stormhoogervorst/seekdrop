@@ -185,7 +185,8 @@ class Engine:
                     path, why = await self._stage_and_publish(t, info["local_path"], c)
                     await self.slsk.cancel(t["peer"], t["remote_file"])   # clears the finished entry
                     if path:
-                        self.db.update_track(t["id"], state=states.DONE, file_path=path, progress=1.0, last_error="")
+                        self.db.update_track(t["id"], state=states.DONE, file_path=path, progress=1.0, last_error="",
+                                             **t.pop("_meta", {}))
                         self.note(f"Downloaded {os.path.basename(path)}")
                 elif info:
                     await self.slsk.cancel(t["peer"], t["remote_file"])
@@ -452,10 +453,12 @@ class Engine:
                     finally:
                         await self.slsk.forget(info["transfer"])
                     if path:
-                        self.db.update_track(tid, state=states.DONE, file_path=path, progress=1.0, last_error="")
+                        self.db.update_track(tid, state=states.DONE, file_path=path, progress=1.0, last_error="",
+                                             **t.pop("_meta", {}))
                         self.note(f"Downloaded {os.path.basename(path)}")
                         self._schedule_share_rescan()
                         return
+                    t.pop("_meta", None)
                     info["fail_reason"] = why
                     self.note(f"Rejected a file from {c.username}: {why}", "warn")
                 reason = info.get("fail_reason") or reason

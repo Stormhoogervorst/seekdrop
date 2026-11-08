@@ -200,6 +200,14 @@ function renderFilters(s) {
 // Real failures (not "not found yet"): the engine's "Error: …" and "Search failed…" messages.
 function isError(msg) { return /^(Error:|Search failed)/.test(msg || ""); }
 
+// Where the audio stops (roadmap step 3), e.g. "21.9 kHz" or "Suspect: stops at 20.3 kHz".
+function qualityOf(t) {
+  if (!t.cutoff_hz) return "";
+  const khz = `${(t.cutoff_hz / 1000).toFixed(1)} kHz`;
+  if (t.quality === "suspect") return `Suspect: stops at ${khz}`;
+  return t.cutoff_hz >= 22000 ? "Full range" : khz;
+}
+
 // cls picks the status style, ic the leading Lucide icon.
 function statusOf(t) {
   switch (t.state) {
@@ -211,7 +219,7 @@ function statusOf(t) {
       return { cls: "work spinning", ic: "loader-circle", lbl: `Waiting for peer${q}`, sub: t.peer };
     }
     case "waiting": return { cls: isError(t.last_error) ? "err" : "wait", ic: "clock", lbl: t.last_error || "Not found yet", sub: `Tries again ${inTime(t.retry_in)}` };
-    case "done": return { cls: "done", ic: "check", lbl: "Downloaded", sub: (t.file_path || "").split(/[\\/]/).pop() };
+    case "done": return { cls: "done", ic: "check", lbl: "Downloaded", sub: [qualityOf(t), (t.file_path || "").split(/[\\/]/).pop()].filter(Boolean).join(" · ") };
     case "gave_up": return { cls: "gone", ic: "circle", lbl: "Stopped looking", sub: t.last_error };
     case "skipped": return { cls: "gone", ic: "circle", lbl: "Skipped", sub: t.last_error };
     default: return { cls: "", ic: "", lbl: t.state };

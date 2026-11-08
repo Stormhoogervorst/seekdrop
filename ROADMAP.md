@@ -84,7 +84,7 @@ Klaar als:
 
 ### Stap 3: nep-lossless herkennen
 
-**Status: bestaat niet.**
+**Status: klaar (nov 2026).** `checks.measure_cutoff` decodeert 4 stukken van 8 s (mono, 44,1 kHz), middelt het spectrum met numpy en zoekt van boven naar beneden een klif van 25 dB binnen ±1 kHz. Lossless: klif onder 19,5 kHz = nep (naar quarantaine), 19,5–20,8 kHz = verdacht, geen klif of daarboven = echt. MP3 die zegt ≥300 kbps te zijn: onder 18,5 kHz nep, onder 19,5 kHz verdacht. Instelling *suspect_quality*: verdacht met label doorlaten (standaard) of afkeuren. Opgeslagen in `tracks.cutoff_hz` en `tracks.quality`, zichtbaar per track ("Full range", "21.1 kHz", "Suspect: stops at 20.3 kHz"). 0,15–0,5 s per track. Op 11 echte Soulseek-downloads: alle FLAC's echt (21–22 kHz), alle 320 kbps-MP3's echt (≈20,3 kHz).
 
 Doel: een MP3 die is omgezet naar FLAC of WAV wordt herkend. Op een clubsysteem hoor je het verschil, en het is een veelvoorkomend probleem op Soulseek.
 
@@ -97,9 +97,9 @@ Bouwen:
 
 Klaar als:
 
-- [ ] Tests met zelf gegenereerde signalen (ruis, ruis met een laagdoorlaatfilter op 16 kHz en op 19,5 kHz) worden juist ingedeeld.
-- [ ] Een gemeten afkapfrequentie is per track zichtbaar in de interface.
-- [ ] De analyse kost minder dan 5 seconden per track.
+- [x] Tests met zelf gegenereerde signalen (ruis, ruis met een laagdoorlaatfilter op 16 kHz en op 19,5 kHz) worden juist ingedeeld.
+- [x] Een gemeten afkapfrequentie is per track zichtbaar in de interface.
+- [x] De analyse kost minder dan 5 seconden per track.
 
 ### Stap 4: kwaliteitsprofielen en automatisch upgraden
 

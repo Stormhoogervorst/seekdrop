@@ -2,6 +2,9 @@
 
 ## 0.4.0
 
+- Fake lossless detection: MP3s converted to FLAC/WAV and fake 320 kbps MP3s are recognised by
+  their spectrum. Fakes go to Quarantine; suspect files are kept with a label (or rejected, your choice).
+  Every track shows where its audio stops.
 - File checks with ffmpeg (optional): damaged, cut-off, wrong-format, wrong-length and silent files
   go to Quarantine with a reason instead of your music folder. Approve or delete them there.
 - Downloads wait in a staging folder and appear in your music folder in one go.

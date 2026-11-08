@@ -15,6 +15,7 @@ dependencies = [
   "aiohttp>=3.9",
   "platformdirs>=4",
   "pywebview>=6",
+  "numpy>=2",
 ]
 
 [project.optional-dependencies]

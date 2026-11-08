@@ -72,3 +72,19 @@ def test_old_default_download_dir(tmp_path):
     cfg.write_text(json.dumps({"download_dir": "/Volumes/DJ/Incoming"}))
     _retarget_default_download_dir(cfg, music)
     assert json.loads(cfg.read_text())["download_dir"] == "/Volumes/DJ/Incoming"
+
+
+def test_old_database_gets_quality_columns(tmp_path):
+    import sqlite3
+    from seekdrop.db import Database
+    path = tmp_path / "old.db"
+    Database(path).conn.close()
+    con = sqlite3.connect(path)           # make it look like a database from before step 3
+    con.execute("ALTER TABLE tracks DROP COLUMN cutoff_hz")
+    con.execute("ALTER TABLE tracks DROP COLUMN quality")
+    con.commit()
+    con.close()
+    assert not {"cutoff_hz", "quality"} & {r[1] for r in sqlite3.connect(path).execute("PRAGMA table_info(tracks)")}
+    Database(path)
+    cols = {r[1] for r in sqlite3.connect(path).execute("PRAGMA table_info(tracks)")}
+    assert {"cutoff_hz", "quality"} <= cols

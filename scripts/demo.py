@@ -90,6 +90,12 @@ if not db.channels() and not SETUP:
                      remote_file=(f"@@music\\{a} - {t}.flac" if peer else ""),
                      file_path=(str(home / "Music" / f"{a} - {t}.flac") if st == "done" else ""))
 
+    # Measured cutoff (roadmap step 3): one full-range file, one suspect.
+    for t in db.tracks():
+        if t["title"] == "Lights Out":
+            db.update_track(t["id"], cutoff_hz=22050, quality="genuine")
+        if t["title"] == "Hypnotic Loop":
+            db.update_track(t["id"], cutoff_hz=20300, quality="suspect")
     # Two files that failed the file checks, to design the Quarantine view.
     tracks = {t["title"]: t["id"] for t in db.tracks()}
     qdir = home / "quarantine"

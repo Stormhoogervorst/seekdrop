@@ -52,7 +52,9 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   Retries 1h/3h/6h/12h/daily up to `give_up_days`.
 - **File checks** (`checks.py`): `FileChecker` is in `Engine.checks`; ffprobe/ffmpeg (optional, found on
   PATH or in Homebrew dirs) for decode errors, cut-off, format vs extension, length vs SoundCloud,
-  silence. Rejects go to `quarantine/` + table `rejects` (also the per-track peer/file blocklist).
+  silence, and (numpy) fake lossless / fake 320 via `measure_cutoff` + `classify`; the result is put in
+  `track["_meta"]` and stored as `tracks.cutoff_hz` / `tracks.quality` when the file is published.
+  Rejects go to `quarantine/` + table `rejects` (also the per-track peer/file blocklist).
 - **Storage**: `db.py` (SQLite: `channels`, `tracks`, `rejects`), `config.py` (settings.json, data dir, migration).
 - **UI**: `server.py` (aiohttp JSON API with a per-run key) + `ui/` (plain HTML/CSS/JS, no build),
   shown in a pywebview window by `__main__.py`; `updates.py` checks GitHub releases.

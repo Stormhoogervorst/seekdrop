@@ -63,7 +63,9 @@ The app only checks while it's open.
 If [ffmpeg](https://ffmpeg.org) is installed (on a Mac: `brew install ffmpeg`), every download is
 checked before it goes to your music folder: it must play all the way through, be the format its name
 says (no MP3 renamed to .flac), be about as long as on SoundCloud, and not start or end with a long
-silence. Files that fail end up under **Quarantine** with the reason; you can approve or delete them,
+silence. It also looks at the spectrum to catch fake lossless: an MP3 converted to FLAC or WAV
+(or a 128 kbps MP3 passed off as 320) stops at a hard cutoff around 16-19 kHz. Each track shows
+where its audio stops. Files that fail end up under **Quarantine** with the reason; you can approve or delete them,
 and the app tries another peer. Without ffmpeg the checks are skipped (Settings shows this).
 
 ## Use it responsibly

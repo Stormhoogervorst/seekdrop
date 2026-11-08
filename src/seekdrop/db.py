@@ -44,6 +44,8 @@ CREATE TABLE IF NOT EXISTS tracks (
     remote_file TEXT NOT NULL DEFAULT '',
     file_path TEXT NOT NULL DEFAULT '',
     progress REAL NOT NULL DEFAULT 0,
+    cutoff_hz REAL,                        -- where the audio stops (Hz); 22050 = full range
+    quality TEXT NOT NULL DEFAULT '',     -- '' (not measured) | genuine | suspect | fake
     created_at REAL NOT NULL,
     updated_at REAL NOT NULL
 );
@@ -86,6 +88,11 @@ class Database:
             cols = {r[1] for r in self.conn.execute("PRAGMA table_info(channels)")}
             if "kind" not in cols:   # databases from before playlists existed
                 self.conn.execute("ALTER TABLE channels ADD COLUMN kind TEXT NOT NULL DEFAULT 'profile'")
+            tcols = {r[1] for r in self.conn.execute("PRAGMA table_info(tracks)")}
+            if "cutoff_hz" not in tcols:   # databases from before the spectrum check
+                self.conn.execute("ALTER TABLE tracks ADD COLUMN cutoff_hz REAL")
+            if "quality" not in tcols:
+                self.conn.execute("ALTER TABLE tracks ADD COLUMN quality TEXT NOT NULL DEFAULT ''")
 
     def _q(self, sql: str, args: tuple = ()) -> list[dict]:
         with self.lock:

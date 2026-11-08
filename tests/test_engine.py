@@ -465,3 +465,17 @@ def test_approve_and_delete_from_quarantine(setup):
     eng.delete_reject(r2["id"])
     assert not os.path.exists(r2["path"]) and db.quarantined() == []
     assert ("peer2", "@@c\\Fresh Artist - Brand New.flac") in db.blocked(t["id"])
+
+
+def test_measured_quality_is_stored_on_the_track(setup):
+    eng, db, sc, slsk, tmp = setup
+    t = _fresh_track(eng, db, sc)
+
+    def fake_spectrum_check(track, path):
+        track.setdefault("_meta", {}).update(cutoff_hz=20300, quality="suspect")
+        return None
+    eng.checks.append(fake_spectrum_check)
+    db.update_track(t["id"], state="downloading")
+    asyncio.run(eng._download(db.track(t["id"]), [Candidate("peer", "@@a\\Fresh Artist - Brand New.flac")]))
+    t = db.track(t["id"])
+    assert t["state"] == "done" and t["cutoff_hz"] == 20300 and t["quality"] == "suspect"

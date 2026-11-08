@@ -88,3 +88,80 @@ def test_finds_homebrew_ffmpeg_without_path(monkeypatch, tmp_path):
     monkeypatch.setenv("PATH", "")
     monkeypatch.setattr(checks, "_EXTRA_DIRS", (str(fake),))
     assert checks.find_tool("ffprobe") == str(tool)
+
+
+# --- Roadmap step 3: fake lossless ------------------------------------------------------------
+import time  # noqa: E402
+
+from seekdrop.checks import classify, measure_cutoff  # noqa: E402
+
+numpy = pytest.importorskip("numpy")
+
+
+@pytest.fixture(scope="module")
+def spectra(tmp_path_factory):
+    d = tmp_path_factory.mktemp("spectra")
+    noise = ["-f", "lavfi", "-i", "anoisesrc=d=30:c=white:a=0.3:r=44100", "-ac", "2"]
+    ffmpeg(*noise, str(d / "noise.flac"))
+    for name, hz in (("lp16.flac", 16000), ("lp195.flac", 19500)):      # brick-wall low-pass
+        ffmpeg("-i", str(d / "noise.flac"), "-af",
+               f"firequalizer=gain='if(lt(f,{hz}),0,-120)':delay=0.05:accuracy=5", str(d / name))
+    ffmpeg("-f", "lavfi", "-i", "anoisesrc=d=30:c=pink:a=0.3:r=44100", "-ac", "2", "-b:a", "128k", str(d / "p128.mp3"))
+    ffmpeg("-i", str(d / "p128.mp3"), str(d / "transcode128.flac"))       # a real MP3 -> FLAC transcode
+    ffmpeg("-i", str(d / "p128.mp3"), "-b:a", "320k", str(d / "fake320.mp3"))   # 128 blown up to "320"
+    ffmpeg("-f", "lavfi", "-i", "anoisesrc=d=30:c=pink:a=0.3:r=44100", "-ac", "2", "-b:a", "320k", str(d / "real320.mp3"))
+    return d
+
+
+def judge(path, bit_rate=None):
+    ext = os.path.splitext(str(path))[1].lstrip(".")
+    cutoff = measure_cutoff(str(path), TOOLS, 30)
+    return cutoff, classify(ext, cutoff, bit_rate)[0]
+
+
+@needs_ffmpeg
+def test_generated_signals_are_classified(spectra):
+    cut, q = judge(spectra / "noise.flac")
+    assert q == "genuine" and cut == 22050
+    cut, q = judge(spectra / "lp16.flac")
+    assert q == "fake" and 15500 < cut < 17000
+    cut, q = judge(spectra / "lp195.flac")
+    assert q == "suspect" and 19000 < cut < 20500
+    assert judge(spectra / "transcode128.flac")[1] == "fake"
+
+
+@needs_ffmpeg
+def test_fake_320_mp3(spectra):
+    assert judge(spectra / "fake320.mp3", 320_000)[1] == "fake"
+    assert judge(spectra / "real320.mp3", 320_000)[1] == "genuine"
+    assert judge(spectra / "fake320.mp3", 128_000)[1] == "genuine"   # a 128 kbps MP3 is what it says
+
+
+@needs_ffmpeg
+def test_analysis_is_fast(spectra):
+    start = time.time()
+    measure_cutoff(str(spectra / "transcode128.flac"), TOOLS, 30)
+    assert time.time() - start < 5
+
+
+def test_reasons_name_the_cutoff():
+    q, why = classify("flac", 16400, None)
+    assert q == "fake" and why == "Fake lossless: audio stops at 16.4 kHz (MP3 at about 128 kbps)"
+    q, why = classify("wav", 20300, None)
+    assert q == "suspect" and "20.3 kHz" in why
+    assert classify("flac", None, None) == ("", "")      # not measured: no judgement
+
+
+@needs_ffmpeg
+def test_suspect_setting_and_result_kept_on_track(spectra):
+    class S:
+        check_length_margin = 10
+        check_silence_seconds = 10
+        suspect_quality = "label"
+    fc = FileChecker(lambda: S, TOOLS)
+    track = {"duration": 30}
+    assert fc(track, str(spectra / "lp195.flac")) is None          # let through, but marked
+    assert track["_meta"]["quality"] == "suspect" and 19000 < track["_meta"]["cutoff_hz"] < 20500
+    S.suspect_quality = "reject"
+    assert fc({"duration": 30}, str(spectra / "lp195.flac")).startswith("Suspect lossless")
+    assert fc({"duration": 30}, str(spectra / "lp16.flac")).startswith("Fake lossless")
