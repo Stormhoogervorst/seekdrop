@@ -1,0 +1,167 @@
+"""SQLite storage for channels and tracks."""
+from __future__ import annotations
+
+import sqlite3
+import threading
+import time
+from pathlib import Path
+from typing import Any, Optional
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS channels (
+    id INTEGER PRIMARY KEY,
+    url TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL DEFAULT '',
+    avatar TEXT NOT NULL DEFAULT '',
+    include_reposts INTEGER NOT NULL DEFAULT 0,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    initialized INTEGER NOT NULL DEFAULT 0,
+    backlog INTEGER NOT NULL DEFAULT 0,
+    kind TEXT NOT NULL DEFAULT 'profile',
+    last_checked REAL,
+    last_error TEXT NOT NULL DEFAULT '',
+    added_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS tracks (
+    id INTEGER PRIMARY KEY,
+    channel_id INTEGER NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+    sc_id TEXT NOT NULL UNIQUE,
+    url TEXT NOT NULL DEFAULT '',
+    raw_title TEXT NOT NULL DEFAULT '',
+    uploader TEXT NOT NULL DEFAULT '',
+    publisher_artist TEXT NOT NULL DEFAULT '',
+    artist TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL DEFAULT '',
+    version TEXT NOT NULL DEFAULT '',
+    duration REAL,
+    artwork TEXT NOT NULL DEFAULT '',
+    uploaded_at REAL,
+    state TEXT NOT NULL DEFAULT 'wanted',
+    attempts INTEGER NOT NULL DEFAULT 0,
+    next_attempt REAL NOT NULL DEFAULT 0,
+    last_error TEXT NOT NULL DEFAULT '',
+    peer TEXT NOT NULL DEFAULT '',
+    remote_file TEXT NOT NULL DEFAULT '',
+    file_path TEXT NOT NULL DEFAULT '',
+    progress REAL NOT NULL DEFAULT 0,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS tracks_state ON tracks(state, next_attempt);
+"""
+
+# Track states
+WANTED = "wanted"          # search as soon as possible
+SEARCHING = "searching"
+DOWNLOADING = "downloading"
+WAITING = "waiting"        # not found yet, will retry at next_attempt
+DONE = "done"
+GAVE_UP = "gave_up"
+SKIPPED = "skipped"
+ACTIVE_STATES = (WANTED, SEARCHING, DOWNLOADING, WAITING)
+
+
+class Database:
+    def __init__(self, path: Path | str):
+        self.conn = sqlite3.connect(str(path), check_same_thread=False, isolation_level=None)
+        self.conn.row_factory = sqlite3.Row
+        self.conn.execute("PRAGMA foreign_keys = ON")
+        self.conn.execute("PRAGMA journal_mode = WAL")
+        self.lock = threading.RLock()
+        with self.lock:
+            self.conn.executescript(SCHEMA)
+            cols = {r[1] for r in self.conn.execute("PRAGMA table_info(channels)")}
+            if "kind" not in cols:   # databases from before playlists existed
+                self.conn.execute("ALTER TABLE channels ADD COLUMN kind TEXT NOT NULL DEFAULT 'profile'")
+
+    def _q(self, sql: str, args: tuple = ()) -> list[dict]:
+        with self.lock:
+            return [dict(r) for r in self.conn.execute(sql, args).fetchall()]
+
+    def _x(self, sql: str, args: tuple = ()) -> int:
+        with self.lock:
+            cur = self.conn.execute(sql, args)
+            return cur.lastrowid or cur.rowcount
+
+    # Channels -----------------------------------------------------------
+    def add_channel(self, url: str, name: str, include_reposts: bool, backlog: int, avatar: str = "",
+                    kind: str = "profile") -> int:
+        return self._x(
+            "INSERT INTO channels(url, name, avatar, include_reposts, backlog, kind, added_at) VALUES (?,?,?,?,?,?,?)",
+            (url, name, avatar, int(include_reposts), int(backlog), kind, time.time()))
+
+    def channels(self) -> list[dict]:
+        return self._q("""
+            SELECT c.*,
+              (SELECT COUNT(*) FROM tracks t WHERE t.channel_id=c.id AND t.state='done') AS done_count,
+              (SELECT COUNT(*) FROM tracks t WHERE t.channel_id=c.id AND t.state IN ('wanted','searching','downloading','waiting')) AS open_count
+            FROM channels c ORDER BY c.name COLLATE NOCASE""")
+
+    def channel(self, cid: int) -> Optional[dict]:
+        rows = self._q("SELECT * FROM channels WHERE id=?", (cid,))
+        return rows[0] if rows else None
+
+    def channel_by_url(self, url: str) -> Optional[dict]:
+        rows = self._q("SELECT * FROM channels WHERE url=?", (url,))
+        return rows[0] if rows else None
+
+    def update_channel(self, cid: int, **fields: Any) -> None:
+        if not fields:
+            return
+        cols = ", ".join(f"{k}=?" for k in fields)
+        self._x(f"UPDATE channels SET {cols} WHERE id=?", (*fields.values(), cid))
+
+    def delete_channel(self, cid: int) -> None:
+        self._x("DELETE FROM channels WHERE id=?", (cid,))
+
+    # Tracks -------------------------------------------------------------
+    def tracks_by_sc_ids(self, ids: list[str]) -> list[dict]:
+        if not ids:
+            return []
+        marks = ",".join("?" * len(ids))
+        return self._q(f"SELECT * FROM tracks WHERE sc_id IN ({marks})", tuple(ids))
+
+    def known_sc_ids(self, ids: list[str]) -> set[str]:
+        if not ids:
+            return set()
+        marks = ",".join("?" * len(ids))
+        return {r["sc_id"] for r in self._q(f"SELECT sc_id FROM tracks WHERE sc_id IN ({marks})", tuple(ids))}
+
+    def add_track(self, **fields: Any) -> int:
+        now = time.time()
+        fields.setdefault("created_at", now)
+        fields["updated_at"] = now
+        cols = ", ".join(fields)
+        marks = ", ".join("?" * len(fields))
+        return self._x(f"INSERT OR IGNORE INTO tracks({cols}) VALUES ({marks})", tuple(fields.values()))
+
+    def update_track(self, tid: int, **fields: Any) -> None:
+        fields["updated_at"] = time.time()
+        cols = ", ".join(f"{k}=?" for k in fields)
+        self._x(f"UPDATE tracks SET {cols} WHERE id=?", (*fields.values(), tid))
+
+    def track(self, tid: int) -> Optional[dict]:
+        rows = self._q("SELECT * FROM tracks WHERE id=?", (tid,))
+        return rows[0] if rows else None
+
+    def tracks(self, limit: int = 500, channel_id: Optional[int] = None) -> list[dict]:
+        where, args = "", ()
+        if channel_id:
+            where, args = "WHERE t.channel_id=?", (channel_id,)
+        return self._q(f"""
+            SELECT t.*, c.name AS channel_name FROM tracks t JOIN channels c ON c.id=t.channel_id
+            {where} ORDER BY COALESCE(t.uploaded_at, t.created_at) DESC, t.id DESC LIMIT ?""", (*args, limit))
+
+    def due_tracks(self, now: float, limit: int = 20) -> list[dict]:
+        return self._q("""
+            SELECT t.*, c.name AS channel_name FROM tracks t JOIN channels c ON c.id=t.channel_id
+            WHERE c.enabled=1 AND t.state IN ('wanted','waiting') AND t.next_attempt<=?
+            ORDER BY t.state='waiting', t.next_attempt, t.id LIMIT ?""", (now, limit))
+
+    def reset_interrupted(self) -> None:
+        """After a restart, anything that was mid-search/download is wanted again."""
+        self._x("UPDATE tracks SET state='wanted', progress=0, next_attempt=0 WHERE state IN ('searching','downloading')")
+
+    def stats(self) -> dict:
+        rows = self._q("SELECT state, COUNT(*) AS n FROM tracks GROUP BY state")
+        return {r["state"]: r["n"] for r in rows}

@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cratewatch</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%2212%22 fill=%22none%22 stroke=%22%23f2a93b%22 stroke-width=%225%22/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/ui/style.css">
+</head>
+<body>
+
+<!-- First run -->
+<main id="setup" class="setup" hidden>
+  <div class="setup-inner">
+    <h1 class="wordmark">Cratewatch</h1>
+    <p class="lede">Follow SoundCloud channels. When something new drops, Cratewatch looks for it on Soulseek and downloads the best copy it can find.</p>
+
+    <ol class="steps">
+      <li class="step">
+        <h2>Before you start</h2>
+        <p>Cratewatch searches Soulseek, a network where people share their own music folders. You decide what you download and share. Only download music you have the right to have, such as free downloads, promos sent to you, or tracks you've bought. You're responsible for how you use it.</p>
+        <label class="check"><input type="checkbox" id="s-terms"> I understand and use Cratewatch at my own responsibility</label>
+      </li>
+      <li class="step">
+        <h2>Connect to Soulseek</h2>
+        <div class="choice" role="radiogroup" aria-label="How to connect">
+          <label class="opt"><input type="radio" name="s-mode" value="nicotine">
+            <span><b>Through Nicotine+</b><small>Uses the account and shared folders you already have in Nicotine+. Nicotine+ needs to be open while Cratewatch works.</small></span></label>
+          <label class="opt"><input type="radio" name="s-mode" value="builtin" checked>
+            <span><b>With its own Soulseek account</b><small>Cratewatch logs in to Soulseek itself. You don't need any other app.</small></span></label>
+        </div>
+        <div id="s-nicotine" hidden>
+          <p>Cratewatch adds a small plugin to Nicotine+ so the two apps can talk. It only works on this computer.</p>
+          <div class="nic-steps">
+            <button class="btn" type="button" id="s-nic-install">Add plugin to Nicotine+</button>
+            <p class="hint" id="s-nic-done" hidden></p>
+          </div>
+        </div>
+        <div id="s-builtin">
+          <p>Use a separate account just for Cratewatch. A name that doesn't exist yet is created automatically when you log in. Logging in with the same account in another Soulseek app will disconnect one of them.</p>
+          <div class="row2">
+            <label class="field"><span>Username</span><input id="s-user" autocomplete="off" spellcheck="false"></label>
+            <label class="field"><span>Password</span><input id="s-pass" type="password" autocomplete="new-password"></label>
+          </div>
+        </div>
+      </li>
+      <li class="step">
+        <h2>Where tracks go</h2>
+        <div class="folder-pick">
+          <label class="field grow"><span>Download folder</span><input id="s-dir" spellcheck="false"></label>
+          <button class="btn ghost" data-pick="s-dir" hidden>Choose…</button>
+        </div>
+        <div id="s-share-wrap">
+          <label class="check"><input type="checkbox" id="s-share" checked> Share this folder on Soulseek</label>
+          <p class="hint">Many people on Soulseek only let you download if you share something too. Sharing means others can download these files from you.</p>
+        </div>
+      </li>
+    </ol>
+    <p class="error" id="s-error" hidden></p>
+    <button class="btn primary big" id="s-go">Start watching</button>
+  </div>
+</main>
+
+<!-- App -->
+<div id="app" class="shell" hidden>
+  <aside class="side">
+    <div class="brand"><span class="wordmark small">Cratewatch</span></div>
+
+    <form class="add" id="add-form" autocomplete="off">
+      <label for="add-url" class="add-label">Add a channel or playlist</label>
+      <input id="add-url" placeholder="soundcloud.com/name or …/sets/playlist" spellcheck="false">
+      <div class="add-more" id="add-more" hidden>
+        <p class="small" id="add-playlist-hint" hidden>Every track in this playlist is searched on Soulseek and downloaded when found. Tracks added to the playlist later are fetched too.</p>
+        <label class="field compact" id="add-backlog-field"><span>Also get the latest</span>
+          <select id="add-backlog">
+            <option value="0">0 tracks, only new ones</option>
+            <option value="5">5 tracks</option>
+            <option value="10">10 tracks</option>
+            <option value="25">25 tracks</option>
+          </select>
+        </label>
+        <label class="check small" id="add-reposts-field"><input type="checkbox" id="add-reposts"> Include reposts</label>
+        <button class="btn primary" type="submit" id="add-btn">Add channel</button>
+      </div>
+      <p class="error small" id="add-error" hidden></p>
+    </form>
+
+    <nav class="channels" id="channels" aria-label="Channels"></nav>
+
+    <details class="activity">
+      <summary>Activity</summary>
+      <ul id="activity"></ul>
+    </details>
+  </aside>
+
+  <section class="main">
+    <header class="top">
+      <div class="deck" id="deck">
+        <span class="ring" id="ring" aria-hidden="true"></span>
+        <div>
+          <div class="deck-title" id="deck-title">Connecting</div>
+          <div class="deck-sub" id="deck-sub"></div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="btn ghost" id="check-now">Check now</button>
+        <button class="btn ghost" id="open-folder">Open folder</button>
+        <button class="btn ghost" id="open-settings" aria-label="Settings">Settings</button>
+      </div>
+    </header>
+
+    <div class="view-head">
+      <h1 id="view-title">All channels</h1>
+      <div class="filters" role="tablist" id="filters">
+        <button role="tab" data-f="all" aria-selected="true">All</button>
+        <button role="tab" data-f="active">In progress</button>
+        <button role="tab" data-f="done">Downloaded</button>
+        <button role="tab" data-f="waiting">Not found yet</button>
+        <button role="tab" data-f="skipped">Skipped</button>
+      </div>
+    </div>
+
+    <div class="channel-bar" id="channel-bar" hidden></div>
+    <div class="list" id="list"></div>
+  </section>
+</div>
+
+<!-- Settings drawer -->
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" aria-label="Settings" hidden>
+  <div class="drawer-head">
+    <h2>Settings</h2>
+    <button class="btn ghost" id="close-settings">Close</button>
+  </div>
+  <form id="settings-form" class="drawer-body">
+    <h3>Soulseek</h3>
+    <label class="field"><span>Connect</span>
+      <select name="soulseek_mode" id="set-mode">
+        <option value="nicotine">Through Nicotine+</option>
+        <option value="builtin">With its own Soulseek account</option>
+      </select>
+    </label>
+    <div data-mode="nicotine">
+      <p class="hint" id="set-nic-status"></p>
+      <button class="btn ghost" type="button" id="set-nic-install">Add plugin to Nicotine+ again</button>
+    </div>
+    <div data-mode="builtin">
+      <div class="row2">
+        <label class="field"><span>Username</span><input name="soulseek_username" spellcheck="false"></label>
+        <label class="field"><span>Password</span><input name="soulseek_password" type="password" placeholder="Unchanged" autocomplete="new-password"></label>
+      </div>
+      <label class="field"><span>Listening port</span><input name="listen_port" type="number" min="1024" max="65000"></label>
+    </div>
+
+    <h3>Files</h3>
+    <div class="folder-pick">
+      <label class="field grow"><span>Download folder</span><input name="download_dir" id="set-dir" spellcheck="false"></label>
+      <button class="btn ghost" data-pick="set-dir" type="button" hidden>Choose…</button>
+    </div>
+    <label class="check"><input type="checkbox" name="organize_by_channel"> Put tracks in a folder per channel</label>
+    <div data-mode="builtin">
+      <label class="check"><input type="checkbox" name="share_downloads"> Share the download folder on Soulseek</label>
+      <label class="field"><span>Other shared folders, one per line</span><textarea name="share_dirs" rows="3" spellcheck="false"></textarea></label>
+    </div>
+    <p class="hint" data-mode="nicotine">Sharing is set up in Nicotine+.</p>
+
+    <h3>Quality</h3>
+    <label class="field"><span>Prefer</span>
+      <select name="preferred_format">
+        <option value="lossless">Lossless (FLAC, WAV, AIFF), MP3 if that's all there is</option>
+        <option value="mp3">MP3, lossless is fine too</option>
+      </select>
+    </label>
+    <label class="field"><span>Lowest MP3 bitrate</span>
+      <select name="min_bitrate">
+        <option value="320">320 kbps</option>
+        <option value="256">256 kbps</option>
+        <option value="192">192 kbps</option>
+      </select>
+    </label>
+
+    <h3>Schedule</h3>
+    <div class="row2">
+      <label class="field"><span>Check channels every</span>
+        <select name="check_interval_minutes">
+          <option value="30">30 minutes</option>
+          <option value="60">hour</option>
+          <option value="180">3 hours</option>
+          <option value="360">6 hours</option>
+          <option value="1440">day</option>
+        </select>
+      </label>
+      <label class="field"><span>Keep looking for</span>
+        <select name="give_up_days">
+          <option value="7">1 week</option>
+          <option value="30">30 days</option>
+          <option value="90">90 days</option>
+          <option value="365">1 year</option>
+        </select>
+      </label>
+    </div>
+    <label class="field"><span>Downloads at the same time</span>
+      <select name="max_parallel_downloads">
+        <option>1</option><option>2</option><option>3</option><option>5</option>
+      </select>
+    </label>
+    <p class="error" id="set-error" hidden></p>
+    <div class="drawer-foot">
+      <span class="hint" id="version"></span>
+      <button class="btn primary" type="submit">Save settings</button>
+    </div>
+  </form>
+</aside>
+
+<div class="toast" id="toast" role="status" hidden></div>
+<script src="/ui/app.js"></script>
+</body>
+</html>

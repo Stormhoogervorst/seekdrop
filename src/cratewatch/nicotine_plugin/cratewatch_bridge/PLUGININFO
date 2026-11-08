@@ -1,0 +1,4 @@
+Name = "Cratewatch Bridge"
+Version = "0.2.0"
+Authors = ["Cratewatch"]
+Description = "Lets the Cratewatch app search and download through Nicotine+, using your own Soulseek account. Only listens on this computer (127.0.0.1) and only accepts requests with the key that Cratewatch created when it installed this plugin.\n\nCratewatch searches don't show up as tabs or in your search history. Downloads appear in the Downloads tab as usual."

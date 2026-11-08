@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cratewatch"
+version = "0.2.0"
+description = "Watch SoundCloud channels and fetch new releases from Soulseek."
+readme = "README.md"
+license = "GPL-3.0-or-later"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "aioslsk>=1.7,<2",
+  "yt-dlp[default,curl-cffi]>=2026.10.26",
+  "aiohttp>=3.9",
+  "platformdirs>=4",
+  "pywebview>=6",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pyinstaller>=6.10"]
+
+[project.gui-scripts]
+cratewatch = "cratewatch.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+cratewatch = ["ui/*", "ui/fonts/*", "nicotine_plugin/cratewatch_bridge/*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

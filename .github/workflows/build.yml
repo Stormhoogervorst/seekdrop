@@ -1,0 +1,84 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev]"
+      - run: pytest -q
+
+  windows:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev]"
+      - run: pyinstaller packaging/cratewatch.spec --noconfirm
+      - name: Smoke test
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist\Cratewatch\Cratewatch.exe -ArgumentList "--headless","--port","8799" -PassThru
+          Start-Sleep -Seconds 15
+          $r = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8799/
+          if ($r.Content -notmatch "Cratewatch") { exit 1 }
+          Stop-Process -Id $p.Id
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $v = python -c "import sys; sys.path.insert(0,'src'); import cratewatch; print(cratewatch.__version__)"
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) { choco install innosetup -y --no-progress }
+          iscc /DAppVersion=$v packaging\windows.iss
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*-windows-setup.exe
+
+  macos:
+    needs: test
+    runs-on: macos-latest   # Apple Silicon
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev]"
+      - run: pyinstaller packaging/cratewatch.spec --noconfirm
+      - name: Smoke test
+        run: |
+          dist/Cratewatch.app/Contents/MacOS/Cratewatch --headless --port 8799 &
+          sleep 15
+          curl -sf http://127.0.0.1:8799/ | grep -q Cratewatch
+          kill %1
+      - name: Build DMG
+        run: |
+          V=$(python -c "import sys; sys.path.insert(0,'src'); import cratewatch; print(cratewatch.__version__)")
+          mkdir -p dmg && cp -R dist/Cratewatch.app dmg/ && ln -s /Applications dmg/Applications
+          hdiutil create -volname Cratewatch -srcfolder dmg -ov -format UDZO "dist/Cratewatch-$V-macos-arm64.dmg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/*.dmg
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: out }
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: out/**/*
+          draft: true
