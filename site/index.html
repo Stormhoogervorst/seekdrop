@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SeekDrop: follow SoundCloud and Spotify, get the files from Soulseek</title>
+  <meta name="description" content="SeekDrop is a free desktop app for DJs. It follows SoundCloud channels and Spotify playlists, finds each new track on Soulseek, checks the file, tags it and puts it in your music folder.">
+  <meta name="theme-color" content="#E0E0E0">
+  <meta property="og:title" content="SeekDrop">
+  <meta property="og:description" content="Follow SoundCloud and Spotify. Get the files from Soulseek. Free and open source for Mac and Windows.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="img/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#main" data-i18n="skip">Skip to content</a>
+
+<header class="nav">
+  <div class="wrap nav-row">
+    <a class="brand" href="#top" aria-label="SeekDrop">
+      <img src="img/logo.svg" alt="" width="36" height="36"><span>SeekDrop</span>
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="#how" data-i18n="nav_how">How it works</a>
+      <a href="#features" data-i18n="nav_features">Features</a>
+      <a href="#download" data-i18n="nav_download">Download</a>
+      <a href="#faq" data-i18n="nav_faq">FAQ</a>
+    </nav>
+    <div class="nav-actions">
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang="nl" aria-pressed="false">NL</button>
+      </div>
+      <a class="btn dark small" href="https://github.com/Stormhoogervorst/seekdrop" data-i18n="github_short">GitHub</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <!-- Hero -->
+  <section class="hero" id="top">
+    <div class="wrap">
+      <p class="eyebrow" data-i18n="eyebrow">Free · Open source · Mac and Windows</p>
+      <h1 data-i18n="h1">Follow SoundCloud and Spotify. <span class="mark">Get the files from Soulseek.</span></h1>
+      <p class="lede" data-i18n="lede">SeekDrop watches the labels, artists and playlists you care about. When a new track shows up, it finds the best copy on Soulseek, checks it, tags it and puts it in your music folder.</p>
+      <div class="cta">
+        <a class="btn primary big" id="dl-main" href="https://github.com/Stormhoogervorst/seekdrop/releases/latest"><span id="dl-main-label">Download for Mac</span></a>
+        <a class="btn ghost big" href="https://github.com/Stormhoogervorst/seekdrop" data-i18n="view_github">View on GitHub</a>
+      </div>
+      <p class="meta" id="dl-meta" data-i18n="meta_default">Latest version on GitHub · GPL-3.0 licence</p>
+      <figure class="shot hero-shot">
+        <img src="img/app-main.png" width="1440" height="900" alt="The SeekDrop window: channels on the left, tracks with their status on the right, such as downloading, searching Soulseek, and downloaded." data-i18n-alt="alt_main">
+      </figure>
+    </div>
+  </section>
+
+  <!-- What it does -->
+  <section class="section" id="what">
+    <div class="wrap">
+      <h2 data-i18n="what_h">What it does</h2>
+      <p class="sub" data-i18n="what_sub">For DJs and producers who don't want to check twenty label pages every day.</p>
+      <div class="cards three">
+        <article class="card">
+          <span class="num">1</span>
+          <h3 data-i18n="c1_h">Follow</h3>
+          <p data-i18n="c1_p">Add a SoundCloud profile or playlist, or a public Spotify playlist. SeekDrop checks it every hour and notices new tracks.</p>
+        </article>
+        <article class="card">
+          <span class="num">2</span>
+          <h3 data-i18n="c2_h">Find</h3>
+          <p data-i18n="c2_p">It cleans up the messy title, searches Soulseek and scores every result on artist, title, remix, length, format, bitrate and speed.</p>
+        </article>
+        <article class="card">
+          <span class="num">3</span>
+          <h3 data-i18n="c3_h">Deliver</h3>
+          <p data-i18n="c3_p">The file is checked, tagged with artwork and named your way, then lands in your music folder. Optional: a ready-made list for Rekordbox.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="section dark" id="how">
+    <div class="wrap">
+      <h2 data-i18n="how_h">How it works</h2>
+      <p class="sub" data-i18n="how_sub">From a link to a tagged file, without you lifting a finger.</p>
+      <ol class="steps">
+        <li><h3 data-i18n="s1_h">Paste a link</h3><p data-i18n="s1_p">A SoundCloud profile or playlist, or a public Spotify playlist. SeekDrop only reads titles, artists and lengths. It never downloads audio from SoundCloud or Spotify.</p></li>
+        <li><h3 data-i18n="s2_h">Titles are cleaned up</h3><p data-i18n="s2_p"><code>PREMIERE: Artist - Track (Someone Remix) [FREE DL]</code> becomes artist <em>Artist</em>, title <em>Track</em>, version <em>Someone Remix</em>.</p></li>
+        <li><h3 data-i18n="s3_h">Your rules decide what is wanted</h3><p data-i18n="s3_p">Shortest and longest length, remixes on or off, no previews or DJ mixes, words to block. Tracks you already own are recognised and skipped.</p></li>
+        <li><h3 data-i18n="s4_h">It searches Soulseek, politely</h3><p data-i18n="s4_p">Searches are spaced out, downloads pause when your disk runs low, and peers that send broken or fake files are avoided.</p></li>
+        <li><h3 data-i18n="s5_h">The file is checked</h3><p data-i18n="s5_p">It must play all the way through, be the format its name says, be about as long as the original, and not be a converted MP3 passed off as lossless.</p></li>
+        <li><h3 data-i18n="s6_h">Tagged, named, delivered</h3><p data-i18n="s6_p">Artist, title with version, genre, year and cover art go into the file. It is named with your template and placed in your music folder.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- Why not -->
+  <section class="section" id="why">
+    <div class="wrap split">
+      <div class="copy">
+        <h2 data-i18n="why_h">When nothing matches, it tells you why</h2>
+        <p data-i18n="why_p">No black box. For every track that isn't found, SeekDrop shows what it searched for and the closest files, each with the reason it was rejected: a radio edit that is too short, 192 kbps when you want 320, a different remix.</p>
+        <ul class="ticks">
+          <li data-i18n="why_l1">Download a rejected file anyway, in one click.</li>
+          <li data-i18n="why_l2">Fix the artist, title or version if SeekDrop misread it.</li>
+          <li data-i18n="why_l3">Search with your own words, or stop looking.</li>
+          <li data-i18n="why_l4">Not on Soulseek yet? It tries again after 1, 3, 6 and 12 hours, then daily for up to 30 days.</li>
+        </ul>
+      </div>
+      <figure class="shot">
+        <img src="img/app-why.png" width="1440" height="900" loading="lazy" alt="The Why not panel for a track: what was searched for, the three closest files and why each was rejected, with buttons to download anyway." data-i18n-alt="alt_why">
+      </figure>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="section tint" id="features">
+    <div class="wrap">
+      <h2 data-i18n="feat_h">Made for how DJs collect music</h2>
+      <div class="cards grid">
+        <article class="card"><h3 data-i18n="f1_h">Knows one version from another</h3><p data-i18n="f1_p">Original and Extended go together. A radio edit, dub, VIP or someone else's remix is never taken for the one you want. Producers with several names can have aliases.</p></article>
+        <article class="card"><h3 data-i18n="f2_h">Quality profiles and upgrades</h3><p data-i18n="f2_p">Club, Balanced or Space saver. If a track first arrives as MP3 320 and you want lossless, SeekDrop keeps looking for 30 days and asks before it replaces your file.</p></article>
+        <article class="card"><h3 data-i18n="f3_h">Catches fake lossless</h3><p data-i18n="f3_p">It reads the spectrum of every file. An MP3 converted to FLAC stops at a hard cutoff, and ends up in quarantine with the reason, not in your crate.</p></article>
+        <article class="card"><h3 data-i18n="f4_h">Rules per channel</h3><p data-i18n="f4_p">A label channel and a promo channel need different rules. Set length, remixes, mixes and blocked words per channel, plus one blocklist for everything.</p></article>
+        <article class="card"><h3 data-i18n="f5_h">Knows what you already have</h3><p data-i18n="f5_p">Point it at your music folders. A track that is already there, even under another name, is marked and not downloaded again. A Duplicates view shows doubles. It only reads your folders.</p></article>
+        <article class="card"><h3 data-i18n="f6_h">Rekordbox-ready</h3><p data-i18n="f6_p">Keep a Rekordbox XML file up to date with a playlist per channel. Tracks that are in your Rekordbox collection are never replaced behind your back, so cue points stay safe.</p></article>
+        <article class="card"><h3 data-i18n="f7_h">Tags and artwork</h3><p data-i18n="f7_p">Artist, title with version, genre, year and a 500 px cover in MP3, FLAC, AIFF and M4A. Optionally convert WAV to AIFF so DJ software reads the tags.</p></article>
+        <article class="card"><h3 data-i18n="f8_h">A good Soulseek citizen</h3><p data-i18n="f8_p">Searches are spaced out, a disk guard pauses downloads, and it warns you when you share nothing, because many users block that.</p></article>
+        <article class="card"><h3 data-i18n="f9_h">Private by design</h3><p data-i18n="f9_p">Everything stays on your computer. No account, no tracking, no analytics. It talks to SoundCloud, Spotify, Soulseek and GitHub (for updates).</p></article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Download -->
+  <section class="section" id="download">
+    <div class="wrap">
+      <h2 data-i18n="dl_h">Download SeekDrop</h2>
+      <p class="sub" id="dl-sub" data-i18n="dl_sub">Free, open source (GPL-3.0). Downloads come straight from GitHub.</p>
+      <div class="cards two">
+        <article class="card os" id="card-mac">
+          <h3>macOS</h3>
+          <p class="small" data-i18n="mac_req">macOS 11 or newer, Apple Silicon (M1 and later)</p>
+          <a class="btn primary" id="dl-mac" href="https://github.com/Stormhoogervorst/seekdrop/releases/latest" data-i18n="dl_mac">Download the .dmg</a>
+          <ol class="mini">
+            <li data-i18n="mac_1">Open the .dmg and drag SeekDrop to Applications.</li>
+            <li data-i18n="mac_2">Open it. If macOS says it can't check the app: System Settings, Privacy &amp; Security, then <strong>Open Anyway</strong>. Only once.</li>
+            <li data-i18n="mac_3">Updates install from inside the app (Settings, Updates).</li>
+          </ol>
+        </article>
+        <article class="card os" id="card-win">
+          <h3>Windows</h3>
+          <p class="small" data-i18n="win_req">Windows 10 or 11</p>
+          <a class="btn primary" id="dl-win" href="https://github.com/Stormhoogervorst/seekdrop/releases/latest" data-i18n="dl_win">Download the installer</a>
+          <ol class="mini">
+            <li data-i18n="win_1">Run the installer. It can start SeekDrop when you log in.</li>
+            <li data-i18n="win_2">Windows may show a SmartScreen warning because the app isn't code-signed: click <strong>More info</strong>, then <strong>Run anyway</strong>.</li>
+            <li data-i18n="win_3">New versions: download the installer again and run it over the old one.</li>
+          </ol>
+        </article>
+      </div>
+      <p class="small center"><a href="https://github.com/Stormhoogervorst/seekdrop/releases" data-i18n="all_releases">All releases and the source code on GitHub</a></p>
+
+      <div class="connect">
+        <h3 data-i18n="conn_h">Before you start: connect to Soulseek</h3>
+        <div class="cards two">
+          <article class="card flat"><h4 data-i18n="conn1_h">Through Nicotine+</h4><p data-i18n="conn1_p">Recommended if you already use it. SeekDrop installs a small plugin, you switch it on in Nicotine+, and it uses your account and shares.</p></article>
+          <article class="card flat"><h4 data-i18n="conn2_h">With its own account</h4><p data-i18n="conn2_p">SeekDrop logs in to Soulseek itself, no other app needed. Use a separate account for it, so it doesn't log you out elsewhere.</p></article>
+        </div>
+        <p class="small center" data-i18n="ffmpeg">Optional: install ffmpeg (on a Mac: <code>brew install ffmpeg</code>) to switch on the file checks.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Good to know -->
+  <section class="section dark" id="know">
+    <div class="wrap narrow">
+      <h2 data-i18n="know_h">Good to know</h2>
+      <ul class="know">
+        <li><strong data-i18n="k1_h">Use it responsibly.</strong> <span data-i18n="k1_p">Soulseek is a network where people share their own music folders. Only download music you have the right to have, such as free downloads, promos sent to you, or tracks you bought elsewhere. You are responsible for what you download and share.</span></li>
+        <li><strong data-i18n="k2_h">No audio from SoundCloud or Spotify.</strong> <span data-i18n="k2_p">They are only read for titles, artists, lengths and artwork. The audio always comes from Soulseek.</span></li>
+        <li><strong data-i18n="k3_h">Spotify has limits.</strong> <span data-i18n="k3_p">Only public playlists work, and Spotify shows at most the first 100 tracks of a playlist. Private playlists and Liked Songs can't be read.</span></li>
+        <li><strong data-i18n="k4_h">It works while it is open.</strong> <span data-i18n="k4_p">SeekDrop only checks and downloads while the app is running.</span></li>
+        <li><strong data-i18n="k5_h">Independent project.</strong> <span data-i18n="k5_p">Not made by or affiliated with SoundCloud, Spotify, Soulseek, Nicotine+ or Rekordbox.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="section" id="faq">
+    <div class="wrap narrow">
+      <h2 data-i18n="faq_h">Questions</h2>
+      <details><summary data-i18n="q1">Is it really free?</summary><p data-i18n="a1">Yes. SeekDrop is free and open source under the GPL-3.0 licence. There are no accounts, subscriptions or ads.</p></details>
+      <details><summary data-i18n="q2">Do I need a Soulseek account?</summary><p data-i18n="a2">Either use your existing Nicotine+ (it brings its own account), or let SeekDrop log in with an account of its own. A name that doesn't exist yet is created when you first log in.</p></details>
+      <details><summary data-i18n="q3">Does it work with Serato or Traktor?</summary><p data-i18n="a3">The files and tags work in any DJ software. The ready-made playlist file is for Rekordbox only for now. Serato crates, M3U playlists and Traktor are not built yet.</p></details>
+      <details><summary data-i18n="q4">What happens to a track that isn't on Soulseek?</summary><p data-i18n="a4">It stays in the list as "Not found yet" and SeekDrop tries again after 1, 3, 6 and 12 hours, then daily, for up to 30 days. You can search again by hand at any time.</p></details>
+      <details><summary data-i18n="q5">Will it overwrite music I already have?</summary><p data-i18n="a5">No. Your own folders are only read. A better copy of a track is kept next to your file until you press Replace, and a replaced file goes to SeekDrop's trash for 30 days.</p></details>
+      <details><summary data-i18n="q6">Something doesn't work. Where do I report it?</summary><p data-i18n="a6">Open an issue on <a href="https://github.com/Stormhoogervorst/seekdrop/issues">GitHub</a> and attach <code>seekdrop.log</code> from the app's data folder.</p></details>
+    </div>
+  </section>
+
+  <!-- Final call -->
+  <section class="section end">
+    <div class="wrap">
+      <div class="final">
+        <h2 data-i18n="end_h">Stop checking twenty label pages.</h2>
+        <p data-i18n="end_p">Add your channels once. SeekDrop does the rest.</p>
+        <div class="cta center">
+          <a class="btn primary big" href="#download" data-i18n="end_btn">Download SeekDrop</a>
+          <a class="btn ghost-light big" href="https://github.com/Stormhoogervorst/seekdrop" data-i18n="view_github">View on GitHub</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-row">
+    <a class="brand" href="#top"><img src="img/logo.svg" alt="" width="28" height="28"><span>SeekDrop</span></a>
+    <p class="small" data-i18n="foot">Free and open source, GPL-3.0. Not affiliated with SoundCloud, Spotify, Soulseek, Nicotine+ or Rekordbox.</p>
+    <p class="small"><a href="https://github.com/Stormhoogervorst/seekdrop">GitHub</a> · <a href="https://github.com/Stormhoogervorst/seekdrop/issues" data-i18n="issues">Issues</a> · <a href="https://github.com/Stormhoogervorst/seekdrop/blob/main/CHANGELOG.md" data-i18n="changelog">Changelog</a></p>
+  </div>
+</footer>
+
+<script src="main.js"></script>
+</body>
+</html>

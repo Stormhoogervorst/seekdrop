@@ -4,8 +4,22 @@
     {
       "name": "ui-demo",
       "runtimeExecutable": ".venv/bin/python",
-      "runtimeArgs": ["scripts/demo.py"],
+      "runtimeArgs": [
+        "scripts/demo.py"
+      ],
       "port": 8765
+    },
+    {
+      "name": "site",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8770",
+        "--directory",
+        "site"
+      ],
+      "port": 8770
     }
   ]
 }

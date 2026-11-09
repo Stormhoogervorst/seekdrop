@@ -118,6 +118,12 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   `Backend.on_quit` is how the route closes the app. Test it without GitHub: `SEEKDROP_RELEASE_API=<url of a release JSON>`
   (download URLs may then be http://127.0.0.1) and `OPEN_CMD=<script>` instead of `open`. Verified end to end on a copy of the build.
 
+## Website
+`site/` is the public website (plain HTML/CSS/JS, no build): English with a Dutch switch (`site/main.js` holds the Dutch text),
+download buttons that read the newest published GitHub release, screenshots taken from `scripts/demo.py` (made-up data).
+Deploy on Vercel with Root Directory `site`, Framework Preset "Other", no build command. Preview: launch.json `site` (port 8770).
+Keep the copy in step with the README when features change (and the Dutch text in `main.js` with the English in `index.html`).
+
 ## Design notes
 - Engine (`engine.py`) only uses the service interface: start/stop/status/error/connected/
   retryable/search/download/transfer_info/abort/forget/rescan_shares/lookup/cancel.
