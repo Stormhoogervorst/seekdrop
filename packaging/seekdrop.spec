@@ -15,10 +15,10 @@ datas = [
     (os.path.join(src, "seekdrop", "nicotine_plugin"), os.path.join("seekdrop", "nicotine_plugin")),
 ]
 binaries = []
-hiddenimports = collect_submodules("aioslsk") + collect_submodules("mutagen") + [
+hiddenimports = collect_submodules("aioslsk") + collect_submodules("mutagen") + collect_submodules("anyascii") + [
     m for m in collect_submodules("seekdrop") if "nicotine_plugin" not in m  # plugin runs inside Nicotine+
 ]
-for pkg in ("curl_cffi",):
+for pkg in ("curl_cffi", "anyascii"):
     try:
         d, b, h = collect_all(pkg)
         datas += d

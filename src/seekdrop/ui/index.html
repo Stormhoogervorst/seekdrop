@@ -203,10 +203,15 @@
       <label class="field grow"><span>Download folder</span><input name="download_dir" id="set-dir" spellcheck="false"></label>
       <button class="btn soft" data-pick="set-dir" type="button" hidden>Choose…</button>
     </div>
-    <label class="field"><span>Music folders you already have, one per line</span>
-      <textarea name="library_dirs" rows="3" spellcheck="false" placeholder="/Users/you/Music/DJ"></textarea></label>
-    <p class="hint">A new track that is already in one of these folders, or in the download folder, isn't downloaded again. SeekDrop only reads these folders. It never changes or deletes anything in them.</p>
+    <h3>Your music collection</h3>
+    <p class="hint">Folders SeekDrop checks, so a track you already have isn't downloaded again. The download folder is always included.</p>
+    <label class="field"><span>Music folders, one per line</span>
+      <textarea name="library_dirs" id="set-library-dirs" rows="3" spellcheck="false" placeholder="/Users/you/Music/DJ"></textarea></label>
+    <button class="btn soft" data-add-to="set-library-dirs" type="button" hidden>Add folder…</button>
+    <p class="hint">SeekDrop only reads these folders. It never changes or deletes anything in them.</p>
     <div class="row-inline"><p class="hint" id="set-library-status"></p><button type="button" class="btn soft" id="set-scan">Scan now</button></div>
+
+    <h3>Names and tags</h3>
     <label class="field"><span>Folder and file name</span>
       <input name="filename_template" id="set-template" spellcheck="false" placeholder="{channel}/{artist} - {title} ({version})"></label>
     <p class="hint">You can use {channel} {artist} {title} {version} {year} {genre}. Use / for folders. Empty brackets and dashes disappear when a field is missing.</p>
@@ -214,6 +219,7 @@
     <label class="check"><input type="checkbox" name="tag_files"> Write tags and cover art into the files (artist, title with version, genre, year, link)</label>
     <label class="check"><input type="checkbox" name="wav_to_aiff"> Convert WAV to AIFF (same audio; DJ software reads AIFF tags better than WAV tags)</label>
     <label class="check"><input type="checkbox" name="label_from_channel"> Use the channel name as the label tag (for label channels)</label>
+    <h3>Sharing</h3>
     <div data-mode="builtin">
       <label class="check"><input type="checkbox" name="share_downloads"> Share the download folder on Soulseek</label>
       <label class="field"><span>Other shared folders, one per line</span><textarea name="share_dirs" rows="3" spellcheck="false"></textarea></label>

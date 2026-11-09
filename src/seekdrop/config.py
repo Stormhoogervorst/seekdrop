@@ -169,6 +169,12 @@ class SettingsStore:
                                                                        int(raw.get("min_bitrate") or 320))
                 if "filename_template" not in raw and raw.get("organize_by_channel") is False:
                     raw["filename_template"] = FLAT_TEMPLATE      # the old "no folder per channel" checkbox
+                for key in ("share_dirs", "library_dirs"):
+                    v = raw.get(key)
+                    if isinstance(v, str):
+                        raw[key] = [x.strip() for x in v.splitlines() if x.strip()]
+                    elif isinstance(v, list) and len(v) > 1 and all(isinstance(x, str) and len(x) == 1 for x in v):
+                        raw[key] = []                # one letter per entry: an earlier version split a path into characters
                 known = {f.name for f in fields(Settings)}
                 return Settings(**{k: v for k, v in raw.items() if k in known})
             except Exception:
@@ -203,6 +209,8 @@ class SettingsStore:
                        "check_updates"):
                 value = bool(value)
             if key in ("share_dirs", "library_dirs"):
+                if isinstance(value, str):
+                    value = value.splitlines()       # a text box that was sent as one string
                 value = [str(v).strip() for v in (value or []) if str(v).strip()]
             if key in ("block_keywords", "block_artists"):
                 from .rules import clean_words

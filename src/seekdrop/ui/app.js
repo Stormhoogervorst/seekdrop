@@ -548,7 +548,7 @@ function profileHelp() {
 }
 $("#set-profile").addEventListener("change", profileHelp);
 
-const LIST_FIELDS = ["share_dirs", "block_keywords", "block_artists"];
+const LIST_FIELDS = ["share_dirs", "library_dirs", "block_keywords", "block_artists"];
 const lines = (text) => text.split("\n").map((x) => x.trim()).filter(Boolean);
 
 function openSettings() {
@@ -852,7 +852,22 @@ function enablePickers() {
     };
   }
 }
-window.addEventListener("pywebviewready", enablePickers);
+function enableAddFolder() {
+  if (!(window.pywebview && window.pywebview.api && window.pywebview.api.pick_folder)) return;
+  for (const b of document.querySelectorAll("[data-add-to]")) {
+    b.hidden = false;
+    b.onclick = async () => {
+      const box = document.getElementById(b.dataset.addTo);
+      const path = await window.pywebview.api.pick_folder("");
+      if (!path) return;
+      const lines = box.value.split("\n").map((l) => l.trim()).filter(Boolean);
+      if (!lines.includes(path)) lines.push(path);
+      box.value = lines.join("\n");
+    };
+  }
+}
+window.addEventListener("pywebviewready", () => { enablePickers(); enableAddFolder(); });
 enablePickers();
+enableAddFolder();
 
 refresh();
