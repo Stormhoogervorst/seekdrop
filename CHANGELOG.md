@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.1
+
+- Fixed: the music folders you add under "Your music collection" were saved as single letters, so nothing was
+  found. They are now saved as folders, and a list broken that way is cleared when SeekDrop starts (add the
+  folders again).
+- Fixed: the built app stopped with "No module named 'anyascii._data'" when it compared titles (a scan, or
+  checking a new track). The data is now part of the app.
+- Music folders have their own section in Settings, with an *Add folder…* button.
+
 ## 0.4.0
 
 - Rekordbox: an optional XML file (Settings) with every downloaded track and a playlist per channel or
