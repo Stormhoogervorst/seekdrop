@@ -151,6 +151,8 @@ class Engine:
         self._rb_lock = asyncio.Lock()
         self._rb_cache: dict = {}
         self.rekordbox_state = {"written_at": 0.0, "tracks": 0, "playlists": 0, "error": ""}
+        self._rb_known: Optional[tuple] = None             # (path, mtime, size) -> set of paths in the user's Rekordbox export
+        self.rekordbox_library = {"tracks": 0, "error": ""}
         self._scan_lock = asyncio.Lock()       # step 11: one scan of the music folders at a time
         self.library_state = {"scanning": False, "done": 0, "total": 0, "files": 0,
                               "scanned_at": 0.0, "missing": [], "error": ""}
@@ -489,6 +491,34 @@ class Engine:
         p = (self.settings.rekordbox_xml_path or "").strip()
         p = os.path.abspath(os.path.expanduser(p)) if p else os.path.join(self.settings.download_dir, rekordbox.DEFAULT_NAME)
         return os.path.join(p, rekordbox.DEFAULT_NAME) if os.path.isdir(p) else p
+
+    def rekordbox_known(self) -> Optional[set]:
+        """The paths in the user's Rekordbox collection export, or None when none is set or it can't be read.
+        Cached until the file changes. Only reads the file."""
+        path = (self.settings.rekordbox_library_xml or "").strip()
+        if not path:
+            self.rekordbox_library.update(tracks=0, error="")
+            return None
+        path = os.path.abspath(os.path.expanduser(path))
+        try:
+            st = os.stat(path)
+            key = (path, st.st_mtime_ns, st.st_size)
+            if self._rb_known and self._rb_known[0] == key:
+                return self._rb_known[1]
+            known = rekordbox.collection_paths(path)
+        except Exception as e:
+            self._rb_known = None
+            self.rekordbox_library.update(tracks=0, error=(e.strerror if isinstance(e, OSError) and e.strerror else
+                                                           "That doesn't look like a Rekordbox export")[:120])
+            return None
+        self._rb_known = (key, known)
+        self.rekordbox_library.update(tracks=len(known), error="")
+        return known
+
+    def in_rekordbox(self, file_path: str) -> Optional[bool]:
+        """Is this file in the user's Rekordbox collection? None = unknown (no export, or unreadable)."""
+        known = self.rekordbox_known()
+        return None if known is None else rekordbox.has_file(known, file_path)
 
     def schedule_rekordbox(self) -> None:
         """Write the Rekordbox XML again soon (once for a burst of downloads). Safe to call from any thread."""
@@ -1108,7 +1138,17 @@ class Engine:
                 if not cur or cur["state"] != states.DONE:
                     _remove(staged)
                     return
-                if self.settings.upgrade_mode == "auto":
+                mode = self.settings.upgrade_mode
+                if mode == "auto_unless_dj":
+                    # Replace by itself only when we KNOW the track isn't in Rekordbox: a new file name
+                    # would cost its cue points. No export or an unreadable one counts as "might be there".
+                    known = await asyncio.to_thread(self.in_rekordbox, cur["file_path"])
+                    if known is True:
+                        self.note(f"{os.path.basename(cur['file_path'])} is in Rekordbox, so the better copy waits for your OK.")
+                    elif known is None:
+                        self.note("The better copy waits for your OK: SeekDrop can't tell what is in Rekordbox "
+                                  "(choose your Rekordbox export in Settings).", "warn")
+                if mode == "auto" or (mode == "auto_unless_dj" and known is False):
                     self._replace(cur, staged, c, meta, new_tier)
                 else:
                     folder = os.path.join(self.upgrades_dir, str(tid))

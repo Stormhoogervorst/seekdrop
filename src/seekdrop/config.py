@@ -116,7 +116,8 @@ class Settings:
     wav_to_aiff: bool = False               # convert WAV to AIFF (same audio, better tags in DJ software)
     label_from_channel: bool = False        # use the channel name of a profile as the label tag
     quality_profile: str = "club"           # club | balanced | space (quality.PROFILES)
-    upgrade_mode: str = "ask"               # better copy found later: "ask" | "auto" | "off"
+    upgrade_mode: str = "ask"               # better copy found later: "ask" | "auto" | "auto_unless_dj" | "off"
+    rekordbox_library_xml: str = ""         # step 12: a collection export made in Rekordbox (read only); tracks in it count as "in Rekordbox"
     artist_aliases: str = ""                # one line per artist: "Name = Alias 1, Alias 2" (step 6)
     check_interval_minutes: int = 60
     max_parallel_downloads: int = 3
@@ -208,7 +209,7 @@ class SettingsStore:
                 value = clean_words(value)
             if key == "artist_aliases":
                 value = "\n".join(line.strip() for line in str(value or "").splitlines() if line.strip())[:5000]
-            if key in ("soulseek_username", "download_dir", "rekordbox_xml_path"):
+            if key in ("soulseek_username", "download_dir", "rekordbox_xml_path", "rekordbox_library_xml"):
                 value = str(value).strip()
             if key == "filename_template":
                 value = str(value or "").strip()
@@ -216,7 +217,7 @@ class SettingsStore:
                     continue                       # the API reports the reason before it gets here
             if key == "quality_profile" and value not in ("club", "balanced", "space"):
                 continue
-            if key == "upgrade_mode" and value not in ("ask", "auto", "off"):
+            if key == "upgrade_mode" and value not in ("ask", "auto", "auto_unless_dj", "off"):
                 continue
             if key == "soulseek_mode" and value not in ("builtin", "nicotine"):
                 continue

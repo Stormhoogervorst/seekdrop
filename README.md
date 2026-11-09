@@ -34,6 +34,8 @@ For DJs and producers who don't want to check twenty label pages every day.
 - Rekordbox: turn on "Keep a Rekordbox XML file up to date" in Settings. Every downloaded track becomes a track and
   every channel or playlist a playlist in a folder called SeekDrop; import it through Rekordbox' Preferences, Advanced,
   Database, rekordbox xml. SeekDrop only writes that one file and never touches Rekordbox' own library.
+  Point SeekDrop at an export of your Rekordbox collection (File, Export Collection in xml format) and the upgrade
+  setting "Replace right away, but ask for tracks that are in Rekordbox" keeps your cue points safe.
 - Already have it? Point SeekDrop at your music folders (Settings). A new track that is in there under a
   slightly different name is marked "Already in your collection" and not downloaded again; a Duplicates tab lists
   doubles in the download folder with the best copy marked. SeekDrop only reads your folders.

@@ -14,6 +14,7 @@ from aiohttp import web
 
 from . import __version__
 from . import naming
+from .rekordbox import has_file as rekordbox_has
 from . import rules as rules_mod
 from .db import Database
 from .engine import Engine
@@ -114,6 +115,11 @@ class Api:
                 t["transfer_state"] = info["state"]
                 t["place_in_queue"] = info["place_in_queue"]
             t["retry_in"] = max(0, int(t["next_attempt"] - now)) if t["state"] == "waiting" else None
+        known = e.rekordbox_known()                 # step 12: which tracks does the user's Rekordbox have?
+        if known is not None:
+            for t in tracks:
+                if t["state"] == "done" and t["file_path"]:
+                    t["in_rekordbox"] = rekordbox_has(known, t["file_path"])
         channels = self.db.channels()
         for c in channels:
             c["checking"] = c["id"] in e.checking
@@ -131,7 +137,8 @@ class Api:
             "rejects": self.db.quarantined(),
             "politeness": {"paused": e.paused_reason, "share_warning": e.share_warning() if e.slsk.connected else "",
                            "blocked_peers": self.db.blocked_peers(now)},
-            "rekordbox": {**e.rekordbox_state, "enabled": e.settings.rekordbox_export, "path": e.rekordbox_path()},
+            "rekordbox": {**e.rekordbox_state, "enabled": e.settings.rekordbox_export, "path": e.rekordbox_path(),
+                          "library": {**e.rekordbox_library, "set": bool(e.settings.rekordbox_library_xml.strip())}},
             "library": {**e.library_state, "dirs": e.library_roots(), "own": e.settings.download_dir},
             "checks": {"available": bool(e.file_checker and e.file_checker.tools.available)},
             "profiles": {k: {"label": v["label"], "help": v["help"], "ladder": [TIER_LABELS[x] for x in v["order"]]}

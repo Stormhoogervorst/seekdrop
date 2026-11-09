@@ -364,3 +364,155 @@ def test_settings_and_api(setup, monkeypatch):
     monkeypatch.setattr(server, "open_in_file_manager", opened.append)
     assert asyncio.run(api.open_path(Req({"rekordbox": True}))).status == 200
     assert opened == [f"{tmp}/rb/out.xml"]
+
+
+# --- which tracks are in Rekordbox (reading the user's own collection export) ------------------
+
+from test_engine import FLAC, _done_mp3, _files, _measured, _results, _run_upgrade  # noqa: E402
+
+
+def rekordbox_export(path, *locations):
+    """A collection export the way Rekordbox itself writes it (only what matters here)."""
+    tracks = "".join(f'<TRACK TrackID="{i}" Name="x" Location="{loc}"/>' for i, loc in enumerate(locations, 1))
+    path.write_text('<?xml version="1.0" encoding="UTF-8"?>\n<DJ_PLAYLISTS Version="1.0.0">'
+                    '<PRODUCT Name="rekordbox" Version="7.0.0" Company="AlphaTheta"/>'
+                    f'<COLLECTION Entries="{len(locations)}">{tracks}</COLLECTION>'
+                    '<PLAYLISTS><NODE Type="0" Name="ROOT" Count="0"/></PLAYLISTS></DJ_PLAYLISTS>', "utf-8")
+    return str(path)
+
+
+def test_paths_are_compared_the_way_a_dj_computer_sees_them():
+    n = rb.normalize_path
+    assert n("/Users/DJ/Music/Café/x.MP3") == n("/users/dj/music/Cafe\u0301/x.mp3")      # case and composed accents
+    assert n("C:\\Users\\Dj\\x.mp3") == n("C:/Users/Dj/x.mp3") == n("c:/users//dj/x.mp3/")
+    assert n("/a/b.mp3") != n("/a/b.mp3x") and n("/a/b.mp3") != n("/a/c/b.mp3")
+
+
+def test_a_rekordbox_export_is_read_and_files_are_found_in_it(tmp_path):
+    f = tmp_path / "Music" / "Café Del Mar" / "a b.mp3"
+    f.parent.mkdir(parents=True)
+    f.write_bytes(b"x")
+    other = tmp_path / "Music" / "other.mp3"
+    other.write_bytes(b"x")
+    export = rekordbox_export(tmp_path / "export.xml", rb.location(str(f)).replace("%C3%A9", "e%CC%81"),   # an NFD spelling
+                              "file://localhost/D:/Other%20Music/z.flac")
+    known = rb.collection_paths(export)
+    assert len(known) == 2 and "d:/other music/z.flac" in known
+    assert rb.has_file(known, str(f)) and not rb.has_file(known, str(other))
+    assert rb.has_file(known, str(f).upper())                                          # a different case is the same file
+
+
+def test_a_link_to_the_folder_is_followed(tmp_path):
+    real = tmp_path / "real"
+    real.mkdir()
+    f = real / "a.mp3"
+    f.write_bytes(b"x")
+    (tmp_path / "link").symlink_to(real)
+    known = rb.collection_paths(rekordbox_export(tmp_path / "e.xml", rb.location(str(f))))     # Rekordbox has the real path
+    assert rb.has_file(known, str(tmp_path / "link" / "a.mp3"))                        # SeekDrop knows it through the link
+
+
+def _upgradeable(setup, mode, export_locations=None):
+    """A downloaded MP3 with a FLAC on offer; returns (eng, db, track, mp3)."""
+    eng, db, sc, slsk, tmp = setup
+    eng.store.update({"upgrade_mode": mode})
+    t, mp3 = _done_mp3(eng, db, sc, tmp)
+    if export_locations is not None:
+        eng.settings.rekordbox_library_xml = rekordbox_export(tmp / "export.xml", *export_locations(mp3))
+    slsk.search = _results(FLAC)
+    eng.checks.append(_measured("flac16"))
+    _run_upgrade(eng, db, t["id"])
+    return eng, db, db.track(t["id"]), mp3
+
+
+def test_a_track_in_rekordbox_is_not_replaced_by_itself(setup):
+    eng, db, t, mp3 = _upgradeable(setup, "auto_unless_dj", lambda f: [rb.location(str(f))])
+    assert t["file_path"] == str(mp3) and mp3.read_bytes() == b"old mp3" and t["upgrade_path"]     # waits for the user's OK
+    assert t["upgrade_tier"] == "flac16" and _files(eng.trash_dir) == []
+    assert any("is in Rekordbox, so the better copy waits" in a["msg"] for a in eng.activity)
+    assert eng.in_rekordbox(str(mp3)) is True
+
+
+def test_a_track_that_is_not_in_rekordbox_is_replaced_right_away(setup):
+    eng, db, t, mp3 = _upgradeable(setup, "auto_unless_dj", lambda f: ["file://localhost/Users/me/Music/some%20other.mp3"])
+    assert t["file_path"].endswith(".flac") and not mp3.exists() and t["upgrade_path"] == ""
+    assert len(_files(eng.trash_dir)) == 1                                                        # the old file is in the trash
+    assert eng.in_rekordbox(str(mp3)) is False
+
+
+def test_without_a_readable_export_it_asks_instead_of_guessing(setup):
+    # no export chosen
+    eng, db, t, mp3 = _upgradeable(setup, "auto_unless_dj")
+    assert t["upgrade_path"] and mp3.exists() and t["file_path"] == str(mp3)
+    assert any("can't tell what is in Rekordbox" in a["msg"] for a in eng.activity)
+    assert eng.in_rekordbox(str(mp3)) is None
+
+
+def test_a_broken_or_missing_export_is_reported_and_also_asks(setup, tmp_path):
+    eng, db, sc, slsk, tmp = setup
+    eng.settings.rekordbox_library_xml = str(tmp / "not-there.xml")
+    assert eng.rekordbox_known() is None and eng.rekordbox_library["error"]
+    (tmp / "junk.xml").write_text("this is not xml")
+    eng.settings.rekordbox_library_xml = str(tmp / "junk.xml")
+    assert eng.rekordbox_known() is None and "Rekordbox export" in eng.rekordbox_library["error"]
+    assert eng.in_rekordbox("/x/y.mp3") is None
+    eng.settings.rekordbox_library_xml = ""
+    assert eng.rekordbox_known() is None and eng.rekordbox_library["error"] == ""
+
+
+def test_the_other_upgrade_modes_do_not_look_at_the_export(setup):
+    # "auto" replaces even a track that is in Rekordbox, as the user chose
+    eng, db, t, mp3 = _upgradeable(setup, "auto", lambda f: [rb.location(str(f))])
+    assert t["file_path"].endswith(".flac") and not mp3.exists()
+
+
+def test_ask_mode_is_unchanged(setup):
+    eng, db, t, mp3 = _upgradeable(setup, "ask", lambda f: ["file://localhost/Users/me/other.mp3"])
+    assert t["upgrade_path"] and mp3.exists()
+
+
+def test_a_new_export_is_read_again_when_the_file_changes(setup, tmp_path):
+    eng, db, sc, slsk, tmp = setup
+    f = tmp / "out" / "a.mp3"
+    f.parent.mkdir(exist_ok=True)
+    f.write_bytes(b"x")
+    export = tmp / "export.xml"
+    eng.settings.rekordbox_library_xml = rekordbox_export(export)
+    assert eng.in_rekordbox(str(f)) is False and eng.rekordbox_library["tracks"] == 0
+    rekordbox_export(export, rb.location(str(f)), "file://localhost/Users/me/b.mp3")
+    os.utime(export, ns=(10**18, 10**18))                                      # a later modification time
+    assert eng.in_rekordbox(str(f)) is True and eng.rekordbox_library["tracks"] == 2
+
+
+def test_settings_accept_the_new_mode_and_the_export_path(setup):
+    eng, db, sc, slsk, tmp = setup
+    eng.store.update({"upgrade_mode": "auto_unless_dj", "rekordbox_library_xml": "  /x/export.xml  "})
+    assert eng.settings.upgrade_mode == "auto_unless_dj" and eng.settings.rekordbox_library_xml == "/x/export.xml"
+    eng.store.update({"upgrade_mode": "sometimes"})
+    assert eng.settings.upgrade_mode == "auto_unless_dj"                       # nonsense is refused
+
+
+def test_the_track_list_shows_which_files_are_in_rekordbox(setup):
+    from seekdrop import server
+    eng, db, sc, slsk, tmp = setup
+    inside, outside = tmp / "out" / "in.flac", tmp / "out" / "out.flac"
+    cid = db.add_channel("https://soundcloud.com/x", "X", False, 0)
+    ids = {}
+    for name, f in (("in", inside), ("out", outside)):
+        mk_flac(str(f))
+        ids[name] = db.add_track(channel_id=cid, sc_id=name, artist="A", title=name, state="done", file_path=str(f))
+    wanted = db.add_track(channel_id=cid, sc_id="w", artist="A", title="w", state="wanted")
+    api = server.Api(eng, db, token="t")
+
+    class Req:
+        query, match_info = {}, {}
+
+    state = json.loads(asyncio.run(api.state(Req())).text)
+    assert all("in_rekordbox" not in t for t in state["tracks"])                # no export chosen: nothing is claimed
+    assert state["rekordbox"]["library"]["set"] is False
+
+    eng.settings.rekordbox_library_xml = rekordbox_export(tmp / "export.xml", rb.location(str(inside)))
+    state = json.loads(asyncio.run(api.state(Req())).text)
+    flags = {t["id"]: t.get("in_rekordbox") for t in state["tracks"]}
+    assert flags[ids["in"]] is True and flags[ids["out"]] is False and flags[wanted] is None
+    assert state["rekordbox"]["library"] == {"tracks": 1, "error": "", "set": True}

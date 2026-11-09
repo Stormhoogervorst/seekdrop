@@ -73,7 +73,11 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   `REKORDBOX_DELAY` (30 s) after a download/upgrade/approve/channel removal via `schedule_rekordbox` (thread-safe, one
   pending write), atomic via a hidden `.seekdrop-part` file. `Location` uses Rekordbox's own safe characters
   (`!#$()*+,:;=?@`). `rekordbox.read` parses any Rekordbox XML (also Rekordbox' own export). We never touch Rekordbox'
-  database. Not built: M3U, Serato, Traktor, "upgrade only if not in Rekordbox".
+  database. Upgrade mode `auto_unless_dj`: `Engine.in_rekordbox(path)` (True/False/None) reads the user's own Rekordbox
+  collection export (`rekordbox_library_xml`, read only, cached by mtime) via `rekordbox.collection_paths` /
+  `has_file` (case, NFC/NFD, slashes, symlinks); `_upgrade_download` replaces by itself only when it is False, and
+  asks when True or None. The state API adds `in_rekordbox` to done tracks when an export is set. Not built: M3U,
+  Serato, Traktor. The reader was only tested on hand-made exports (no real Rekordbox export was available).
 - **Collection** (`library.py`, step 11): table `library` = one row per audio file in `library_dirs` plus the download
   folder (`Engine.library_roots`). `library.scan` reads only new/changed files (size + mtime + root), keeps rows of folders
   that are unreachable. `library.find(db, parsed, duration, aliases)` recognises a wanted track (title via `title_key`

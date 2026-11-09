@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import re
 import time
+import unicodedata
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from typing import Optional
@@ -194,3 +195,30 @@ def read(path: str) -> dict:
     if top is not None:
         walk(top)
     return {"tracks": tracks, "playlists": playlists}
+
+
+# --- which files Rekordbox already has ---------------------------------------------------------
+
+def normalize_path(path: str) -> str:
+    """A path in a form that two spellings of the same file share: one kind of slash, composed Unicode
+    (macOS stores accents decomposed, Rekordbox writes them composed) and no difference in case (the usual
+    file systems of DJ computers don't tell them apart)."""
+    p = unicodedata.normalize("NFC", str(path or "")).replace("\\", "/")
+    return re.sub(r"/+", "/", p).rstrip("/").casefold()
+
+
+def collection_paths(xml_path: str) -> set[str]:
+    """The file paths in a Rekordbox collection export (Rekordbox: File, Export Collection in xml format),
+    normalised for comparison. Only reads the file."""
+    return {normalize_path(path_from_location(t.get("Location", "")))
+            for t in read(xml_path)["tracks"].values() if t.get("Location")}
+
+
+def has_file(known: set[str], path: str) -> bool:
+    """Is this file one of the paths in `known`? Also checks the spelling with symbolic links resolved."""
+    if normalize_path(os.path.abspath(path)) in known:
+        return True
+    try:
+        return normalize_path(os.path.realpath(path)) in known
+    except OSError:
+        return False

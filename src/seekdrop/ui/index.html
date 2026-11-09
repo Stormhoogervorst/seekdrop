@@ -260,6 +260,7 @@
       <select name="upgrade_mode">
         <option value="ask">Ask me first (keeps your cue points safe)</option>
         <option value="auto">Replace the file right away</option>
+        <option value="auto_unless_dj">Replace right away, but ask for tracks that are in Rekordbox</option>
         <option value="off">Don't look for better copies</option>
       </select>
     </label>
@@ -272,6 +273,10 @@
     <div class="row-inline"><p class="hint" id="set-rb-status"></p>
       <span class="row-btns"><button type="button" class="btn soft" id="set-rb-update">Update now</button>
       <button type="button" class="btn soft" id="set-rb-show">Show file</button></span></div>
+    <label class="field"><span>Your Rekordbox collection export (optional)</span>
+      <input name="rekordbox_library_xml" id="set-rb-lib" spellcheck="false" placeholder="/Users/you/Documents/rekordbox collection.xml"></label>
+    <p class="hint" id="set-rb-lib-status"></p>
+    <p class="hint">In Rekordbox choose File, Export Collection in xml format, and pick that file here. SeekDrop only reads it, to see which tracks are in Rekordbox. With the upgrade setting above, those tracks are never replaced by themselves, because a new file name loses their cue points. Export again now and then. Without this file SeekDrop asks first for every track.</p>
     <p class="hint">Every finished download becomes a track, and each channel or playlist becomes a playlist inside a folder called SeekDrop. In Rekordbox: Preferences, Advanced, Database, tick <b>rekordbox xml</b> and choose this file. Then open <b>rekordbox xml</b> in the tree, right-click a playlist and choose <b>Import Playlist</b>. SeekDrop only writes this one file and never touches Rekordbox' own library. A track that is replaced by a better copy gets a new file name, so Rekordbox sees it as a new track.</p>
 
     <h3>Blocklist</h3>

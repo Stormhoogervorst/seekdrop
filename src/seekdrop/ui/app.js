@@ -261,9 +261,9 @@ function statusOf(t) {
     case "waiting": return { cls: isError(t.last_error) ? "err" : "wait", ic: "clock", lbl: t.last_error || "Not found yet", sub: `Tries again ${inTime(t.retry_in)}` };
     case "done": {
       const tier = (ui.state.tier_labels || {})[t.tier] || "";
-      if (t.upgrade_path) return { cls: "done", ic: "check", lbl: "Better copy found", sub: `${(ui.state.tier_labels || {})[t.upgrade_tier] || "Higher quality"} instead of ${tier || "this file"}` };
+      if (t.upgrade_path) return { cls: "done", ic: "check", lbl: "Better copy found", sub: `${(ui.state.tier_labels || {})[t.upgrade_tier] || "Higher quality"} instead of ${tier || "this file"}${t.in_rekordbox ? ". Replacing loses its cue points in Rekordbox" : ""}` };
       if (t.transfer_state) return { cls: "work spinning", ic: "loader-circle", lbl: "Getting a better copy", sub: tier ? `You have ${tier}` : "" };
-      const bits = [tier, qualityOf(t), (t.file_path || "").split(/[\\/]/).pop()];
+      const bits = [tier, qualityOf(t), t.in_rekordbox ? "in Rekordbox" : "", (t.file_path || "").split(/[\\/]/).pop()];
       if (t.next_upgrade > 0) bits.splice(1, 0, `looking for better until ${untilDate(t.created_at)}`);
       return { cls: "done", ic: "check", lbl: "Downloaded", sub: bits.filter(Boolean).join(" · ") };
     }
@@ -606,6 +606,9 @@ function rekordboxStatus() {
   else msg = "Not written yet.";
   $("#set-rb-status").textContent = msg;
   $("#set-rb-status").title = r.path || "";
+  const lib = r.library || {};
+  $("#set-rb-lib-status").textContent = !lib.set ? "" : lib.error ? `Can't use it: ${lib.error}.`
+    : `Read: ${lib.tracks.toLocaleString()} tracks in Rekordbox.`;
   $("#set-rb-update").disabled = !$("#settings-form").elements.rekordbox_export.checked;   // what is on screen counts
 }
 $("#settings-form").elements.rekordbox_export.addEventListener("change", rekordboxStatus);
