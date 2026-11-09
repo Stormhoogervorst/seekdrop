@@ -126,25 +126,25 @@ class Plugin(BasePlugin):
             "logged_in": users.login_status != UserStatus.OFFLINE,
             "username": users.login_username or "",
             "shared_folders": folders,   # None when this Nicotine+ version doesn't say
-            "shared_files": files,
+            "shared_files": files,   # always None for now
         }
 
     @staticmethod
     def _shares():
-        """(number of shared folders, number of shared files); None for what can't be found out.
-        Uses Nicotine+ internals, so every lookup is allowed to fail."""
-        folders = files = None
+        """(number of shared folders, None). The file count isn't available without Nicotine+'s own
+        share scan, so only the folders are reported; None = this Nicotine+ version doesn't say.
+        Verified against Nicotine+ 3.3.11 (get_shared_folders() returns public, buddy, trusted)."""
+        folders = None
         try:
-            sections = core.config.sections["transfers"]
-            folders = len(sections.get("shared") or []) + len(sections.get("buddyshared") or [])
+            folders = sum(len(group) for group in core.shares.get_shared_folders())
         except Exception:
-            pass
-        try:
-            count = getattr(core.shares, "num_shared_files", None)
-            files = int(count) if count is not None else None
-        except Exception:
-            pass
-        return folders, files
+            try:
+                from pynicotine.config import config
+                sections = config.sections["transfers"]
+                folders = len(sections.get("shared") or []) + len(sections.get("buddyshared") or [])
+            except Exception:
+                pass
+        return folders, None
 
     def _start_search(self, query):
         from pynicotine.slskmessages import FileSearch, increment_token

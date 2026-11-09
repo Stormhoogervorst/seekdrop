@@ -67,6 +67,14 @@ async def run():
     await bridge.start(s)
     print("status:", bridge.status, bridge.username, bridge.error)
     assert bridge.connected
+    # Step 8: the plugin reports how many folders Nicotine+ shares (None = it can't tell).
+    from pynicotine.config import config
+    print("shared folders:", bridge.shared_folders)
+    assert bridge.shared_folders == 0
+    config.sections["transfers"]["shared"] = [("Music", tmp)]
+    await bridge._check()
+    assert bridge.shared_folders == 1, bridge.shared_folders
+    config.sections["transfers"]["shared"] = []
 
     threading.Thread(target=fake_peer_reply, args=(1.0,), daemon=True).start()
     results = await bridge.search("fresh artist brand new", wait=2)

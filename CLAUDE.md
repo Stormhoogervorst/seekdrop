@@ -25,13 +25,13 @@ Repo: github.com/Stormhoogervorst/seekdrop (renamed from nicotinesync; GitHub re
 - SoundCloud via yt-dlp: profiles, playlists (flat entries have no title; some URLs are
   api-v2 track URLs, `track()` resolves them), durations, artwork, curl_cffi impersonation.
 - Nicotine+ bridge: plugin loads, search, download, move to download folder, candidate fallback,
-  stale-transfer cleanup.
+  stale-transfer cleanup. Plugin 0.5.1 `/status` reports `shared_folders` (via
+  `core.shares.get_shared_folders()`, run against the 3.3.11 core: 0 folders -> 0, one added -> 1).
+  `shared_files` is always None: the file count needs Nicotine+'s own share scan. Note `core.config`
+  doesn't exist in 3.3.11 (`from pynicotine.config import config`); that bit an earlier version.
 - PyInstaller .app runs (headless + window process); GitHub Actions builds macOS + Windows.
 
 ## Not verified yet
-0. Step 8 against the real Nicotine+: plugin 0.5.0 reads `core.config.sections["transfers"]["shared"|"buddyshared"]`
-   and `core.shares.num_shared_files` (names seen in 3.3.11 but not run; every lookup may fail and then reports
-   None). Run `tests/manual/nicotine_harness.py` / a live session before trusting the Nicotine+ sharing warning.
 1. Built-in Soulseek login with aioslsk (`soulseek.py`): needs a Soulseek account (the owner must
    enter it; don't create accounts).
 2. Windows app beyond the CI smoke test; signed/notarized macOS build (needs Apple secrets).
@@ -72,8 +72,8 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   state), peer reputation (table `peer_stats`: ok / failed / fake; `peer_score` feeds `MatchPrefs.peer_scores`,
   3 fakes or 5 failures without success block a peer for 30 days = `blocked_peers`, shown in "Why not?",
   Unblock in Settings), same-folder / same-peer bonus for an EP or playlist (`MatchPrefs.same_folder`), and
-  `sharing_warning` (own login: settings + folder contents; Nicotine+: plugin 0.5 reports `shared_folders` /
-  `shared_files` in `/status`, None = unknown = no warning). Peer events are recorded in `Engine._record_peer`.
+  `sharing_warning` (own login: settings + folder contents; Nicotine+: plugin 0.5.1 reports `shared_folders` in
+  `/status`, None = unknown = no warning). Peer events are recorded in `Engine._record_peer`.
 - **Why not?** (step 5): rejections carry `Candidate.rejected` + `stage`; `_search_track` stores each
   attempt (`searches` table, last 3) and puts `matching.summary()` in `last_error`. Engine `pick()` /
   `set_query()` / `stop_looking()`; `tracks.custom_query` is tried before the automatic queries.
