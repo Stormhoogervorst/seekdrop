@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1
+
+- Settings, Updates: a *Check now* button that looks on GitHub straight away. In the Mac app, *Install and
+  restart* downloads the new version, checks it, replaces the app and starts it again; the old app is kept in
+  `previous-versions` (last two). Windows and the source version still open the release page.
+
 ## 0.5.0
 
 - Spotify playlists: paste the link of a public Spotify playlist and SeekDrop searches its tracks on Soulseek,
