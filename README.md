@@ -5,6 +5,8 @@ Soulseek and downloads the best copy it can find.
 
 For DJs and producers who don't want to check twenty label pages every day.
 
+🇳🇱 Nederlandse uitleg van alles wat de app doet: [naar beneden](#uitleg-in-het-nederlands).
+
 - **Channels:** add any public SoundCloud profile (a label, artist, promo or repost channel).
   New uploads are checked every hour (you can change this).
 - **Playlists:** paste a playlist link (`soundcloud.com/name/sets/…`, private `…/s-xxxx` links
@@ -166,6 +168,187 @@ Local build: `pyinstaller packaging/seekdrop.spec --noconfirm`.
 | Update notice | `src/seekdrop/updates.py` |
 | Local API + UI | `src/seekdrop/server.py`, `src/seekdrop/ui/` |
 | App window (pywebview) | `src/seekdrop/__main__.py` |
+
+## Uitleg in het Nederlands
+
+### Wat is SeekDrop?
+
+SeekDrop volgt SoundCloud-kanalen en -playlists. Komt er een nieuwe track op, dan zoekt de app die op
+Soulseek, kiest de beste kopie, controleert het bestand, zet er tags en een hoes in en legt het in je
+muziekmap. Optioneel maakt het ook een bestand waarmee je alles in Rekordbox kunt inlezen.
+De app downloadt zelf **nooit** audio van SoundCloud: SoundCloud wordt alleen gebruikt om te lezen welke
+tracks er zijn (titel, artiest, lengte, hoes). De audio komt van Soulseek.
+
+### Zo loopt een track door de app
+
+1. **Ophalen:** elk uur (instelbaar) kijkt de app welke nieuwe uploads er zijn op je kanalen en playlists.
+2. **Titel opschonen:** `PREMIERE: Artist - Track (Someone Remix) [FREE DL]` wordt artiest *Artist*, titel
+   *Track*, versie *Someone Remix*. Je kunt artiest, titel en versie per track zelf corrigeren.
+3. **Regels:** past de track bij de regels van het kanaal (lengte, remixes, woorden, blokkeerlijst)? Zo niet,
+   dan staat hij onder *Skipped* met de reden, en met *Get it* haal je hem toch op.
+4. **Heb je hem al?** Staat de track al in je muziekmappen, dan krijgt hij de status *Already in your
+   collection* en wordt hij niet gedownload.
+5. **Zoeken op Soulseek:** meerdere zoektermen, rustig na elkaar (zie "Netjes op Soulseek").
+6. **Kiezen:** elk zoekresultaat krijgt een score op titel, artiest, versie, lengte, formaat, bitrate,
+   snelheid, wachtrij en de reputatie van de gebruiker. De beste (maximaal 3) worden geprobeerd.
+7. **Downloaden** naar een tijdelijke map (*staging*) in de app-data, nooit direct in je muziekmap.
+8. **Controleren** (met ffmpeg, optioneel): speelt het helemaal af, klopt het formaat, de lengte, geen lange
+   stilte, en is het geen omgezette MP3 die als lossless wordt verkocht. Afgekeurd gaat naar *Quarantine*.
+9. **Taggen:** artiest, titel met versie, genre, jaar, SoundCloud-link en de hoes (500 px) gaan in het bestand.
+10. **Publiceren:** het bestand verschijnt in één keer, met de definitieve naam, in je muziekmap. Een
+    onderbroken download laat dus nooit een half bestand achter voor Rekordbox of Serato.
+11. **Rekordbox-bestand bijwerken** (als je dat aan hebt gezet).
+
+Staat een track nog niet op Soulseek? Dan probeert de app het na 1 uur, 3, 6 en 12 uur, daarna elke dag,
+tot 30 dagen (instelbaar).
+
+### Aan de slag
+
+1. Installeer de app (zie *Install* hierboven) en open hem.
+2. Accepteer de voorwaarden en kies hoe je met Soulseek verbindt: **via Nicotine+** (aanbevolen als je dat al
+   gebruikt) of **met een eigen Soulseek-account**. Gebruik voor een eigen account een apart account, anders
+   gooien twee programma's elkaar eruit.
+3. Plak links een SoundCloud-profiel of -playlist in het veld *Add a channel or playlist*.
+   - Bij een **profiel** kies je hoeveel recente tracks je meteen wilt ("Also get the latest") en of
+     reposts meetellen. Daarna komen alleen nieuwe uploads binnen.
+   - Bij een **playlist** wordt elke track gezocht, in de volgorde van de playlist, ook tracks die later
+     worden toegevoegd.
+4. Laat de app openstaan: hij werkt alleen zolang hij draait (en bij Nicotine+ moet Nicotine+ ook open zijn).
+
+### De tabbladen
+
+- **All / In progress / Downloaded:** wat je nodig hebt, wat bezig is en wat klaar is.
+- **In collection:** tracks die je al had.
+- **Not found yet:** nog niet op Soulseek gevonden. *Why not?* laat zien waarom.
+- **Skipped:** overgeslagen door een regel of door jou, met de reden en *Get it*.
+- **Quarantine:** bestanden die de controles niet haalden, met de reden. Je kunt ze toch goedkeuren
+  (*Approve anyway*) of verwijderen.
+- **Duplicates:** dubbele bestanden in je downloadmap, de beste kopie gemarkeerd. SeekDrop verwijdert nooit
+  iets zelf.
+
+### Waarom vindt hij mijn track niet? ("Why not?")
+
+Bij elke track zonder download laat *Why not?* de laatste zoekpogingen zien: welke zoektermen, hoeveel
+resultaten en de 10 dichtstbijzijnde bestanden met de reden van afwijzing ("192 kbps, onder je ondergrens",
+"3:12 lang, verwacht 6:45", "remix van iemand anders"). Je kunt daar:
+- **Download this anyway:** dat bestand toch halen (het gaat nog steeds door de controles),
+- **Search with another term:** een eigen zoekterm, die voortaan als eerste wordt geprobeerd,
+- artiest, titel of versie corrigeren (gaat voor de automatische opschoning),
+- **Stop looking.**
+
+### Regels per kanaal
+
+Met de knop **Rules** boven de lijst stel je per kanaal of playlist in wat er binnenkomt:
+kortste en langste track (standaard 2 tot 12 minuten), remixes wel of niet (remix, rework, flip, bootleg;
+VIP, dub en edit blijven altijd toegestaan), previews en clips overslaan, DJ-mixen, radioshows en podcasts
+overslaan, woorden die een track uitsluiten en woorden waarvan er minstens één verplicht is, en reposts.
+In **Settings → Blocklist** staat een lijst met woorden en artiesten voor alle kanalen samen; die wint altijd.
+Pas je een regel aan, dan worden tracks die nu wel mogen weer opgepakt en nog niet gezochte tracks die niet
+meer mogen overgeslagen. Wat al klaar is of door jou is gekozen blijft met rust.
+
+### Kwaliteit en upgrades
+
+Je kiest een profiel: **Club** (lossless; MP3 320 is het minimum), **Balanced** (MP3 320 of beter) of
+**Space saver**. Komt een track binnen onder het doel (bijvoorbeeld MP3 320 terwijl je lossless wilt), dan
+zoekt de app elke dag verder naar een betere kopie (tot 30 dagen). Wat een bestand echt is, wordt gemeten
+en niet geloofd: een omgezette MP3 als "FLAC" telt als MP3.
+
+Wat er met een betere kopie gebeurt, stel je in:
+- **Ask me first** (standaard): je krijgt *Replace* of *Keep*.
+- **Replace right away:** direct vervangen; het oude bestand gaat 30 dagen naar de prullenbak van de app.
+- **Replace right away, but ask for tracks that are in Rekordbox:** zie "Rekordbox" hieronder.
+- **Don't look for better copies.**
+
+Let op: van .mp3 naar .flac veranderen betekent een andere bestandsnaam. Rekordbox en Serato koppelen
+cue points aan het pad, dus die raak je dan kwijt.
+
+### Bestandscontrole en quarantaine
+
+Met [ffmpeg](https://ffmpeg.org) geïnstalleerd (Mac: `brew install ffmpeg`) wordt elk bestand gecontroleerd
+voordat het in je muziekmap komt. Een afgekeurd bestand gaat naar quarantaine, die combinatie van gebruiker en
+bestand wordt voor deze track geblokkeerd en de app probeert de volgende kandidaat. Per track zie je waar de
+audio ophoudt (bijvoorbeeld "Full range" of "Suspect: stops at 20.3 kHz"). Zonder ffmpeg werkt de app nog, maar
+worden de controles overgeslagen (Settings laat dat zien).
+
+### Tags, hoezen en bestandsnamen
+
+Elk bestand krijgt: artiest, titel met de versie erin (`Track (Extended Mix)`), genre, jaar, de SoundCloud-link
+als commentaar en de hoes van SoundCloud (minimaal 500 bij 500 pixels, een grotere hoes die al in het bestand
+zit blijft). MP3 krijgt ID3v2.3, FLAC Vorbis-comments, AIFF ID3, M4A MP4-tags. BPM en toonsoort die de uploader
+zelf inbedde blijven staan; de app rekent die niet zelf uit. Label en album geeft SoundCloud niet; het label
+kan optioneel de kanaalnaam worden.
+
+- **Convert WAV to AIFF:** (standaard uit) zet WAV om naar AIFF met precies dezelfde audio, omdat DJ-software
+  tags in AIFF beter leest dan in WAV.
+- **Folder and file name:** een sjabloon met `{channel}`, `{artist}`, `{title}`, `{version}`, `{year}` en
+  `{genre}`, standaard `{channel}/{artist} - {title} ({version})`. Settings laat een voorbeeld zien. Lege
+  haakjes en streepjes verdwijnen als een veld ontbreekt.
+
+Staan de tags je niet aan? Zet *Write tags and cover art* uit in Settings.
+
+### Wat heb je al? (je eigen muziekmappen)
+
+Zet bij **Settings → Music folders you already have** de mappen waar je muziek staat. De downloadmap van
+SeekDrop telt altijd mee. De app leest die mappen (alleen lezen, hij wijzigt of verwijdert niets) en onthoudt
+wat erin staat. De eerste keer worden alle bestanden gelezen, daarna alleen nieuwe of gewijzigde. Een nieuwe
+track die er al in staat (ook onder een iets andere naam, of via een ander kanaal) wordt niet gedownload.
+Een versie telt apart: een remix van iemand anders of een radio edit is niet de originele track.
+Verdwijnt het bestand later uit je map, dan wordt de track weer gezocht. Met *Get it anyway* haal je hem
+toch op.
+
+### Rekordbox
+
+Zet in **Settings → Rekordbox** het vinkje *Keep a Rekordbox XML file ... up to date* aan.
+SeekDrop schrijft dan één bestand (standaard `SeekDrop for Rekordbox.xml` in je downloadmap) met elke
+gedownloade track en een playlist per kanaal of playlist, in een map "SeekDrop". Het wordt een halve minuut na
+elke download, upgrade of verwijderd kanaal bijgewerkt.
+
+Inlezen in Rekordbox: **Voorkeuren → Geavanceerd → Database → rekordbox xml** en kies dit bestand. Open daarna
+**rekordbox xml** in de boomstructuur, klik met rechts op een playlist en kies **Import Playlist**.
+SeekDrop schrijft alleen dit ene bestand en komt nooit aan de database van Rekordbox.
+
+Wil je dat een betere kopie geen cue points kost? Maak in Rekordbox een export van je collectie
+(**File → Export Collection in xml format**), kies dat bestand bij *Your Rekordbox collection export* en kies
+bij de upgrades *Replace right away, but ask for tracks that are in Rekordbox*. Tracks die in de export staan
+worden dan nooit vanzelf vervangen; de rest wel. Is er geen export of is hij onleesbaar, dan vraagt de app
+altijd eerst. Exporteer af en toe opnieuw.
+
+### Netjes op Soulseek
+
+Soulseek wordt door vrijwilligers gedragen. De app is daarom rustig:
+- **Zoeken wordt afgeremd:** minstens 8 seconden tussen zoekopdrachten en hoogstens 20 per 5 minuten. Je kunt
+  dat alleen trager zetten (minimaal 4 seconden), niet uitzetten.
+- **Schijfruimte:** onder 5 GB vrij starten er geen nieuwe downloads (instelbaar). De app meldt het en gaat
+  vanzelf weer door.
+- **Reputatie:** de app onthoudt per gebruiker wie snel en betrouwbaar was, wie downloads liet mislukken en
+  wie nep-lossless leverde. Dat telt mee in de score; na 3 keer nep, of 5 keer mislukken zonder één succes,
+  wordt een gebruiker 30 dagen geblokkeerd. In Settings kun je dat opheffen (*Unblock*).
+- **EP of playlist bij elkaar:** een bestand uit dezelfde map van dezelfde gebruiker als eerdere tracks uit die
+  playlist krijgt een voorkeur, zodat de bestanden bij elkaar passen.
+- **Deel je iets?** De app waarschuwt als je niets deelt: veel gebruikers blokkeren wie niets deelt.
+  Met een eigen account deelt de downloadmap standaard mee; bij Nicotine+ stel je dat daar in.
+
+### Waar staat wat?
+
+- **Je muziek:** de downloadmap (standaard in je Muziek-map: `SeekDrop/<kanaal>/Artiest - Titel (Versie).ext`).
+- **Instellingen, database, logs en tijdelijke mappen** (`staging`, `quarantine`, `trash`, `upgrades`):
+  `~/Library/Application Support/SeekDrop` (macOS) of `%LOCALAPPDATA%\SeekDrop` (Windows).
+- Alles blijft op je computer. De app praat met SoundCloud (lezen), met Soulseek (direct of via Nicotine+) en
+  twee keer per dag met GitHub om te zien of er een nieuwe versie is (uit te zetten).
+
+### Wat de app nog niet kan
+
+- Serato-crates, M3U-playlists en Traktor; alleen Rekordbox is gekoppeld.
+- Een extra controle met AcoustID, meldingen (Telegram, Discord), automatische back-ups, en andere bronnen
+  dan SoundCloud (Spotify, Beatport, bestanden). Zie `ROADMAP.md` voor wat er gepland is.
+- Wat nog niet in de praktijk is bewezen (zie `ROADMAP.md` en `CLAUDE.md`): de eigen Soulseek-login
+  (zonder Nicotine+) en het inlezen van het bestand in Rekordbox zelf.
+
+### Verantwoord gebruik
+
+Soulseek is een netwerk waar mensen hun eigen muziekmappen delen. Download alleen muziek die je mag hebben,
+zoals gratis downloads, promo's die naar jou zijn gestuurd of tracks die je elders hebt gekocht. Jij bent
+verantwoordelijk voor wat je downloadt en deelt.
 
 ## License
 
