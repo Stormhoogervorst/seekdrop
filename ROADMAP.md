@@ -181,7 +181,7 @@ Klaar als:
 
 ### Stap 8: netjes op Soulseek
 
-**Status: deels.** Vaste wachttijd van 8 s tussen zoekopdrachten, spampeers worden geweigerd, wachtrij en snelheid van de peer tellen mee in de score, en de eigen login deelt de downloadmap. Mist: maximum per paar minuten, reputatie per gebruiker, EP/album van één gebruiker, bewaking van schijfruimte en een waarschuwing als je niets deelt.
+**Status: klaar (nov 2026), op één punt na.** `politeness.py`: `SearchThrottle` (vaste wachttijd, standaard 8 s en minimaal 4 s, en maximaal 20 zoekopdrachten per 5 minuten; instelbaar maar nooit onder de ondergrens) voor zowel de gewone zoektocht als de upgradezoektocht. Schijfruimte: onder `min_free_gb` (standaard 5) starten er geen nieuwe downloads en toont de interface een melding; zodra er ruimte is, gaat het vanzelf door. Reputatie: tabel `peer_stats` (gelukt, mislukt, nep); mislukt, vastgelopen of wachtrij te lang telt als mislukt, een nep-lossless of nep-320 als nep. Score: −30 per nep, −8 per mislukking, bonus voor betrouwbare peers. Blokkade van 30 dagen bij 3× nep of 5× mislukt zonder succes, met de reden in "Why not?" en een knop *Unblock* in Settings. EP/album: een kandidaat uit dezelfde map van dezelfde peer als eerdere tracks uit die playlist (of van dezelfde artiest) krijgt +12, dezelfde peer +6; een voorkeur, geen eis, want de platte SoundCloud-lijsten hebben geen albuminfo. Waarschuwing bij niets delen: eigen login uit de instellingen en de inhoud van de gedeelde mappen, Nicotine+ via plugin 0.5.0 (`shared_folders`, `shared_files` in `/status`). **Nog niet echt getest:** de plugin tegen een draaiende Nicotine+ (Nicotine+ stond niet open; zie CLAUDE.md "Not verified yet").
 
 Doel: geen bans, minder mislukte downloads, en geen volle schijf.
 
@@ -195,8 +195,8 @@ Bouwen:
 
 Klaar als:
 
-- [ ] Tests laten zien dat de afremming en de schijfruimtegrens werken.
-- [ ] Een gebruiker die twee keer nep-lossless leverde, staat in een test onderaan de ranglijst.
+- [x] Tests laten zien dat de afremming en de schijfruimtegrens werken.
+- [x] Een gebruiker die twee keer nep-lossless leverde, staat in een test onderaan de ranglijst.
 
 ### Stap 9: regels per kanaal
 

@@ -29,6 +29,9 @@ Repo: github.com/Stormhoogervorst/seekdrop (renamed from nicotinesync; GitHub re
 - PyInstaller .app runs (headless + window process); GitHub Actions builds macOS + Windows.
 
 ## Not verified yet
+0. Step 8 against the real Nicotine+: plugin 0.5.0 reads `core.config.sections["transfers"]["shared"|"buddyshared"]`
+   and `core.shares.num_shared_files` (names seen in 3.3.11 but not run; every lookup may fail and then reports
+   None). Run `tests/manual/nicotine_harness.py` / a live session before trusting the Nicotine+ sharing warning.
 1. Built-in Soulseek login with aioslsk (`soulseek.py`): needs a Soulseek account (the owner must
    enter it; don't create accounts).
 2. Windows app beyond the CI smoke test; signed/notarized macOS build (needs Apple secrets).
@@ -63,6 +66,14 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   Done tracks below target (lossy only) get `next_upgrade`; the search loop runs `_upgrade_search` with a
   free slot, downloads with `record=False` (track row untouched), and either replaces (`auto`, old file
   to `trash/`) or parks the copy in `upgrades/` for Replace/Keep (`ask`, default).
+- **Politeness** (`politeness.py`, step 8): `SearchThrottle` (spacing + max per 5 min, used by both
+  search paths via `Engine._throttle`; settings `search_spacing` >= 4 s, `search_max_per_5min`),
+  `low_disk_space` (`min_free_gb`; `Engine._check_disk` pauses new downloads, `paused_reason` in the
+  state), peer reputation (table `peer_stats`: ok / failed / fake; `peer_score` feeds `MatchPrefs.peer_scores`,
+  3 fakes or 5 failures without success block a peer for 30 days = `blocked_peers`, shown in "Why not?",
+  Unblock in Settings), same-folder / same-peer bonus for an EP or playlist (`MatchPrefs.same_folder`), and
+  `sharing_warning` (own login: settings + folder contents; Nicotine+: plugin 0.5 reports `shared_folders` /
+  `shared_files` in `/status`, None = unknown = no warning). Peer events are recorded in `Engine._record_peer`.
 - **Why not?** (step 5): rejections carry `Candidate.rejected` + `stage`; `_search_track` stores each
   attempt (`searches` table, last 3) and puts `matching.summary()` in `last_error`. Engine `pick()` /
   `set_query()` / `stop_looking()`; `tracks.custom_query` is tried before the automatic queries.

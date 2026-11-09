@@ -2,6 +2,12 @@
 
 ## 0.4.0
 
+- Politer on Soulseek: searches wait at least 4 s (8 s by default) and stay under 20 per 5 minutes;
+  downloads pause when free disk space drops under a limit (5 GB) and continue by themselves;
+  peers that failed, went quiet or delivered fake files are scored lower, and blocked for 30 days
+  after repeated problems (Settings shows them, with Unblock); an EP or playlist is taken from the
+  same user and folder when possible; a warning appears when you share nothing. With Nicotine+,
+  update the plugin (the app does it) and turn *SeekDrop Bridge* off and on once for the sharing check.
 - Smarter matching: versions are compared properly (a VIP is not a Vocal mix, a radio edit or dub
   is never taken for the original), titles in other scripts are found, artist aliases (Settings),
   and you can correct a track's artist, title or version yourself.

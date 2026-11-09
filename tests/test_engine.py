@@ -85,11 +85,13 @@ class FakeSlsk:
 
 @pytest.fixture
 def setup(tmp_path, monkeypatch):
-    monkeypatch.setattr(engine_mod, "SEARCH_SPACING", 0)
     monkeypatch.setattr(engine_mod.asyncio, "sleep", _fast_sleep)
     store = SettingsStore(tmp_path / "s.json")
     store.update({"accepted_terms": True, "soulseek_username": "u", "soulseek_password": "p",
                   "download_dir": str(tmp_path / "out")})
+    store.settings.search_spacing = 0        # the fake clock of real time would slow every test down
+    store.settings.search_max_per_5min = 10_000
+    store.settings.min_free_gb = 0           # the test machine's disk is none of our business
     db = Database(tmp_path / "db.sqlite")
     incoming = tmp_path / "in"
     incoming.mkdir()

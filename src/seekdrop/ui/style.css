@@ -386,3 +386,12 @@ h3 { font-size: 16px; line-height: 22px; font-weight: 600; letter-spacing: -0.01
   .drawer { animation: none; }
   .bar i { transition: none; }
 }
+
+/* Notices under the top bar: disk space and sharing (roadmap step 8) */
+.notices { margin: 0 0 14px; padding: 12px 16px; border-radius: var(--radius-inner); background: var(--negative-soft);
+  color: var(--text-primary); font-size: 14px; line-height: 20px; }
+.notices p { margin: 0; }
+.notices p + p { margin-top: 6px; }
+.blocked { list-style: none; margin: 8px 0 0; padding: 0; }
+.blocked li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; }
+.blocked small { display: block; color: var(--text-muted); }

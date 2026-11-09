@@ -135,6 +135,8 @@ class NicotineBridge:
         self.error = ""
         self.retryable = False      # the monitor below reconnects by itself
         self.username = ""
+        self.shared_folders: Optional[int] = None   # reported by plugin 0.5+ (None = unknown)
+        self.shared_files: Optional[int] = None
         self._base = ""
         self._token = ""
         self._session: Optional[aiohttp.ClientSession] = None
@@ -185,6 +187,7 @@ class NicotineBridge:
             if self.status != "connected":
                 log.info("Nicotine+ bridge connected (%s)", data.get("username"))
             self.status, self.error, self.username = "connected", "", data.get("username", "")
+            self.shared_folders, self.shared_files = data.get("shared_folders"), data.get("shared_files")
         else:
             self.status, self.error = "error", MSG_OFFLINE
 

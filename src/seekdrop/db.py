@@ -83,6 +83,17 @@ CREATE TABLE IF NOT EXISTS searches (
     summary TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS searches_track ON searches(track_id, created_at);
+-- Reputation per Soulseek user (roadmap step 8): good deliveries, failed downloads and fake
+-- lossless / fake 320 files. Feeds the score; blocked_until > now keeps a peer out of the results.
+CREATE TABLE IF NOT EXISTS peer_stats (
+    username TEXT PRIMARY KEY,
+    ok INTEGER NOT NULL DEFAULT 0,
+    failed INTEGER NOT NULL DEFAULT 0,
+    fake INTEGER NOT NULL DEFAULT 0,
+    blocked_until REAL NOT NULL DEFAULT 0,
+    block_reason TEXT NOT NULL DEFAULT '',
+    updated_at REAL NOT NULL DEFAULT 0
+);
 """
 
 # Track states
@@ -221,6 +232,46 @@ class Database:
         for r in rows:
             r["queries"] = json.loads(r["queries"] or "[]")
             r["candidates"] = json.loads(r["candidates"] or "[]")
+        return rows
+
+    # Peer reputation (step 8) -------------------------------------------
+    def peer_stats(self, usernames: Optional[list[str]] = None) -> dict[str, dict]:
+        if usernames is not None:
+            if not usernames:
+                return {}
+            marks = ",".join("?" * len(usernames))
+            rows = self._q(f"SELECT * FROM peer_stats WHERE username IN ({marks})", tuple(usernames))
+        else:
+            rows = self._q("SELECT * FROM peer_stats")
+        return {r["username"]: r for r in rows}
+
+    def bump_peer(self, username: str, column: str) -> dict:
+        """Count one event (ok | failed | fake) for a peer and return its new totals."""
+        assert column in ("ok", "failed", "fake")
+        self._x("INSERT OR IGNORE INTO peer_stats(username) VALUES (?)", (username,))
+        self._x(f"UPDATE peer_stats SET {column}={column}+1, updated_at=? WHERE username=?", (time.time(), username))
+        return self.peer_stats([username])[username]
+
+    def block_peer(self, username: str, until: float, reason: str) -> None:
+        self._x("INSERT OR IGNORE INTO peer_stats(username) VALUES (?)", (username,))
+        self._x("UPDATE peer_stats SET blocked_until=?, block_reason=? WHERE username=?", (until, reason, username))
+
+    def unblock_peer(self, username: str) -> None:
+        """Lifts the block and forgets the bad history, so one more slip doesn't block again at once."""
+        self._x("UPDATE peer_stats SET blocked_until=0, block_reason='', failed=0, fake=0 WHERE username=?", (username,))
+
+    def blocked_peers(self, now: float) -> list[dict]:
+        return self._q("SELECT * FROM peer_stats WHERE blocked_until>? ORDER BY updated_at DESC", (now,))
+
+    def peers_of_channel(self, channel_id: int, artist: str = "") -> list[dict]:
+        """Where finished tracks of this channel (and of this artist anywhere) came from:
+        peer + the remote folder, used to keep an EP or album together."""
+        rows = self._q("""SELECT peer, remote_file FROM tracks
+                          WHERE state='done' AND peer!='' AND remote_file!='' AND channel_id=?""", (channel_id,))
+        if artist:
+            rows += self._q("""SELECT peer, remote_file FROM tracks
+                               WHERE state='done' AND peer!='' AND remote_file!='' AND artist=? AND channel_id!=?""",
+                            (artist, channel_id))
         return rows
 
     def blocked_last_id(self, track_id: int) -> int:

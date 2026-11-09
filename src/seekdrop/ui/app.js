@@ -94,6 +94,7 @@ function render() {
   renderTracks(s);
   renderActivity(s);
   renderUpdate(s);
+  renderNotices(s);
 }
 
 function renderUpdate(s) {
@@ -106,6 +107,32 @@ function renderUpdate(s) {
     a.title = `You have ${s.version}. Download the new version from GitHub.`;
   }
 }
+
+function renderNotices(s) {
+  const p = s.politeness || {}, box = $("#notices");
+  const items = [];
+  if (p.paused) items.push(["Downloads paused", p.paused]);
+  if (p.share_warning) items.push(["Nothing shared", p.share_warning]);
+  box.hidden = !items.length;
+  box.innerHTML = items.map(([t, m]) => `<p><b>${esc(t)}.</b> ${esc(m)}</p>`).join("");
+}
+
+function renderBlocked() {
+  const list = (ui.state.politeness || {}).blocked_peers || [];
+  $("#set-blocked").hidden = !list.length;
+  $("#set-blocked-list").innerHTML = list.map((b) =>
+    `<li><span><b>${esc(b.username)}</b> <small>${esc(b.block_reason)}</small></span>
+     <button type="button" class="btn soft" data-unblock="${esc(b.username)}">Unblock</button></li>`).join("");
+}
+$("#set-blocked-list").addEventListener("click", async (e) => {
+  const name = e.target.dataset && e.target.dataset.unblock;
+  if (!name) return;
+  try {
+    await api("POST", "/api/peers/unblock", { username: name });
+    await refresh();
+    renderBlocked();
+  } catch (ex) { showError($("#set-error"), ex.message); }
+});
 
 function renderDeck(s) {
   const ring = $("#ring"), title = $("#deck-title"), sub = $("#deck-sub");
@@ -526,6 +553,7 @@ function openSettings() {
     ? "On. Every download is checked with ffmpeg before it goes to your music folder."
     : "Off: ffmpeg isn't installed, so downloads aren't checked. Install ffmpeg (on a Mac: brew install ffmpeg) and restart SeekDrop.";
   profileHelp();
+  renderBlocked();
   settingsMode();
   showError($("#set-error"), "");
   $("#drawer").hidden = $("#scrim").hidden = false;

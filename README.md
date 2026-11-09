@@ -23,6 +23,11 @@ For DJs and producers who don't want to check twenty label pages every day.
   **Space saver**. If a track first comes in below your goal (say MP3 320 while you want lossless),
   the app keeps looking for a better copy for 30 days and asks before it replaces your file (cue
   points in Rekordbox or Serato are tied to the file name). Replaced files go to SeekDrop's trash.
+- A good Soulseek citizen: searches are spaced out (8 s apart, at most 20 per 5 minutes, you can only
+  slow that down), downloads pause when the disk runs low (5 GB by default), peers that were slow,
+  failed or sent fake lossless files score lower and are blocked after repeated problems, tracks of
+  one playlist are taken from the same user and folder when possible, and the app warns you when
+  you share nothing (many users block that).
 - Not on Soulseek yet? It tries again after 1 h, 3 h, 6 h, 12 h, then daily, for up to 30 days.
 - Files land in `Music/SeekDrop/<channel or playlist>/Artist - Title (Version).flac`.
 

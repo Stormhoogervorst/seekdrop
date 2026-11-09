@@ -45,6 +45,11 @@ class MatchPrefs:
     profile: str = DEFAULT_PROFILE       # quality profile (quality.PROFILES)
     aliases: dict = field(default_factory=dict)   # see parse_aliases()
     duration_tolerance: int = 8          # seconds that still count as "same length"
+    # Step 8: what we know about the peers (see politeness.py and Engine._prefs)
+    peer_scores: dict = field(default_factory=dict)     # username -> added to the score (reputation)
+    blocked_peers: dict = field(default_factory=dict)   # username -> why that peer is blocked
+    same_folder: frozenset = frozenset()   # (username, remote folder) that earlier tracks of this release came from
+    same_peers: frozenset = frozenset()    # usernames of those
 
 
 def parse_aliases(text: str) -> dict[str, list[str]]:
@@ -92,6 +97,16 @@ def pool_edit_words(basename: str) -> set[str]:
         found |= {w for w in low.split() if w in _POOL_WORDS}
         found |= {ph for ph in _POOL_PHRASES if ph in low}
     return found
+
+
+SAME_FOLDER_BONUS = 12.0
+SAME_PEER_BONUS = 6.0
+
+
+def folder_of(remote_file: str) -> str:
+    """The folder part of a remote path (either slash style), lower case."""
+    parts = re.split(r"[\\/]", remote_file)
+    return "\\".join(parts[:-1]).lower()
 
 
 def is_spam(c: "Candidate") -> bool:
@@ -289,6 +304,21 @@ def score_candidate(target: ParsedTitle, target_duration: Optional[float], c: Ca
     if ext == "mp3" and not c.bitrate:
         score -= 8
         reasons.append("bitrate unknown")
+
+    # 5b. Peers that gave us trouble before (reputation, step 8).
+    if c.username in prefs.blocked_peers:
+        return _reject(c, STAGE_QUALITY, f"Peer blocked: {prefs.blocked_peers[c.username]}")
+    rep = prefs.peer_scores.get(c.username, 0.0)
+    if rep:
+        score += rep
+        reasons.append("reliable peer" if rep > 0 else "peer let you down before")
+    # Keep an EP or album together: same folder of the same peer as earlier tracks of this release.
+    if (c.username, folder_of(c.filename)) in prefs.same_folder:
+        score += SAME_FOLDER_BONUS
+        reasons.append("same folder as earlier tracks")
+    elif c.username in prefs.same_peers:
+        score += SAME_PEER_BONUS
+        reasons.append("same peer as earlier tracks")
 
     # 6. Will the peer actually send it soon?
     if c.has_free_slots:

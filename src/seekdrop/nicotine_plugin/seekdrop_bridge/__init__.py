@@ -120,11 +120,31 @@ class Plugin(BasePlugin):
     def _status():
         from pynicotine.slskmessages import UserStatus
         users = core.users
+        folders, files = Plugin._shares()
         return {
             "api": API_VERSION,
             "logged_in": users.login_status != UserStatus.OFFLINE,
             "username": users.login_username or "",
+            "shared_folders": folders,   # None when this Nicotine+ version doesn't say
+            "shared_files": files,
         }
+
+    @staticmethod
+    def _shares():
+        """(number of shared folders, number of shared files); None for what can't be found out.
+        Uses Nicotine+ internals, so every lookup is allowed to fail."""
+        folders = files = None
+        try:
+            sections = core.config.sections["transfers"]
+            folders = len(sections.get("shared") or []) + len(sections.get("buddyshared") or [])
+        except Exception:
+            pass
+        try:
+            count = getattr(core.shares, "num_shared_files", None)
+            files = int(count) if count is not None else None
+        except Exception:
+            pass
+        return folders, files
 
     def _start_search(self, query):
         from pynicotine.slskmessages import FileSearch, increment_token

@@ -16,7 +16,9 @@ from . import db as states
 from .config import SettingsStore
 from .config import data_dir
 from .db import Database
-from .matching import Candidate, MatchPrefs, aliases_of, closest, parse_aliases, rank, summary
+from .matching import Candidate, MatchPrefs, aliases_of, closest, folder_of, parse_aliases, rank, summary
+from .politeness import (BLOCK_DAYS, SearchThrottle, block_reason, low_disk_space, peer_score,
+                         sharing_warning)
 from .nicotine import migrate_legacy_plugin, update_plugin_if_outdated
 from .soundcloud import SoundCloudClient, TrackStub
 from .quality import (TIER_LABELS, UPGRADE_DAYS, UPGRADE_EVERY, is_better, profile, tier_of,
@@ -29,7 +31,6 @@ RETRY_DELAYS = [3600, 3 * 3600, 6 * 3600, 12 * 3600, 24 * 3600]
 QUEUE_TIMEOUT = 45 * 60       # give up on a peer whose queue doesn't move
 STALL_TIMEOUT = 5 * 60        # no bytes received for this long while downloading
 MAX_CANDIDATES = 3            # peers to try per search round
-SEARCH_SPACING = 8.0          # seconds between Soulseek searches (be a good citizen)
 SEARCH_WAIT = 12.0            # seconds to collect results per search
 MAX_TRACK_SECONDS = 10 * 60   # longer uploads are mixes/sets, not tracks
 TRASH_DAYS = 30               # replaced files stay in the app's trash this long
@@ -125,7 +126,8 @@ class Engine:
         self._tasks: list[asyncio.Task] = []
         self._stale: list[dict] = []
         self._share_rescan: Optional[asyncio.Task] = None
-        self._last_search = 0.0
+        self.throttle = SearchThrottle()       # step 8: spacing + maximum per 5 minutes
+        self.paused_reason = ""                # step 8: set while the disk is too full to download
 
     # ------------------------------------------------------------------ lifecycle
     @property
@@ -411,14 +413,16 @@ class Engine:
                         await self._recover_stale()
                     if self._clean_incoming and not self._stale:
                         self._tidy_incoming()
-                    for t in self.db.due_tracks(time.time()):
+                    paused = self._check_disk()
+                    for t in ([] if paused else self.db.due_tracks(time.time())):
                         if len(self.active) >= self.settings.max_parallel_downloads:
                             break
                         if not self.slsk.connected:
                             break
                         await self._search_track(t)
                     # Better copies (step 4): only with a free slot, one at a time.
-                    if self.settings.upgrade_mode != "off" and len(self.active) < self.settings.max_parallel_downloads:
+                    if (self.settings.upgrade_mode != "off" and not paused
+                            and len(self.active) < self.settings.max_parallel_downloads):
                         now = time.time()
                         for t in self.db.due_upgrades(now, now - UPGRADE_DAYS * 86400, limit=1):
                             if t["id"] not in self.active:
@@ -433,8 +437,63 @@ class Engine:
             except asyncio.TimeoutError:
                 pass
 
-    def _prefs(self) -> MatchPrefs:
-        return MatchPrefs(profile=self.settings.quality_profile, aliases=parse_aliases(self.settings.artist_aliases))
+    async def _throttle(self) -> None:
+        """Wait our turn for a Soulseek search (spacing and maximum per 5 minutes, step 8)."""
+        self.throttle.configure(self.settings.search_spacing, self.settings.search_max_per_5min)
+        await self.throttle.wait()
+
+    def _check_disk(self) -> str:
+        """Pause new downloads while the disk is too full; note it once and resume by itself."""
+        why = low_disk_space([os.path.dirname(self.staging_dir), self.settings.download_dir],
+                             self.settings.min_free_gb) or ""
+        if why and not self.paused_reason:
+            self.note(why, "warn")
+        elif self.paused_reason and not why:
+            self.note("There is enough disk space again, downloads continue.")
+        self.paused_reason = why
+        return why
+
+    def share_warning(self) -> str:
+        """A message when nothing is shared on Soulseek (users who share nothing are often blocked)."""
+        slsk = self.slsk
+        if getattr(slsk, "mode", "") == "nicotine":
+            return sharing_warning(None, folders=getattr(slsk, "shared_folders", None),
+                                   files=getattr(slsk, "shared_files", None))
+        from .soulseek import _share_dirs
+        return sharing_warning(_share_dirs(self.settings))
+
+    def _prefs(self, t: Optional[dict] = None, candidates: Optional[list] = None) -> MatchPrefs:
+        """Matching preferences, with what we know about peers (step 8): reputation, blocks, and where
+        earlier tracks of this release came from (an EP or album is best taken from one place)."""
+        prefs = MatchPrefs(profile=self.settings.quality_profile, aliases=parse_aliases(self.settings.artist_aliases))
+        if not candidates:
+            return prefs
+        now = time.time()
+        stats = self.db.peer_stats(sorted({c.username for c in candidates}))
+        for name, r in stats.items():
+            if r["blocked_until"] > now:
+                prefs.blocked_peers[name] = r["block_reason"] or "too many problems before"
+            else:
+                prefs.peer_scores[name] = peer_score(r["ok"], r["failed"], r["fake"])
+        if t:
+            earlier = self.db.peers_of_channel(t["channel_id"], t.get("artist") or "")
+            prefs.same_folder = frozenset((r["peer"], folder_of(r["remote_file"])) for r in earlier)
+            prefs.same_peers = frozenset(r["peer"] for r in earlier)
+        return prefs
+
+    def _record_peer(self, username: str, outcome: str) -> None:
+        """Count a good delivery, a failed download or a fake file for a peer; block repeat offenders."""
+        try:
+            r = self.db.bump_peer(username, outcome)
+            why = block_reason(r["ok"], r["failed"], r["fake"])
+            if why and r["blocked_until"] <= time.time():
+                self.db.block_peer(username, time.time() + BLOCK_DAYS * 86400, why)
+                self.note(f"Blocked {username} for {BLOCK_DAYS} days: {why.lower()}", "warn")
+        except Exception:
+            log.debug("couldn't record peer %s", username, exc_info=True)
+
+    def unblock_peer(self, username: str) -> None:
+        self.db.unblock_peer(username)
 
     async def _search_track(self, t: dict) -> None:
         tid = t["id"]
@@ -445,13 +504,10 @@ class Engine:
         evaluated: dict[tuple, Candidate] = {}
         try:
             for q in self._queries(t, p):
-                wait = SEARCH_SPACING - (time.time() - self._last_search)
-                if wait > 0:
-                    await asyncio.sleep(wait)
-                self._last_search = time.time()
+                await self._throttle()
                 results = await self.slsk.search(q, wait=SEARCH_WAIT)
                 tried.append({"query": q, "results": len(results)})
-                ranked = rank(p, t["duration"], results, self._prefs())
+                ranked = rank(p, t["duration"], results, self._prefs(t, results))
                 blocked = self.db.blocked(tid)      # files that failed the checks before
                 for c in results:
                     if (c.username, c.filename) in blocked and not c.rejected:
@@ -574,6 +630,7 @@ class Engine:
                     finally:
                         await self.slsk.forget(info["transfer"])
                     if path:
+                        self._record_peer(c.username, "ok")
                         self.db.update_track(tid, state=states.DONE, file_path=path, progress=1.0, last_error="",
                                              **self._done_fields(t, c))
                         self.note(f"Downloaded {os.path.basename(path)}")
@@ -620,6 +677,8 @@ class Engine:
                 if st == "COMPLETE" and info["local_path"]:
                     return True, info
                 if st in ("FAILED", "ABORTED", "INCOMPLETE"):
+                    if st != "ABORTED":     # an abort is our own doing (the user skipped the track)
+                        self._record_peer(c.username, "failed")
                     return False, info
                 now = time.time()
                 if info["bytes"] != last_bytes:
@@ -628,10 +687,12 @@ class Engine:
                         self.db.update_track(tid, progress=round(info["bytes"] / info["size"], 3))
                 if st == "DOWNLOADING" and now - last_change > STALL_TIMEOUT:
                     info["fail_reason"] = "stalled"
+                    self._record_peer(c.username, "failed")
                     await self.slsk.abort(transfer)
                     return False, info
                 if st != "DOWNLOADING" and now - started > QUEUE_TIMEOUT:
                     info["fail_reason"] = "peer queue too long"
+                    self._record_peer(c.username, "failed")
                     await self.slsk.abort(transfer)
                     return False, info
         except asyncio.CancelledError:
@@ -663,6 +724,8 @@ class Engine:
                 log.exception("file check failed")
                 why = f"Check failed ({e})"
             if why:
+                if (t.get("_meta") or {}).get("quality") == "fake":   # a converted MP3 sold as lossless / 320
+                    self._record_peer(c.username, "fake")
                 self._quarantine(t, staged, c, why)
                 return None, why
         return staged, ""
@@ -740,13 +803,10 @@ class Engine:
         better: list[Candidate] = []
         try:
             for q in search_queries(p):
-                wait = SEARCH_SPACING - (time.time() - self._last_search)
-                if wait > 0:
-                    await asyncio.sleep(wait)
-                self._last_search = time.time()
+                await self._throttle()
                 results = await self.slsk.search(q, wait=SEARCH_WAIT)
                 blocked = self.db.blocked(tid)
-                better = [c for c in rank(p, t["duration"], results, self._prefs())
+                better = [c for c in rank(p, t["duration"], results, self._prefs(t, results))
                           if (c.username, c.filename) not in blocked
                           and is_better(prof, self._candidate_tier(c), t["tier"])]
                 if better:
@@ -776,6 +836,7 @@ class Engine:
                 if not staged:
                     t.pop("_meta", None)
                     continue
+                self._record_peer(c.username, "ok")
                 meta = t.pop("_meta", {}) or {}
                 new_tier = meta.get("tier") or self._candidate_tier(c)
                 if not is_better(prof, new_tier, t["tier"]):

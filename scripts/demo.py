@@ -28,6 +28,7 @@ SETUP = os.environ.get("DEMO_SETUP") == "1"
 class IdleSlsk:
     mode = "nicotine"
     status, error, connected, retryable, username = "connected", "", True, False, "djnina"
+    shared_folders, shared_files = 0, 0     # step 8: shows the "you share nothing" warning
     async def start(self, s): pass
     async def stop(self): pass
     async def search(self, q, wait=0): return []
@@ -152,10 +153,19 @@ async def _start(self):
     self.note("Concrete Loop: 1 new track(s).")
     self.note("Kellerraum: couldn't check SoundCloud (blocked)", "warn")
     self.note("Downloaded Ostin Pell - Lights Out.flac")
+    # Step 8: a paused disk, a blocked peer and a note about it.
+    self.paused_reason = "Only 3.2 GB free on the disk with the SeekDrop folder. Downloads are paused until there are 5 GB free (change this in Settings)."
+    self.db.block_peer("rawzik_mirror", time.time() + 30 * 86400, "Delivered fake lossless or fake 320 files 3 times")
+    self.note("Blocked rawzik_mirror for 30 days: delivered fake lossless or fake 320 files 3 times", "warn")
     self._tasks = []
     self.next_poll_at = time.time() + 2400
 
 
+def _check_disk_demo(self):
+    return self.paused_reason
+
+
+E.Engine._check_disk = _check_disk_demo
 E.Engine.start = _start
 E.Engine._search_loop = E.Engine._poll_loop = E.Engine._watchdog = _noop
 

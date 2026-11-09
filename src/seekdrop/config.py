@@ -13,6 +13,8 @@ from typing import Optional
 
 from platformdirs import user_data_dir, user_log_dir, user_music_dir
 
+from .politeness import MAX_MAX_SEARCHES, MIN_MAX_SEARCHES, MIN_SEARCH_SPACING
+
 APP_NAME = "SeekDrop"
 GITHUB_REPO = "Stormhoogervorst/seekdrop"
 
@@ -120,6 +122,9 @@ class Settings:
     check_length_margin: int = 10           # file may differ this many seconds from SoundCloud
     check_silence_seconds: int = 10         # longer silence at the start or end rejects the file
     suspect_quality: str = "label"          # suspect lossless / 320: "label" (let through) or "reject"
+    search_spacing: int = 8                 # seconds between Soulseek searches (step 8; at least 4)
+    search_max_per_5min: int = 20           # most searches in any 5 minutes (5 to 60)
+    min_free_gb: int = 5                    # below this much free disk space no new downloads start (0 = off)
 
     @property
     def configured(self) -> bool:
@@ -179,7 +184,8 @@ class SettingsStore:
             if key == "soulseek_password" and not value:
                 continue  # empty means "keep current"
             if key in ("check_interval_minutes", "max_parallel_downloads", "give_up_days", "listen_port", "nicotine_port",
-                       "check_length_margin", "check_silence_seconds"):
+                       "check_length_margin", "check_silence_seconds", "search_spacing", "search_max_per_5min",
+                       "min_free_gb"):
                 value = int(value)
             if key in ("accepted_terms", "share_downloads", "organize_by_channel", "check_updates"):
                 value = bool(value)
@@ -203,6 +209,9 @@ class SettingsStore:
         s.check_interval_minutes = max(15, s.check_interval_minutes)
         s.max_parallel_downloads = min(max(1, s.max_parallel_downloads), 10)
         s.give_up_days = min(max(1, s.give_up_days), 365)
+        s.search_spacing = min(max(int(MIN_SEARCH_SPACING), s.search_spacing), 120)
+        s.search_max_per_5min = min(max(MIN_MAX_SEARCHES, s.search_max_per_5min), MAX_MAX_SEARCHES)
+        s.min_free_gb = min(max(0, s.min_free_gb), 1000)
         if changed:
             self.save()
         return s, changed

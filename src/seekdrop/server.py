@@ -85,6 +85,7 @@ class Api:
         r.add_post("/api/tracks/{id}/upgrade/keep", self.keep_current)
         r.add_post("/api/rejects/{id}/approve", self.approve_reject)
         r.add_post("/api/rejects/{id}/delete", self.delete_reject)
+        r.add_post("/api/peers/unblock", self.unblock_peer)
         r.add_post("/api/open", self.open_path)
         r.add_post("/api/nicotine/install", self.install_nicotine)
         return app
@@ -120,6 +121,8 @@ class Api:
             "channels": channels,
             "tracks": tracks,
             "rejects": self.db.quarantined(),
+            "politeness": {"paused": e.paused_reason, "share_warning": e.share_warning() if e.slsk.connected else "",
+                           "blocked_peers": self.db.blocked_peers(now)},
             "checks": {"available": bool(e.file_checker and e.file_checker.tools.available)},
             "profiles": {k: {"label": v["label"], "help": v["help"], "ladder": [TIER_LABELS[x] for x in v["order"]]}
                          for k, v in PROFILES.items()},
@@ -239,6 +242,14 @@ class Api:
 
     async def stop_looking(self, request: web.Request):
         self.engine.stop_looking(int(request.match_info["id"]))
+        return web.json_response({"ok": True})
+
+    async def unblock_peer(self, request: web.Request):
+        data = await self.body(request)
+        name = str(data.get("username") or "").strip()
+        if not name:
+            return web.json_response({"error": "Which user?"}, status=400)
+        self.engine.unblock_peer(name)
         return web.json_response({"ok": True})
 
     async def replace_upgrade(self, request: web.Request):
