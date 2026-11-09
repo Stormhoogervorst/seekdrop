@@ -13,6 +13,7 @@ from pathlib import Path
 from aiohttp import web
 
 from . import __version__
+from . import rules as rules_mod
 from .db import Database
 from .engine import Engine
 from .quality import PROFILES, TIER_LABELS, UPGRADE_DAYS
@@ -111,6 +112,8 @@ class Api:
         channels = self.db.channels()
         for c in channels:
             c["checking"] = c["id"] in e.checking
+            c["rules"] = rules_mod.parse_rules(c["rules"])      # step 9
+            c["rules_summary"] = rules_mod.summary(c["rules"])
         return web.json_response({
             "version": __version__,
             "update": (self.updates.latest if self.updates and e.settings.check_updates else None),
@@ -127,6 +130,7 @@ class Api:
             "profiles": {k: {"label": v["label"], "help": v["help"], "ladder": [TIER_LABELS[x] for x in v["order"]]}
                          for k, v in PROFILES.items()},
             "tier_labels": TIER_LABELS,
+            "rule_defaults": rules_mod.DEFAULT_RULES,
             "upgrade_days": UPGRADE_DAYS,
             "stats": self.db.stats(),
             "activity": list(e.activity)[:30],
@@ -188,8 +192,16 @@ class Api:
             fields["enabled"] = int(bool(data["enabled"]))
         if "include_reposts" in data:
             fields["include_reposts"] = int(bool(data["include_reposts"]))
+        if "rules" in data:
+            if not isinstance(data["rules"], dict):
+                return web.json_response({"error": "Rules must be an object."}, status=400)
+            fields["rules"] = rules_mod.dump_rules(data["rules"])
         self.db.update_channel(cid, **fields)
-        return web.json_response({"ok": True})
+        result = {"ok": True}
+        if "rules" in fields:
+            revived, skipped = self.engine.reapply_rules(cid)
+            result.update(revived=revived, skipped=skipped)
+        return web.json_response(result)
 
     async def delete_channel(self, request: web.Request):
         self.engine.remove_channel(int(request.match_info["id"]))

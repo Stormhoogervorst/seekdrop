@@ -124,6 +124,8 @@ class Settings:
     suspect_quality: str = "label"          # suspect lossless / 320: "label" (let through) or "reject"
     search_spacing: int = 8                 # seconds between Soulseek searches (step 8; at least 4)
     search_max_per_5min: int = 20           # most searches in any 5 minutes (5 to 60)
+    block_keywords: list[str] = field(default_factory=list)   # step 9: words that skip an upload, every channel
+    block_artists: list[str] = field(default_factory=list)    # step 9: artists that are never fetched
     min_free_gb: int = 5                    # below this much free disk space no new downloads start (0 = off)
 
     @property
@@ -191,6 +193,9 @@ class SettingsStore:
                 value = bool(value)
             if key == "share_dirs":
                 value = [str(v).strip() for v in (value or []) if str(v).strip()]
+            if key in ("block_keywords", "block_artists"):
+                from .rules import clean_words
+                value = clean_words(value)
             if key == "artist_aliases":
                 value = "\n".join(line.strip() for line in str(value or "").splitlines() if line.strip())[:5000]
             if key in ("soulseek_username", "download_dir"):

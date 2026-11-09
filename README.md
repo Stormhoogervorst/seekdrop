@@ -12,8 +12,10 @@ For DJs and producers who don't want to check twenty label pages every day.
 - Messy titles are cleaned up: `PREMIERE: Artist - Track (Someone Remix) [FREE DL]` becomes
   artist *Artist*, title *Track*, version *Someone Remix*. Label names and catalog numbers
   (`- Drumcode - DC360`) are dropped.
-- DJ mixes, radio shows, podcasts and anything over 10 minutes are skipped (you can still get
-  one on purpose).
+- Rules per channel or playlist: shortest and longest track (2 to 12 minutes by default), remixes
+  on or off, previews and clips, DJ mixes and radio shows, words that exclude or are required, plus a
+  blocklist of words and artists for everything. Skipped tracks stay in the list with the rule that
+  stopped them, and you can still get one on purpose.
 - Versions are told apart: Original and Extended go together, but a radio edit, dub, VIP or someone
   else's remix is never taken for the one you want. Producers with several names can be given aliases.
 - Results are scored on title, artist, remix name, length, format, bitrate and how fast the peer

@@ -141,6 +141,34 @@
   <div class="drawer-body" id="why-body"></div>
 </aside>
 
+<!-- Rules of one channel or playlist (roadmap step 9) -->
+<aside class="drawer" id="rules" aria-label="Rules" hidden>
+  <div class="drawer-head">
+    <h2 id="rules-title">Rules</h2>
+    <button class="btn soft" id="close-rules">Close</button>
+  </div>
+  <form id="rules-form" class="drawer-body">
+    <p class="hint">What gets fetched from this channel. Tracks that don't pass stay in the Skipped list with the rule that stopped them, and you can still get them with one click.</p>
+    <div class="row2">
+      <label class="field"><span>Shortest track (minutes)</span><input name="min_minutes" type="number" min="0" max="600"></label>
+      <label class="field"><span>Longest track (minutes, 0 = no limit)</span><input name="max_minutes" type="number" min="0" max="600"></label>
+    </div>
+    <label class="check"><input type="checkbox" name="remixes"> Fetch remixes, reworks, flips and bootlegs</label>
+    <label class="check"><input type="checkbox" name="skip_previews"> Skip previews, clips and snippets</label>
+    <label class="check"><input type="checkbox" name="skip_mixes"> Skip DJ mixes, radio shows and podcasts</label>
+    <label class="check" id="rules-reposts-wrap"><input type="checkbox" name="include_reposts"> Include reposts</label>
+    <label class="field"><span>Skip a track when the title has one of these, one per line</span>
+      <textarea name="exclude" rows="3" spellcheck="false" placeholder="live at&#10;podcast"></textarea></label>
+    <label class="field"><span>Only fetch tracks whose title has one of these, one per line (empty = all)</span>
+      <textarea name="require" rows="3" spellcheck="false"></textarea></label>
+    <p class="error" id="rules-error" hidden></p>
+    <div class="drawer-foot">
+      <button type="button" class="btn soft" id="rules-reset">Back to defaults</button>
+      <button class="btn primary" type="submit">Save rules</button>
+    </div>
+  </form>
+</aside>
+
 <!-- Settings drawer -->
 <div class="scrim" id="scrim" hidden></div>
 <aside class="drawer" id="drawer" aria-label="Settings" hidden>
@@ -224,6 +252,13 @@
       </select>
     </label>
     <p class="hint">Replacing an MP3 with a FLAC changes the file name, so Rekordbox or Serato lose the cue points of the old file. The old file goes to SeekDrop's trash for 30 days.</p>
+
+    <h3>Blocklist</h3>
+    <p class="hint">Applies to every channel and playlist, and wins over their rules.</p>
+    <label class="field"><span>Skip tracks with these words in the title, one per line</span>
+      <textarea name="block_keywords" rows="3" spellcheck="false"></textarea></label>
+    <label class="field"><span>Never fetch these artists, one per line</span>
+      <textarea name="block_artists" rows="3" spellcheck="false"></textarea></label>
 
     <h3>Soulseek etiquette</h3>
     <p class="hint">Soulseek is run by volunteers. Searching slowly and not filling your disk keeps you from being blocked.</p>

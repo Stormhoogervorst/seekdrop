@@ -23,7 +23,8 @@ from .nicotine import migrate_legacy_plugin, update_plugin_if_outdated
 from .soundcloud import SoundCloudClient, TrackStub
 from .quality import (TIER_LABELS, UPGRADE_DAYS, UPGRADE_EVERY, is_better, profile, tier_of,
                       wants_upgrade)
-from .titles import is_mix, parse_title, search_queries
+from . import rules as rules_mod
+from .titles import parse_title, search_queries
 
 log = logging.getLogger(__name__)
 
@@ -32,7 +33,6 @@ QUEUE_TIMEOUT = 45 * 60       # give up on a peer whose queue doesn't move
 STALL_TIMEOUT = 5 * 60        # no bytes received for this long while downloading
 MAX_CANDIDATES = 3            # peers to try per search round
 SEARCH_WAIT = 12.0            # seconds to collect results per search
-MAX_TRACK_SECONDS = 10 * 60   # longer uploads are mixes/sets, not tracks
 TRASH_DAYS = 30               # replaced files stay in the app's trash this long
 
 
@@ -260,6 +260,8 @@ class Engine:
             for entry in list(self.active.values()):
                 entry["task"].cancel()
             await self._connect()
+        if changed & {"block_keywords", "block_artists"}:
+            self.reapply_rules()
         if changed & {"check_interval_minutes"}:
             self.next_poll_at = time.time() + self.settings.check_interval_minutes * 60
         self.wake()
@@ -350,7 +352,7 @@ class Engine:
                 elif not added:
                     skipped += 1
             if skipped:
-                self.note(f"{ch['name']}: skipped {skipped} mix(es) or track(s) over 10 minutes.")
+                self.note(f"{ch['name']}: skipped {skipped} track(s) because of your rules.")
             if failed:
                 self.note(f"{ch['name']}: couldn't read {failed} track(s) from SoundCloud, trying again next check.", "warn")
             self.db.update_channel(cid, last_checked=time.time(), last_error="", initialized=1)
@@ -372,12 +374,43 @@ class Engine:
         n = 0
         for r in rows:
             if r["state"] == states.SKIPPED and r["channel_id"] != cid and not r["last_error"]:
+                why = self._rule_reason(cid, self._parsed(r), r["raw_title"], r["duration"])
+                if why:   # this playlist's rules don't want it either
+                    self.db.update_track(r["id"], channel_id=cid, last_error=why, skip_rule=why)
+                    continue
                 self.db.update_track(r["id"], channel_id=cid, state=states.WANTED, next_attempt=0)
                 n += 1
         return n
 
+    def _rule_reason(self, cid: int, p, raw: str, duration) -> str:
+        """Why the rules of this channel (and the global blocklist) skip an upload; '' = wanted."""
+        ch = self.db.channel(cid)
+        return rules_mod.check(rules_mod.parse_rules(ch["rules"] if ch else ""), p, raw, duration,
+                               self.settings.block_keywords, self.settings.block_artists)
+
+    def reapply_rules(self, cid: Optional[int] = None) -> tuple[int, int]:
+        """After the user changed rules: tracks a rule had skipped come back when they are allowed now,
+        and tracks not yet searched are skipped when they are not. Downloads, tracks in progress and
+        tracks the user fetched or stopped by hand are left alone. Returns (revived, skipped)."""
+        revived = skipped = 0
+        for t in self.db.tracks_for_rules(cid):
+            why = self._rule_reason(t["channel_id"], self._parsed(t), t["raw_title"], t["duration"])
+            if t["state"] == states.SKIPPED:
+                if why:
+                    if why != t["skip_rule"]:
+                        self.db.update_track(t["id"], last_error=why, skip_rule=why)
+                else:
+                    self.db.update_track(t["id"], state=states.WANTED, next_attempt=0, last_error="", skip_rule="")
+                    revived += 1
+            elif why:
+                self.db.update_track(t["id"], state=states.SKIPPED, last_error=why, skip_rule=why)
+                skipped += 1
+        if revived:
+            self._wake_search.set()
+        return revived, skipped
+
     async def _add_wanted(self, cid: int, stub: TrackStub) -> Optional[bool]:
-        """Store a new upload. Returns False if it was skipped as a mix / long upload, and None if
+        """Store a new upload. Returns False if a rule skipped it (step 9), and None if
         SoundCloud gave no title for it (not stored, so the next check tries again)."""
         try:
             info = await asyncio.to_thread(self.sc.track, stub.url)
@@ -391,17 +424,13 @@ class Engine:
         pub = info.publisher_artist if info else ""
         p = parse_title(raw, uploader=uploader, publisher_artist=pub)
         duration = info.duration if info else None
-        reason = ""
-        if duration and duration > MAX_TRACK_SECONDS:
-            reason = "Longer than 10 minutes"
-        elif is_mix(raw):
-            reason = "Looks like a mix"
+        reason = self._rule_reason(cid, p, raw, duration)
         self.db.add_track(
             channel_id=cid, sc_id=stub.sc_id, url=(info.url if info else stub.url), raw_title=raw,
             uploader=uploader, publisher_artist=pub, artist=p.artist, title=p.title, version=p.version,
             duration=duration, artwork=info.artwork if info else "",
             uploaded_at=info.uploaded_at if info else None,
-            state=states.SKIPPED if reason else states.WANTED, last_error=reason)
+            state=states.SKIPPED if reason else states.WANTED, last_error=reason, skip_rule=reason)
         return not reason
 
     # ------------------------------------------------------------------ Soulseek
@@ -955,7 +984,8 @@ class Engine:
     def retry_now(self, tid: int) -> None:
         t = self.db.track(tid)
         if t and t["state"] in (states.WAITING, states.GAVE_UP, states.SKIPPED, states.WANTED):
-            self.db.update_track(tid, state=states.WANTED, next_attempt=0, last_error="")
+            fields = {"skip_rule": rules_mod.OVERRIDDEN} if t["skip_rule"] else {}   # the user wants it: rules leave it be
+            self.db.update_track(tid, state=states.WANTED, next_attempt=0, last_error="", **fields)
             self._wake_search.set()
 
     def skip(self, tid: int) -> None:

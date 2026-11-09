@@ -184,14 +184,14 @@ def test_mixes_and_long_uploads_skipped(setup):
     def track(url):
         info = orig(url)
         if url.endswith("/long"):
-            info.duration = 601
+            info.duration = 750
         return info
 
     sc.track = track
     cid = db.add_channel("https://soundcloud.com/lbl", "Label", False, backlog=3)
     asyncio.run(eng.check_channel(cid))
     got = {t["sc_id"]: (t["state"], t["last_error"]) for t in db.tracks()}
-    assert got == {"10": ("skipped", "Looks like a mix"), "11": ("skipped", "Longer than 10 minutes"),
+    assert got == {"10": ("skipped", "Looks like a mix"), "11": ("skipped", "Longer than 12 minutes (12:30)"),
                    "12": ("wanted", "")}
     # The user can still fetch a skipped one on purpose.
     tid = next(t["id"] for t in db.tracks() if t["sc_id"] == "11")

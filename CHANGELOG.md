@@ -2,6 +2,11 @@
 
 ## 0.4.0
 
+- Rules per channel and playlist (button *Rules* above the list): shortest and longest track (2 to 12
+  minutes by default, was a fixed 10), remixes on or off, skip previews and clips, skip mixes and
+  radio shows, words that exclude a track or are required, and reposts. A blocklist of words and
+  artists in Settings applies everywhere. Skipped tracks show which rule stopped them and can still
+  be fetched with *Get it*; changing a rule re-checks the tracks that were skipped.
 - Politer on Soulseek: searches wait at least 4 s (8 s by default) and stay under 20 per 5 minutes;
   downloads pause when free disk space drops under a limit (5 GB) and continue by themselves;
   peers that failed, went quiet or delivered fake files are scored lower, and blocked for 30 days

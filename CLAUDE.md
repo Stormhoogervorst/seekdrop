@@ -88,7 +88,12 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   `settings.soulseek_mode`.
 - Channels table has `kind` = profile | playlist. Playlists: every track wanted, playlist order;
   tracks another channel skipped (backlog) move to the playlist.
-- Skips uploads > `MAX_TRACK_SECONDS` (600) and `titles.is_mix()` titles at add time.
+- Rules (`rules.py`, step 9): `Engine._add_wanted` asks `rules.check()` whether an upload is wanted, using the
+  channel's rules (`channels.rules` JSON, '' = `DEFAULT_RULES`: 2 to 12 min, remixes on, previews and mixes
+  skipped) and the global `settings.block_keywords` / `block_artists` (these win). A skipped track keeps the
+  reason in `last_error` and `skip_rule` ('overridden' once the user pressed *Get it*, so rules leave it
+  alone). `Engine.reapply_rules` runs after a rules or blocklist change: revives rule-skipped tracks that
+  pass now, skips never-searched wanted tracks that don't; downloads, running and hand-skipped tracks stay.
 - The plugin inserts its `file-search-response` callback first, because Nicotine+ drops
   responses for tokens that have no search tab. It uses private-ish Nicotine+ internals
   (`core.search.token`, `sanitize_search_term`, `events._callbacks`); re-check on Nicotine+ updates.

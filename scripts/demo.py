@@ -70,6 +70,7 @@ if not db.channels() and not SETUP:
     ids = [db.add_channel(u, n, False, 0, kind=k) for u, n, k in chans]
     for i in ids:
         db.update_channel(i, initialized=1, last_checked=now - 600 * i)
+    db.update_channel(ids[0], rules='{"remixes": false, "max_minutes": 10}')   # step 9: rules per channel
     db.update_channel(ids[2], last_error="SoundCloud is blocking requests right now. Try again in a few minutes.")
     rows = [
         # channel, raw title, artist, title, version, state, progress, last_error, peer, duration
@@ -80,14 +81,18 @@ if not db.channels() and not SETUP:
         (ids[3], "Lune Varga - Hypnotic Loop", "Lune Varga", "Hypnotic Loop", "", "done", 1, "", "berlin_bits", 412),
         (ids[3], "Kai Brenner - Drift (Original Mix)", "Kai Brenner", "Drift", "", "wanted", 0, "", "", 389),
         (ids[1], "Sam Hollow - Places (Club Edit)", "Sam Hollow", "Places", "Club Edit", "gave_up", 0, "Not on Soulseek yet", "", 256),
-        (ids[0], "Nightshift Radio 042 w/ Mira Kova", "Nightshift Records", "Nightshift Radio 042 w/ Mira Kova", "", "skipped", 0, "Looks like a mix", "", 3600),
+        (ids[0], "Nightshift Radio 042 w/ Mira Kova", "Nightshift Records", "Nightshift Radio 042 w/ Mira Kova", "", "skipped", 0, "Longer than 10 minutes (60:00)", "", 3600),
+        (ids[0], "Mira Kova - Night Signal (Delen Remix)", "Mira Kova", "Night Signal", "Delen Remix", "skipped", 0, "Remixes are turned off for this channel", "", 340),
+        (ids[0], "Mira Kova - Night Signal (Clip)", "Mira Kova", "Night Signal", "", "skipped", 0, "Preview or clip", "", 30),
         (ids[2], "Kellerraum Live at Tresor (4h set)", "Kellerraum", "Kellerraum Live at Tresor (4h set)", "", "skipped", 0, "Longer than 10 minutes", "", 14400),
         (ids[2], "Old Upload - From Before", "Old Upload", "From Before", "", "skipped", 0, "", "", 280),
     ]
+    RULE_SKIPS = ("Longer than", "Remixes are", "Preview or")
     for n, (cid, raw, a, t, v, st, prog, err, peer, dur) in enumerate(rows):
         db.add_track(channel_id=cid, sc_id=str(1000 + n), url="https://soundcloud.com/x/y", raw_title=raw,
                      artist=a, title=t, version=v, duration=dur, state=st, progress=prog, last_error=err,
                      peer=peer, uploaded_at=now - n * 3600 * 5, next_attempt=now + 7200,
+                     skip_rule=(err if st == "skipped" and err.startswith(RULE_SKIPS) else ""),
                      remote_file=(f"@@music\\{a} - {t}.flac" if peer else ""),
                      file_path=(str(home / "Music" / f"{a} - {t}.flac") if st == "done" else ""))
 

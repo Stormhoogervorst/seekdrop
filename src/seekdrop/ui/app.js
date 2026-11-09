@@ -195,7 +195,7 @@ function renderChannels(s) {
     const html2 = `<a href="${esc(ch.url)}" target="_blank" rel="noopener">${esc(ch.url.replace("https://", ""))}</a>
       <button class="linkbtn" data-chact="check">Check now</button>
       <button class="linkbtn" data-chact="toggle">${ch.enabled ? "Pause" : "Resume"}</button>
-      ${ch.kind === "playlist" ? "" : `<button class="linkbtn" data-chact="reposts">${ch.include_reposts ? "Ignore reposts" : "Include reposts"}</button>`}
+      <button class="linkbtn" data-chact="rules" title="Which uploads are fetched">Rules: ${esc(ch.rules_summary || "")}</button>
       <button class="linkbtn" data-chact="remove">Remove ${ch.kind === "playlist" ? "playlist" : "channel"}</button>`;
     if (bar.dataset.k !== html2) { bar.innerHTML = html2; bar.dataset.k = html2; }
   } else {
@@ -476,7 +476,7 @@ $("#channel-bar").addEventListener("click", async (e) => {
   try {
     if (act === "check") { await api("POST", `/api/channels/${ch.id}/check`); toast("Checking channel"); }
     if (act === "toggle") await api("PATCH", `/api/channels/${ch.id}`, { enabled: !ch.enabled });
-    if (act === "reposts") await api("PATCH", `/api/channels/${ch.id}`, { include_reposts: !ch.include_reposts });
+    if (act === "rules") return openRules(ch);
     if (act === "remove") {
       if (!confirmRemove(b, ch.name)) return;
       await api("DELETE", `/api/channels/${ch.id}`);
@@ -538,6 +538,9 @@ function profileHelp() {
 }
 $("#set-profile").addEventListener("change", profileHelp);
 
+const LIST_FIELDS = ["share_dirs", "block_keywords", "block_artists"];
+const lines = (text) => text.split("\n").map((x) => x.trim()).filter(Boolean);
+
 function openSettings() {
   const s = ui.state.settings, f = $("#settings-form");
   for (const el of f.elements) {
@@ -545,7 +548,7 @@ function openSettings() {
     const v = s[el.name];
     if (el.type === "checkbox") el.checked = !!v;
     else if (el.name === "soulseek_password") el.value = "";
-    else if (el.name === "share_dirs") el.value = (v || []).join("\n");
+    else if (LIST_FIELDS.includes(el.name)) el.value = (v || []).join("\n");
     else el.value = v ?? "";
   }
   $("#version").textContent = `SeekDrop ${ui.state.version}`;
@@ -580,7 +583,56 @@ $("#set-nic-install").addEventListener("click", async () => {
   } catch (e) { showError($("#set-error"), e.message); }
 });
 
-function closeSettings() { $("#drawer").hidden = $("#why").hidden = $("#scrim").hidden = true; ui.why = null; }
+function closeSettings() { $("#drawer").hidden = $("#why").hidden = $("#rules").hidden = $("#scrim").hidden = true; ui.why = null; }
+
+/* ---------------- rules per channel (roadmap step 9) ---------------- */
+function fillRules(r, reposts) {
+  const f = $("#rules-form");
+  for (const el of f.elements) {
+    if (!el.name) continue;
+    if (el.name === "include_reposts") el.checked = !!reposts;
+    else if (el.type === "checkbox") el.checked = !!r[el.name];
+    else if (el.name === "exclude" || el.name === "require") el.value = (r[el.name] || []).join("\n");
+    else el.value = r[el.name] ?? "";
+  }
+}
+function openRules(ch) {
+  ui.rulesFor = ch.id;
+  $("#rules-title").textContent = `Rules for ${ch.name}`;
+  $("#rules-reposts-wrap").hidden = ch.kind === "playlist";
+  fillRules(ch.rules, ch.include_reposts);
+  showError($("#rules-error"), "");
+  $("#rules").hidden = $("#scrim").hidden = false;
+}
+$("#close-rules").addEventListener("click", closeSettings);
+$("#rules-reset").addEventListener("click", () => {
+  const ch = ui.state.channels.find((c) => c.id === ui.rulesFor);
+  fillRules(ui.state.rule_defaults, ch && ch.include_reposts);
+});
+$("#rules-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = e.target, rules = {};
+  let reposts = null;
+  for (const el of f.elements) {
+    if (!el.name) continue;
+    if (el.name === "include_reposts") reposts = el.checked;
+    else if (el.type === "checkbox") rules[el.name] = el.checked;
+    else if (el.name === "exclude" || el.name === "require") rules[el.name] = lines(el.value);
+    else rules[el.name] = Number(el.value || 0);
+  }
+  const body = { rules };
+  const ch = ui.state.channels.find((c) => c.id === ui.rulesFor);
+  if (ch && ch.kind !== "playlist" && reposts !== null) body.include_reposts = reposts;
+  try {
+    const r = await api("PATCH", `/api/channels/${ui.rulesFor}`, body);
+    closeSettings();
+    const bits = [];
+    if (r.revived) bits.push(`${r.revived} track(s) are wanted again`);
+    if (r.skipped) bits.push(`${r.skipped} skipped`);
+    toast(bits.length ? `Rules saved: ${bits.join(", ")}` : "Rules saved");
+    refresh();
+  } catch (ex) { showError($("#rules-error"), ex.message); }
+});
 
 /* ---------------- "Why not?" (roadmap step 5) ---------------- */
 const mmss = (s) => s ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}` : "";
@@ -663,7 +715,7 @@ $("#settings-form").addEventListener("submit", async (e) => {
   for (const el of f.elements) {
     if (!el.name) continue;
     if (el.type === "checkbox") body[el.name] = el.checked;
-    else if (el.name === "share_dirs") body[el.name] = el.value.split("\n").map((x) => x.trim()).filter(Boolean);
+    else if (LIST_FIELDS.includes(el.name)) body[el.name] = lines(el.value);
     else body[el.name] = el.value;
   }
   try {

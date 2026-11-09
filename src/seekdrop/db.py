@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS channels (
     initialized INTEGER NOT NULL DEFAULT 0,
     backlog INTEGER NOT NULL DEFAULT 0,
     kind TEXT NOT NULL DEFAULT 'profile',
+    rules TEXT NOT NULL DEFAULT '',           -- JSON, see rules.py ('' = the default rules)
     last_checked REAL,
     last_error TEXT NOT NULL DEFAULT '',
     added_at REAL NOT NULL
@@ -55,6 +56,7 @@ CREATE TABLE IF NOT EXISTS tracks (
     fix_artist TEXT NOT NULL DEFAULT '',   -- manual corrections (step 6): win over the automatic parse
     fix_title TEXT NOT NULL DEFAULT '',
     fix_version TEXT NOT NULL DEFAULT '',
+    skip_rule TEXT NOT NULL DEFAULT '',    -- why a rule skipped it (rules.py); 'overridden' = user fetched it anyway
     created_at REAL NOT NULL,
     updated_at REAL NOT NULL
 );
@@ -119,6 +121,8 @@ class Database:
             cols = {r[1] for r in self.conn.execute("PRAGMA table_info(channels)")}
             if "kind" not in cols:   # databases from before playlists existed
                 self.conn.execute("ALTER TABLE channels ADD COLUMN kind TEXT NOT NULL DEFAULT 'profile'")
+            if "rules" not in cols:   # databases from before rules per channel (step 9)
+                self.conn.execute("ALTER TABLE channels ADD COLUMN rules TEXT NOT NULL DEFAULT ''")
             tcols = {r[1] for r in self.conn.execute("PRAGMA table_info(tracks)")}
             if "cutoff_hz" not in tcols:   # databases from before the spectrum check
                 self.conn.execute("ALTER TABLE tracks ADD COLUMN cutoff_hz REAL")
@@ -130,6 +134,10 @@ class Database:
                              ("fix_title", "TEXT NOT NULL DEFAULT ''"), ("fix_version", "TEXT NOT NULL DEFAULT ''")):
                 if col not in tcols:   # databases from before quality profiles
                     self.conn.execute(f"ALTER TABLE tracks ADD COLUMN {col} {ddl}")
+            if "skip_rule" not in tcols:   # step 9: the two fixed rules of before are now rules
+                self.conn.execute("ALTER TABLE tracks ADD COLUMN skip_rule TEXT NOT NULL DEFAULT ''")
+                self.conn.execute("""UPDATE tracks SET skip_rule=last_error WHERE state='skipped'
+                                     AND last_error IN ('Looks like a mix', 'Longer than 10 minutes')""")
 
     def _q(self, sql: str, args: tuple = ()) -> list[dict]:
         with self.lock:
@@ -293,6 +301,17 @@ class Database:
         return self._q(f"""
             SELECT t.*, c.name AS channel_name FROM tracks t JOIN channels c ON c.id=t.channel_id
             {where} ORDER BY COALESCE(t.uploaded_at, t.created_at) DESC, t.id DESC LIMIT ?""", (*args, limit))
+
+    def tracks_for_rules(self, channel_id: Optional[int] = None) -> list[dict]:
+        """Tracks the rules may still decide about: skipped by a rule, or wanted and never searched."""
+        where, args = "", ()
+        if channel_id:
+            where, args = "AND t.channel_id=?", (channel_id,)
+        return self._q(f"""
+            SELECT t.* FROM tracks t
+            WHERE ((t.state='skipped' AND t.skip_rule NOT IN ('', 'overridden'))
+                OR (t.state='wanted' AND t.attempts=0 AND t.skip_rule=''))
+            {where} ORDER BY t.id""", args)
 
     def due_tracks(self, now: float, limit: int = 20) -> list[dict]:
         return self._q("""

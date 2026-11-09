@@ -200,7 +200,7 @@ Klaar als:
 
 ### Stap 9: regels per kanaal
 
-**Status: deels.** Voor alle kanalen samen: uploads boven 10 minuten en mixes, radioshows en podcasts (op titel) worden overgeslagen, met de reden zichtbaar en een knop om ze toch op te halen. Reposts zijn per kanaal aan of uit te zetten. Previews worden in `titles.py` herkend maar nog niet overgeslagen. Mist: regels per kanaal (lengte, remixes, trefwoorden), een globale blokkeerlijst en het instellen in de interface.
+**Status: klaar (nov 2026), op één punt na.** `rules.py` met `check()` (alle regels op één plek, de reden komt terug als tekst) en een regelpaneel per kanaal of playlist (knop *Rules* in de kanaalbalk, met een samenvatting). Per kanaal: kortste en langste lengte (standaard 2 tot 12 minuten, 0 = geen grens), remixes wel of niet (remix, rework, refix, flip en bootleg; VIP, dub en edit blijven altijd toegestaan), previews en clips overslaan, mixes en radioshows overslaan, trefwoorden die uitsluiten, trefwoorden waarvan er minstens één verplicht is, en reposts. Globaal in Settings: een blokkeerlijst van woorden en artiesten die altijd wint. Overgeslagen tracks blijven in *Skipped* met de regel als reden (`tracks.skip_rule`, `channels.rules`) en *Get it* haalt ze toch op en blijft gelden bij latere wijzigingen. Wijzig je regels, dan komen tracks die nu wel mogen terug en worden nog niet gezochte tracks die niet meer mogen overgeslagen (`Engine.reapply_rules`); downloads, lopende tracks en wat je zelf overgeslagen hebt blijven met rust. De oude vaste regels (10 minuten, mixen) zijn nu de standaardregels; bestaande overgeslagen tracks zijn omgezet. Nog niet echt getest met een echt kanaal.
 
 Doel: alleen downloaden wat de DJ wil. SoundCloud-kanalen uploaden ook mixen van een uur, podcasts, previews en snippets.
 
@@ -213,8 +213,8 @@ Bouwen:
 
 Klaar als:
 
-- [ ] Een mix van 58 minuten en een clip van 30 seconden worden in een test overgeslagen, elk met de juiste regel als reden.
-- [ ] Regels zijn per kanaal in te stellen en te wijzigen in de interface.
+- [x] Een mix van 58 minuten en een clip van 30 seconden worden in een test overgeslagen, elk met de juiste regel als reden.
+- [x] Regels zijn per kanaal in te stellen en te wijzigen in de interface.
 
 ## Fase 3: collectie en DJ-software
 
