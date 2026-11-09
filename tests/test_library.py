@@ -8,11 +8,11 @@ import time
 
 import pytest
 
-from seekdrop import library
-from seekdrop.db import Database
-from seekdrop.matching import Candidate, parse_aliases
-from seekdrop.soundcloud import TrackInfo, TrackStub
-from seekdrop.titles import parse_title
+from seeksync import library
+from seeksync.db import Database
+from seeksync.matching import Candidate, parse_aliases
+from seeksync.soundcloud import TrackInfo, TrackStub
+from seeksync.titles import parse_title
 
 from test_engine import _fresh_track, _real_sleep, setup  # noqa: F401  (fixture + fakes)
 
@@ -276,7 +276,7 @@ def test_searching_waits_while_the_folders_are_read(setup):
 
 
 def test_a_new_download_is_known_at_once_so_the_same_track_in_another_channel_is_not_fetched_twice(setup, monkeypatch):
-    from seekdrop import tagging
+    from seeksync import tagging
     eng, db, sc, slsk, tmp = setup
     t = _fresh_track(eng, db, sc)
     monkeypatch.setattr(tagging, "fetch_cover", lambda *a, **k: None)
@@ -333,7 +333,7 @@ def test_duplicates_are_listed_with_the_best_copy_marked_and_nothing_is_touched(
 
 
 def test_api_state_scan_duplicates_and_open(setup, monkeypatch):
-    from seekdrop import server
+    from seeksync import server
     eng, db, sc, slsk, tmp = setup
     out = tmp / "out"
     flac(out / "A" / "Artist - Same.flac")

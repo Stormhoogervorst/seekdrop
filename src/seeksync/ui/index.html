@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SeekDrop</title>
+<title>SeekSync</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%23FCF251%22/%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%228%22 fill=%22none%22 stroke=%22%23111111%22 stroke-width=%222.5%22/%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%222%22 fill=%22%23111111%22/%3E%3C/svg%3E">
 <link rel="stylesheet" href="/ui/style.css">
 </head>
@@ -12,32 +12,32 @@
 <!-- First run -->
 <main id="setup" class="setup" hidden>
   <div class="setup-inner">
-    <h1 class="wordmark">SeekDrop</h1>
-    <p class="lede">Follow SoundCloud channels and playlists, and public Spotify playlists. When a track shows up, SeekDrop looks for it on Soulseek and downloads the best copy it can find.</p>
+    <h1 class="wordmark">SeekSync</h1>
+    <p class="lede">Follow SoundCloud channels and playlists, and public Spotify playlists. When a track shows up, SeekSync looks for it on Soulseek and downloads the best copy it can find.</p>
 
     <ol class="steps">
       <li class="step">
         <h2>Before you start</h2>
-        <p>SeekDrop searches Soulseek, a network where people share their own music folders. You decide what you download and share. Only download music you have the right to have, such as free downloads, promos sent to you, or tracks you've bought. You're responsible for how you use it.</p>
-        <label class="check"><input type="checkbox" id="s-terms"> I understand and use SeekDrop at my own responsibility</label>
+        <p>SeekSync searches Soulseek, a network where people share their own music folders. You decide what you download and share. Only download music you have the right to have, such as free downloads, promos sent to you, or tracks you've bought. You're responsible for how you use it.</p>
+        <label class="check"><input type="checkbox" id="s-terms"> I understand and use SeekSync at my own responsibility</label>
       </li>
       <li class="step">
         <h2>Connect to Soulseek</h2>
         <div class="choice" role="radiogroup" aria-label="How to connect">
           <label class="opt"><input type="radio" name="s-mode" value="nicotine">
-            <span><b>Through Nicotine+</b><small>Uses the account and shared folders you already have in Nicotine+. Nicotine+ needs to be open while SeekDrop works.</small></span></label>
+            <span><b>Through Nicotine+</b><small>Uses the account and shared folders you already have in Nicotine+. Nicotine+ needs to be open while SeekSync works.</small></span></label>
           <label class="opt"><input type="radio" name="s-mode" value="builtin" checked>
-            <span><b>With its own Soulseek account</b><small>SeekDrop logs in to Soulseek itself. You don't need any other app.</small></span></label>
+            <span><b>With its own Soulseek account</b><small>SeekSync logs in to Soulseek itself. You don't need any other app.</small></span></label>
         </div>
         <div id="s-nicotine" hidden>
-          <p>SeekDrop adds a small plugin to Nicotine+ so the two apps can talk. It only works on this computer.</p>
+          <p>SeekSync adds a small plugin to Nicotine+ so the two apps can talk. It only works on this computer.</p>
           <div class="nic-steps">
             <button class="btn" type="button" id="s-nic-install">Add plugin to Nicotine+</button>
             <p class="hint" id="s-nic-done" hidden></p>
           </div>
         </div>
         <div id="s-builtin">
-          <p>Use a separate account just for SeekDrop. A name that doesn't exist yet is created automatically when you log in. Logging in with the same account in another Soulseek app will disconnect one of them.</p>
+          <p>Use a separate account just for SeekSync. A name that doesn't exist yet is created automatically when you log in. Logging in with the same account in another Soulseek app will disconnect one of them.</p>
           <div class="row2">
             <label class="field"><span>Username</span><input id="s-user" autocomplete="off" spellcheck="false"></label>
             <label class="field"><span>Password</span><input id="s-pass" type="password" autocomplete="new-password"></label>
@@ -64,7 +64,7 @@
 <!-- App -->
 <div id="app" class="shell" hidden>
   <aside class="side">
-    <div class="brand"><span class="logo-tile"><i data-icon="disc-3"></i></span><span class="wordmark small">SeekDrop</span></div>
+    <div class="brand"><span class="logo-tile"><i data-icon="disc-3"></i></span><span class="wordmark small">SeekSync</span></div>
 
     <form class="add" id="add-form" autocomplete="off">
       <label for="add-url" class="add-label">Add a channel or playlist</label>
@@ -205,11 +205,11 @@
       <button class="btn soft" data-pick="set-dir" type="button" hidden>Choose…</button>
     </div>
     <h3>Your music collection</h3>
-    <p class="hint">Folders SeekDrop checks, so a track you already have isn't downloaded again. The download folder is always included.</p>
+    <p class="hint">Folders SeekSync checks, so a track you already have isn't downloaded again. The download folder is always included.</p>
     <label class="field"><span>Music folders, one per line</span>
       <textarea name="library_dirs" id="set-library-dirs" rows="3" spellcheck="false" placeholder="/Users/you/Music/DJ"></textarea></label>
     <button class="btn soft" data-add-to="set-library-dirs" type="button" hidden>Add folder…</button>
-    <p class="hint">SeekDrop only reads these folders. It never changes or deletes anything in them.</p>
+    <p class="hint">SeekSync only reads these folders. It never changes or deletes anything in them.</p>
     <div class="row-inline"><p class="hint" id="set-library-status"></p><button type="button" class="btn soft" id="set-scan">Scan now</button></div>
 
     <h3>Names and tags</h3>
@@ -271,20 +271,20 @@
         <option value="off">Don't look for better copies</option>
       </select>
     </label>
-    <p class="hint">Replacing an MP3 with a FLAC changes the file name, so Rekordbox or Serato lose the cue points of the old file. The old file goes to SeekDrop's trash for 30 days.</p>
+    <p class="hint">Replacing an MP3 with a FLAC changes the file name, so Rekordbox or Serato lose the cue points of the old file. The old file goes to SeekSync's trash for 30 days.</p>
 
     <h3>Rekordbox</h3>
     <label class="check"><input type="checkbox" name="rekordbox_export"> Keep a Rekordbox XML file of the downloaded tracks up to date</label>
     <label class="field"><span>File (empty = in the download folder)</span>
-      <input name="rekordbox_xml_path" spellcheck="false" placeholder="SeekDrop for Rekordbox.xml"></label>
+      <input name="rekordbox_xml_path" spellcheck="false" placeholder="SeekSync for Rekordbox.xml"></label>
     <div class="row-inline"><p class="hint" id="set-rb-status"></p>
       <span class="row-btns"><button type="button" class="btn soft" id="set-rb-update">Update now</button>
       <button type="button" class="btn soft" id="set-rb-show">Show file</button></span></div>
     <label class="field"><span>Your Rekordbox collection export (optional)</span>
       <input name="rekordbox_library_xml" id="set-rb-lib" spellcheck="false" placeholder="/Users/you/Documents/rekordbox collection.xml"></label>
     <p class="hint" id="set-rb-lib-status"></p>
-    <p class="hint">In Rekordbox choose File, Export Collection in xml format, and pick that file here. SeekDrop only reads it, to see which tracks are in Rekordbox. With the upgrade setting above, those tracks are never replaced by themselves, because a new file name loses their cue points. Export again now and then. Without this file SeekDrop asks first for every track.</p>
-    <p class="hint">Every finished download becomes a track, and each channel or playlist becomes a playlist inside a folder called SeekDrop. In Rekordbox: Preferences, Advanced, Database, tick <b>rekordbox xml</b> and choose this file. Then open <b>rekordbox xml</b> in the tree, right-click a playlist and choose <b>Import Playlist</b>. SeekDrop only writes this one file and never touches Rekordbox' own library. A track that is replaced by a better copy gets a new file name, so Rekordbox sees it as a new track.</p>
+    <p class="hint">In Rekordbox choose File, Export Collection in xml format, and pick that file here. SeekSync only reads it, to see which tracks are in Rekordbox. With the upgrade setting above, those tracks are never replaced by themselves, because a new file name loses their cue points. Export again now and then. Without this file SeekSync asks first for every track.</p>
+    <p class="hint">Every finished download becomes a track, and each channel or playlist becomes a playlist inside a folder called SeekSync. In Rekordbox: Preferences, Advanced, Database, tick <b>rekordbox xml</b> and choose this file. Then open <b>rekordbox xml</b> in the tree, right-click a playlist and choose <b>Import Playlist</b>. SeekSync only writes this one file and never touches Rekordbox' own library. A track that is replaced by a better copy gets a new file name, so Rekordbox sees it as a new track.</p>
 
     <h3>Blocklist</h3>
     <p class="hint">Applies to every channel and playlist, and wins over their rules.</p>

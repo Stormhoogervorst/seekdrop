@@ -4,9 +4,9 @@ import json
 
 import pytest
 
-from seekdrop import spotify as sp
-from seekdrop.soundcloud import ChannelError
-from seekdrop.sources import Sources, is_playlist_url, normalize_channel_url, source_name
+from seeksync import spotify as sp
+from seeksync.soundcloud import ChannelError
+from seeksync.sources import Sources, is_playlist_url, normalize_channel_url, source_name
 
 from test_engine import _fresh_track, setup  # noqa: F401  (fixture)
 
@@ -88,7 +88,7 @@ def test_titles_artists_and_length_are_read():
 
 
 def test_the_title_parser_gets_artist_title_and_version():
-    from seekdrop.titles import parse_title
+    from seeksync.titles import parse_title
     stub = client(page([track(T1, "Domino - Space 92 Remix", "Oxia,\xa0Space 92")])).latest(URL)[0]
     p = parse_title(stub.title)
     assert (p.artist, p.title, p.version) == ("Oxia, Space 92", "Domino", "Space 92 Remix")
@@ -215,7 +215,7 @@ def test_the_first_check_of_a_full_page_mentions_the_100_track_limit(setup):
 
 def test_adding_a_spotify_playlist_through_the_api(setup):
     from aiohttp.test_utils import TestClient, TestServer
-    from seekdrop.server import Api
+    from seeksync.server import Api
 
     eng, db, _sc, slsk, tmp = setup
     eng.sc = Sources(_sc, sp.SpotifyClient(fetch=lambda url: page([track(T1, "Real", "A,\xa0B")])))

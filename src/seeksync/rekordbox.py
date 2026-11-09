@@ -1,8 +1,8 @@
-"""A Rekordbox XML for the tracks SeekDrop downloaded (roadmap step 12).
+"""A Rekordbox XML for the tracks SeekSync downloaded (roadmap step 12).
 
-Rekordbox reads this file through Preferences > Advanced > Database > rekordbox xml. SeekDrop only ever
+Rekordbox reads this file through Preferences > Advanced > Database > rekordbox xml. SeekSync only ever
 writes this one file; Rekordbox' own database is never touched. The file holds every finished download as
-a track and one playlist per channel or playlist, inside a folder called "SeekDrop"."""
+a track and one playlist per channel or playlist, inside a folder called "SeekSync"."""
 from __future__ import annotations
 
 import os
@@ -14,8 +14,8 @@ from dataclasses import dataclass, field
 from typing import Optional
 from urllib.parse import quote, unquote
 
-DEFAULT_NAME = "SeekDrop for Rekordbox.xml"
-FOLDER = "SeekDrop"
+DEFAULT_NAME = "SeekSync for Rekordbox.xml"
+FOLDER = "SeekSync"
 KINDS = {"mp3": "MP3 File", "flac": "FLAC File", "wav": "WAV File", "aiff": "AIFF File", "aif": "AIFF File",
          "m4a": "M4A File", "mp4": "M4A File"}
 _BAD_XML = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f￾￿]")
@@ -107,7 +107,7 @@ def file_facts(path: str, cache: Optional[dict] = None) -> dict:
 
 def build(tracks: list[Track], playlists: list[Playlist], version: str = "") -> ET.ElementTree:
     root = ET.Element("DJ_PLAYLISTS", Version="1.0.0")
-    ET.SubElement(root, "PRODUCT", Name="SeekDrop", Version=clean(version), Company="SeekDrop")
+    ET.SubElement(root, "PRODUCT", Name="SeekSync", Version=clean(version), Company="SeekSync")
     coll = ET.SubElement(root, "COLLECTION", Entries=str(len(tracks)))
     for t in tracks:
         attrs = {"TrackID": str(t.track_id), "Name": clean(t.name), "Artist": clean(t.artist)}
@@ -159,7 +159,7 @@ def write(path: str, tracks: list[Track], playlists: list[Playlist], version: st
     If anything goes wrong the previous file stays as it was."""
     folder = os.path.dirname(os.path.abspath(path))
     os.makedirs(folder, exist_ok=True)
-    tmp = os.path.join(folder, "." + os.path.basename(path) + ".seekdrop-part")
+    tmp = os.path.join(folder, "." + os.path.basename(path) + ".seeksync-part")
     try:
         body = ET.tostring(build(tracks, playlists, version).getroot(), encoding="unicode")
         with open(tmp, "w", encoding="utf-8", newline="\n") as f:

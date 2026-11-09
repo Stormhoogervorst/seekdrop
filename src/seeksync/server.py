@@ -189,7 +189,7 @@ class Api:
         _, changed = store.update({"nicotine_token": token, "soulseek_mode": "nicotine"})
         if changed and store.settings.configured:
             asyncio.create_task(self.engine.apply_settings(changed))
-        self.engine.note("Installed the SeekDrop Bridge plugin for Nicotine+.")
+        self.engine.note("Installed the SeekSync Bridge plugin for Nicotine+.")
         return web.json_response({"ok": True, "path": str(path)})
 
     async def add_channel(self, request: web.Request):

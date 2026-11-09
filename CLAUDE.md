@@ -1,25 +1,25 @@
-# SeekDrop: notes for Claude Code
+# SeekSync: notes for Claude Code
 
 Desktop app (Python, pywebview UI) that follows SoundCloud channels and playlists and downloads
 the tracks from Soulseek, either with its own login (aioslsk) or through Nicotine+ via the bundled
-`seekdrop_bridge` plugin. Formerly Cratewatch, then Nicotine+ Sync (renamed because "SoulSync"
+`seeksync_bridge` plugin. Formerly Cratewatch, then Nicotine+ Sync, then SeekDrop (renamed to SeekSync in 0.6.0; "SoulSync"
 is taken by another Soulseek project). On first start the old data folder and plugin key are taken
 over (`config.migrate_legacy_data`, `nicotine.migrate_legacy_plugin`). UI copy is English; the owner speaks Dutch.
-Repo: github.com/Stormhoogervorst/seekdrop (renamed from nicotinesync; GitHub redirects the old name).
+Repo: github.com/Stormhoogervorst/seeksync (renamed from seekdrop and before that nicotinesync; GitHub redirects the old names).
 
 ## Run / test
 - Python 3.11 to 3.13 (not 3.14: deps). ffmpeg is optional (`brew install ffmpeg`); without it the
   file-check tests are skipped and the app skips the checks. `python3.13 -m venv .venv && .venv/bin/pip install -e ".[dev]"`.
-- `python -m seekdrop` (window) or `--browser` / `--headless`.
+- `python -m seeksync` (window) or `--browser` / `--headless`.
 - `pytest -q` (unit + engine tests with fakes). `tests/conftest.py` points XDG_DATA_HOME, APPDATA and
-  SEEKDROP_HOME at a temp dir, so no test can touch the real Nicotine+ plugins or app data.
+  SEEKSYNC_HOME at a temp dir, so no test can touch the real Nicotine+ plugins or app data.
 - UI dev server: `python scripts/demo.py` (launch.json `ui-demo`), open http://localhost:8765/#token=dev.
   Made-up data in a temp folder, no network; UI file edits show on refresh.
-- Throwaway data dir: `SEEKDROP_HOME=/tmp/ns python -m seekdrop --headless --port 47900`.
+- Throwaway data dir: `SEEKSYNC_HOME=/tmp/ns python -m seeksync --headless --port 47900`.
   The printed URL has `#token=…`; send it as `X-Token` to `/api/*`.
 - Nicotine+ plugin harness: `pip download nicotine-plus --no-deps`, unzip the wheel, then
   `PYTHONPATH=src:<unzipped> python tests/manual/nicotine_harness.py`.
-- Local build: `pyinstaller packaging/seekdrop.spec --noconfirm` -> `dist/SeekDrop.app`.
+- Local build: `pyinstaller packaging/seeksync.spec --noconfirm` -> `dist/SeekSync.app`.
 
 ## Verified against the real services (Nov 2026, macOS 26, Nicotine+ 3.3.11)
 - SoundCloud via yt-dlp: profiles, playlists (flat entries have no title; some URLs are
@@ -52,13 +52,13 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
  `score_candidate()` hard-rejects (wrong title/artist/remixer, length,
   bitrate, spam peers, DJ-pool edits) and scores the rest (format, length, free slot, speed); `rank()`.
 - **Soulseek**, two interchangeable services: `soulseek.py` (own login via aioslsk) and `nicotine.py`
-  (HTTP to the `seekdrop_bridge` plugin running inside Nicotine+, 127.0.0.1 + key). Chosen by
+  (HTTP to the `seeksync_bridge` plugin running inside Nicotine+, 127.0.0.1 + key). Chosen by
   `settings.soulseek_mode`. Steps that touch peers (4, 8) must work through both.
 - **Engine** (`engine.py`): poll loop checks channels → `tracks` rows (state wanted…done); search
   loop: queries → rank → up to 3 candidates → download into the service's incoming folder in the
   app data → `_stage_and_publish()`: move to `staging/<track id>/`, run `Engine.checks` (each returns a
   reject reason or None), then `publish_file()` to `download_dir/<channel>/Artist - Title (Version).ext`
-  in one go. Start-up removes staging leftovers and hidden `.…seekdrop-part` files.
+  in one go. Start-up removes staging leftovers and hidden `.…seeksync-part` files.
   Retries 1h/3h/6h/12h/daily up to `give_up_days`.
 - **File checks** (`checks.py`): `FileChecker` is in `Engine.checks`; ffprobe/ffmpeg (optional, found on
   PATH or in Homebrew dirs) for decode errors, cut-off, format vs extension, length vs SoundCloud,
@@ -71,11 +71,11 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   free slot, downloads with `record=False` (track row untouched), and either replaces (`auto`, old file
   to `trash/`) or parks the copy in `upgrades/` for Replace/Keep (`ask`, default).
 - **Rekordbox** (`rekordbox.py`, step 12): `Engine.write_rekordbox_sync` writes `settings.rekordbox_xml_path` (default
-  `SeekDrop for Rekordbox.xml` in the download folder) when `rekordbox_export` is on: every `done` track whose file exists
+  `SeekSync for Rekordbox.xml` in the download folder) when `rekordbox_export` is on: every `done` track whose file exists
   (`db.tracks_for_rekordbox`), name/artist/genre/year/label/comment from `_tag_meta`, size/length/bitrate/sample rate from
-  `rekordbox.file_facts` (cached per path+size+mtime), one playlist per channel in a folder "SeekDrop". Rewritten
+  `rekordbox.file_facts` (cached per path+size+mtime), one playlist per channel in a folder "SeekSync". Rewritten
   `REKORDBOX_DELAY` (30 s) after a download/upgrade/approve/channel removal via `schedule_rekordbox` (thread-safe, one
-  pending write), atomic via a hidden `.seekdrop-part` file. `Location` uses Rekordbox's own safe characters
+  pending write), atomic via a hidden `.seeksync-part` file. `Location` uses Rekordbox's own safe characters
   (`!#$()*+,:;=?@`). `rekordbox.read` parses any Rekordbox XML (also Rekordbox' own export). We never touch Rekordbox'
   database. Upgrade mode `auto_unless_dj`: `Engine.in_rekordbox(path)` (True/False/None) reads the user's own Rekordbox
   collection export (`rekordbox_library_xml`, read only, cached by mtime) via `rekordbox.collection_paths` /
@@ -115,13 +115,13 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   shown in a pywebview window by `__main__.py`; `updates.py` checks GitHub releases (`/releases/latest`, so only published ones) and, in the macOS .app only, installs one:
   download the `*macos*.dmg` asset (size + SHA-256 from the API), `ditto` the app next to the current one, then a shell script
   (`SWAP_SCRIPT`) waits for the app to quit, moves the old app to `<data>/previous-versions/` (keeps 2) and `open`s the new one.
-  `Backend.on_quit` is how the route closes the app. Test it without GitHub: `SEEKDROP_RELEASE_API=<url of a release JSON>`
+  `Backend.on_quit` is how the route closes the app. Test it without GitHub: `SEEKSYNC_RELEASE_API=<url of a release JSON>`
   (download URLs may then be http://127.0.0.1) and `OPEN_CMD=<script>` instead of `open`. Verified end to end on a copy of the build.
 
 ## Website
 `site/` is the public website (plain HTML/CSS/JS, no build): English with a Dutch switch (`site/main.js` holds the Dutch text),
 download buttons that read the newest published GitHub release, screenshots taken from `scripts/demo.py` (made-up data).
-Deploy on Vercel with Root Directory `site`, Framework Preset "Other", no build command. Preview: launch.json `site` (port 8770).
+Deploy on Vercel with Root Directory `site`, Framework Preset "Other", no build command (the root `vercel.json` also serves `site/` as a static site when the Root Directory is left empty, because the repo root has a pyproject.toml that Vercel would take for a Python app). Preview: launch.json `site` (port 8770).
 Keep the copy in step with the README when features change (and the Dutch text in `main.js` with the English in `index.html`).
 
 ## Design notes

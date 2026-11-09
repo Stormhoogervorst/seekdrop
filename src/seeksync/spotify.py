@@ -1,10 +1,10 @@
 """Read public Spotify playlists (roadmap step 16).
 
 Spotify's official Web API only shows the contents of playlists you own or work on (since February 2026) and
-needs a Premium developer account, so SeekDrop reads the page Spotify itself offers for embedding a playlist,
+needs a Premium developer account, so SeekSync reads the page Spotify itself offers for embedding a playlist,
 open.spotify.com/embed/playlist/<id>. That page needs no login and lists title, artists and length of every
 track, but only the first 100 tracks of a playlist. It is not an official API: when Spotify changes the page,
-reading stops and SeekDrop says so. Nothing is ever downloaded from Spotify."""
+reading stops and SeekSync says so. Nothing is ever downloaded from Spotify."""
 from __future__ import annotations
 
 import json
@@ -143,22 +143,22 @@ def parse_embed(html: str) -> dict:
     """The playlist 'entity' (name, trackList) inside the embed page, or a ChannelError that says why not."""
     m = _NEXT_DATA.search(html or "")
     if not m:
-        raise ChannelError("Spotify's page looks different than expected, so SeekDrop can't read this playlist. "
-                           "Try again later, or check for a SeekDrop update.")
+        raise ChannelError("Spotify's page looks different than expected, so SeekSync can't read this playlist. "
+                           "Try again later, or check for a SeekSync update.")
     try:
         data = json.loads(m.group(1))
         props = data["props"]["pageProps"]
     except (ValueError, KeyError, TypeError) as e:
-        raise ChannelError("Spotify's page looks different than expected, so SeekDrop can't read this playlist. "
-                           "Try again later, or check for a SeekDrop update.") from e
+        raise ChannelError("Spotify's page looks different than expected, so SeekSync can't read this playlist. "
+                           "Try again later, or check for a SeekSync update.") from e
     if props.get("status") in (404, 403):
         raise ChannelError("Spotify says this playlist doesn't exist, or it's private. "
                            "Only public playlists can be followed.")
     try:
         entity = props["state"]["data"]["entity"]
     except (KeyError, TypeError) as e:
-        raise ChannelError("Spotify's page looks different than expected, so SeekDrop can't read this playlist. "
-                           "Try again later, or check for a SeekDrop update.") from e
+        raise ChannelError("Spotify's page looks different than expected, so SeekSync can't read this playlist. "
+                           "Try again later, or check for a SeekSync update.") from e
     if not isinstance(entity, dict) or entity.get("type") not in ("playlist", None) or "trackList" not in entity:
         raise ChannelError("Spotify shows no tracks for this link. Is it a public playlist?")
     return entity

@@ -5,8 +5,8 @@ with the artist / title / version a DJ would expect.
 """
 import pytest
 
-from seekdrop.matching import Candidate, MatchPrefs, parse_aliases, score_candidate, version_of
-from seekdrop.titles import is_mix, normalize, parse_title, search_queries
+from seeksync.matching import Candidate, MatchPrefs, parse_aliases, score_candidate, version_of
+from seeksync.titles import is_mix, normalize, parse_title, search_queries
 
 UPLOADER = "Silva Bumpa"
 

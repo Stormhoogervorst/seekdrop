@@ -1,7 +1,7 @@
-/* SeekDrop website: EN/NL switch and download buttons that point at the newest GitHub release. */
+/* SeekSync website: EN/NL switch and download buttons that point at the newest GitHub release. */
 (function () {
   "use strict";
-  var REPO = "Stormhoogervorst/seekdrop";
+  var REPO = "Stormhoogervorst/seeksync";
   var RELEASES = "https://github.com/" + REPO + "/releases/latest";
 
   var NL = {
@@ -10,14 +10,14 @@
     github_short: "GitHub",
     eyebrow: "Gratis · Open source · Mac en Windows",
     h1: "Sync je SoundCloud en Spotify <span class=\"mark\">met Soulseek</span>",
-    lede: "SeekDrop houdt de labels, artiesten en playlists bij die jij volgt. Komt er een nieuwe track, dan zoekt het de beste kopie op Soulseek, controleert die, zet er tags in en legt hem in je muziekmap.",
+    lede: "SeekSync houdt de labels, artiesten en playlists bij die jij volgt. Komt er een nieuwe track, dan zoekt het de beste kopie op Soulseek, controleert die, zet er tags in en legt hem in je muziekmap.",
     view_github: "Bekijk op GitHub",
     meta_default: "Nieuwste versie op GitHub · GPL-3.0-licentie",
-    alt_main: "Het SeekDrop-venster: links de kanalen, rechts de tracks met hun status, zoals downloaden, zoeken op Soulseek en gedownload.",
+    alt_main: "Het SeekSync-venster: links de kanalen, rechts de tracks met hun status, zoals downloaden, zoeken op Soulseek en gedownload.",
     what_h: "Wat het doet",
     what_sub: "Voor DJ's en producers die niet elke dag twintig labelpagina's willen afstruinen.",
     c1_h: "Volgen",
-    c1_p: "Voeg een SoundCloud-profiel of -playlist toe, of een openbare Spotify-playlist. SeekDrop kijkt elk uur en ziet nieuwe tracks.",
+    c1_p: "Voeg een SoundCloud-profiel of -playlist toe, of een openbare Spotify-playlist. SeekSync kijkt elk uur en ziet nieuwe tracks.",
     c2_h: "Zoeken",
     c2_p: "Het ruimt de rommelige titel op, zoekt op Soulseek en beoordeelt elk resultaat op artiest, titel, remix, lengte, formaat, bitrate en snelheid.",
     c3_h: "Afleveren",
@@ -25,7 +25,7 @@
     how_h: "Hoe het werkt",
     how_sub: "Van een link naar een getagd bestand, zonder dat jij iets hoeft te doen.",
     s1_h: "Plak een link",
-    s1_p: "Een SoundCloud-profiel of -playlist, of een openbare Spotify-playlist. SeekDrop leest alleen titels, artiesten en lengtes. Het downloadt nooit audio van SoundCloud of Spotify.",
+    s1_p: "Een SoundCloud-profiel of -playlist, of een openbare Spotify-playlist. SeekSync leest alleen titels, artiesten en lengtes. Het downloadt nooit audio van SoundCloud of Spotify.",
     s2_h: "Titels worden opgeschoond",
     s2_p: "<code>PREMIERE: Artist - Track (Someone Remix) [FREE DL]</code> wordt artiest <em>Artist</em>, titel <em>Track</em>, versie <em>Someone Remix</em>.",
     s3_h: "Jouw regels bepalen wat gewenst is",
@@ -37,9 +37,9 @@
     s6_h: "Getagd, benoemd, afgeleverd",
     s6_p: "Artiest, titel met versie, genre, jaar en hoes gaan in het bestand. Het krijgt de naam uit jouw sjabloon en komt in je muziekmap.",
     why_h: "Past er niets? Dan zegt het waarom",
-    why_p: "Geen black box. Bij elke track die niet gevonden wordt, laat SeekDrop zien waarop het zocht en wat de dichtstbijzijnde bestanden zijn, elk met de reden van afwijzing: een radio edit die te kort is, 192 kbps terwijl jij 320 wilt, een andere remix.",
+    why_p: "Geen black box. Bij elke track die niet gevonden wordt, laat SeekSync zien waarop het zocht en wat de dichtstbijzijnde bestanden zijn, elk met de reden van afwijzing: een radio edit die te kort is, 192 kbps terwijl jij 320 wilt, een andere remix.",
     why_l1: "Download een afgewezen bestand toch, met één klik.",
-    why_l2: "Verbeter artiest, titel of versie als SeekDrop het verkeerd las.",
+    why_l2: "Verbeter artiest, titel of versie als SeekSync het verkeerd las.",
     why_l3: "Zoek met je eigen woorden, of stop met zoeken.",
     why_l4: "Nog niet op Soulseek? Het probeert opnieuw na 1, 3, 6 en 12 uur, daarna dagelijks tot 30 dagen.",
     alt_why: "Het paneel Why not? bij een track: waarop gezocht is, de drie dichtstbijzijnde bestanden en waarom elk is afgewezen, met knoppen om toch te downloaden.",
@@ -47,7 +47,7 @@
     f1_h: "Kent de ene versie van de andere",
     f1_p: "Original en Extended gaan samen. Een radio edit, dub, VIP of andermans remix wordt nooit aangezien voor de versie die jij wilt. Producers met meerdere namen kunnen aliassen krijgen.",
     f2_h: "Kwaliteitsprofielen en upgrades",
-    f2_p: "Club, Balanced of Space saver. Komt een track eerst binnen als MP3 320 en wil je lossless, dan blijft SeekDrop 30 dagen zoeken en vraagt het eerst of het je bestand mag vervangen.",
+    f2_p: "Club, Balanced of Space saver. Komt een track eerst binnen als MP3 320 en wil je lossless, dan blijft SeekSync 30 dagen zoeken en vraagt het eerst of het je bestand mag vervangen.",
     f3_h: "Vangt valse lossless",
     f3_p: "Het leest het spectrum van elk bestand. Een MP3 die naar FLAC is omgezet stopt bij een harde afkapgrens, en belandt met de reden in quarantaine, niet in je crate.",
     f4_h: "Regels per kanaal",
@@ -62,24 +62,24 @@
     f8_p: "Zoekopdrachten worden gespreid, een schijfbewaker pauzeert downloads, en het waarschuwt je als je niets deelt, want veel gebruikers blokkeren dat.",
     f9_h: "Privé door ontwerp",
     f9_p: "Alles blijft op je computer. Geen account, geen tracking, geen analytics. Het praat met SoundCloud, Spotify, Soulseek en GitHub (voor updates).",
-    dl_h: "Download SeekDrop",
+    dl_h: "Download SeekSync",
     dl_sub: "Gratis, open source (GPL-3.0). Downloads komen rechtstreeks van GitHub.",
     mac_req: "macOS 11 of nieuwer, Apple Silicon (M1 en later)",
     dl_mac: "Download de .dmg",
-    mac_1: "Open de .dmg en sleep SeekDrop naar Programma's.",
+    mac_1: "Open de .dmg en sleep SeekSync naar Programma's.",
     mac_2: "Open het. Zegt macOS dat het de app niet kan controleren: Systeeminstellingen, Privacy en beveiliging, daarna <strong>Open toch</strong> (Open Anyway). Maar één keer.",
     mac_3: "Updates installeer je vanuit de app (Settings, Updates).",
     win_req: "Windows 10 of 11",
     dl_win: "Download het installatieprogramma",
-    win_1: "Start het installatieprogramma. Het kan SeekDrop starten als je inlogt.",
+    win_1: "Start het installatieprogramma. Het kan SeekSync starten als je inlogt.",
     win_2: "Windows kan een SmartScreen-waarschuwing tonen omdat de app niet is ondertekend: klik op <strong>Meer informatie</strong> en dan op <strong>Toch uitvoeren</strong>.",
     win_3: "Nieuwe versies: download het installatieprogramma opnieuw en start het over de oude heen.",
     all_releases: "Alle versies en de broncode op GitHub",
     conn_h: "Voor je begint: verbind met Soulseek",
     conn1_h: "Via Nicotine+",
-    conn1_p: "Aan te raden als je het al gebruikt. SeekDrop installeert een kleine plugin, jij zet die aan in Nicotine+, en het gebruikt je account en je gedeelde mappen.",
+    conn1_p: "Aan te raden als je het al gebruikt. SeekSync installeert een kleine plugin, jij zet die aan in Nicotine+, en het gebruikt je account en je gedeelde mappen.",
     conn2_h: "Met een eigen account",
-    conn2_p: "SeekDrop logt zelf in bij Soulseek, geen andere app nodig. Gebruik een apart account, zodat het je niet elders uitlogt.",
+    conn2_p: "SeekSync logt zelf in bij Soulseek, geen andere app nodig. Gebruik een apart account, zodat het je niet elders uitlogt.",
     ffmpeg: "Optioneel: installeer ffmpeg (op een Mac: <code>brew install ffmpeg</code>) om de bestandscontroles aan te zetten.",
     know_h: "Goed om te weten",
     k1_h: "Gebruik het verantwoord.",
@@ -89,37 +89,37 @@
     k3_h: "Spotify heeft grenzen.",
     k3_p: "Alleen openbare playlists werken, en Spotify toont hooguit de eerste 100 tracks van een playlist. Privélijsten en Liked Songs kunnen niet gelezen worden.",
     k4_h: "Het werkt zolang het open staat.",
-    k4_p: "SeekDrop controleert en downloadt alleen als de app draait.",
+    k4_p: "SeekSync controleert en downloadt alleen als de app draait.",
     k5_h: "Onafhankelijk project.",
     k5_p: "Niet gemaakt door of verbonden aan SoundCloud, Spotify, Soulseek, Nicotine+ of Rekordbox.",
     faq_h: "Vragen",
     q1: "Is het echt gratis?",
-    a1: "Ja. SeekDrop is gratis en open source onder de GPL-3.0-licentie. Geen accounts, abonnementen of reclame.",
+    a1: "Ja. SeekSync is gratis en open source onder de GPL-3.0-licentie. Geen accounts, abonnementen of reclame.",
     q2: "Heb ik een Soulseek-account nodig?",
-    a2: "Gebruik je bestaande Nicotine+ (die heeft een eigen account), of laat SeekDrop inloggen met een eigen account. Een naam die nog niet bestaat, wordt bij de eerste keer inloggen aangemaakt.",
+    a2: "Gebruik je bestaande Nicotine+ (die heeft een eigen account), of laat SeekSync inloggen met een eigen account. Een naam die nog niet bestaat, wordt bij de eerste keer inloggen aangemaakt.",
     q3: "Werkt het met Serato of Traktor?",
     a3: "De bestanden en tags werken in elke DJ-software. Het kant-en-klare playlistbestand is voorlopig alleen voor Rekordbox. Serato-crates, M3U-playlists en Traktor zijn nog niet gebouwd.",
     q4: "Wat gebeurt er met een track die niet op Soulseek staat?",
-    a4: "Hij blijft in de lijst staan als \"Not found yet\" en SeekDrop probeert het opnieuw na 1, 3, 6 en 12 uur, daarna dagelijks, tot 30 dagen. Je kunt altijd zelf opnieuw zoeken.",
+    a4: "Hij blijft in de lijst staan als \"Not found yet\" en SeekSync probeert het opnieuw na 1, 3, 6 en 12 uur, daarna dagelijks, tot 30 dagen. Je kunt altijd zelf opnieuw zoeken.",
     q5: "Overschrijft het muziek die ik al heb?",
-    a5: "Nee. Je eigen mappen worden alleen gelezen. Een betere kopie van een track blijft naast je bestand staan tot je op Replace drukt, en een vervangen bestand gaat 30 dagen naar de prullenbak van SeekDrop.",
+    a5: "Nee. Je eigen mappen worden alleen gelezen. Een betere kopie van een track blijft naast je bestand staan tot je op Replace drukt, en een vervangen bestand gaat 30 dagen naar de prullenbak van SeekSync.",
     q6: "Iets werkt niet. Waar meld ik dat?",
-    a6: "Open een issue op <a href=\"https://github.com/Stormhoogervorst/seekdrop/issues\">GitHub</a> en voeg <code>seekdrop.log</code> uit de gegevensmap van de app toe.",
+    a6: "Open een issue op <a href=\"https://github.com/Stormhoogervorst/seeksync/issues\">GitHub</a> en voeg <code>seeksync.log</code> uit de gegevensmap van de app toe.",
     end_h: "Stop met twintig labelpagina's afstruinen.",
-    end_p: "Voeg je kanalen één keer toe. SeekDrop doet de rest.",
-    end_btn: "Download SeekDrop",
+    end_p: "Voeg je kanalen één keer toe. SeekSync doet de rest.",
+    end_btn: "Download SeekSync",
     foot: "Gratis en open source, GPL-3.0. Niet verbonden aan SoundCloud, Spotify, Soulseek, Nicotine+ of Rekordbox.",
     issues: "Issues", changelog: "Wijzigingen"
   };
 
   var LABELS = {
-    en: { mac: "Download for Mac", win: "Download for Windows", other: "Download SeekDrop",
+    en: { mac: "Download for Mac", win: "Download for Windows", other: "Download SeekSync",
           meta: function (v, s) { return "Version " + v + (s ? " · " + s : "") + " · GPL-3.0 licence"; } },
-    nl: { mac: "Download voor Mac", win: "Download voor Windows", other: "Download SeekDrop",
+    nl: { mac: "Download voor Mac", win: "Download voor Windows", other: "Download SeekSync",
           meta: function (v, s) { return "Versie " + v + (s ? " · " + s : "") + " · GPL-3.0-licentie"; } }
   };
-  var TITLE_NL = "SeekDrop: sync je SoundCloud en Spotify met Soulseek";
-  var DESC_NL = "SeekDrop is een gratis desktopapp voor DJ's. Het volgt SoundCloud-kanalen en Spotify-playlists, vindt elke nieuwe track op Soulseek, controleert het bestand, tagt het en legt het in je muziekmap.";
+  var TITLE_NL = "SeekSync: sync je SoundCloud en Spotify met Soulseek";
+  var DESC_NL = "SeekSync is een gratis desktopapp voor DJ's. Het volgt SoundCloud-kanalen en Spotify-playlists, vindt elke nieuwe track op Soulseek, controleert het bestand, tagt het en legt het in je muziekmap.";
 
   var state = { lang: "en", os: detectOs(), release: null };
   var doc = document;

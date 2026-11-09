@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.0
+
+- The app is now called **SeekSync** (it was SeekDrop). Your settings, channels and history are taken over from the
+  old data folder on the first start. If you use Nicotine+, the SeekSync Bridge plugin takes over the key of the old
+  SeekDrop Bridge: in Nicotine+ (Preferences, Plugins) turn **SeekDrop Bridge** off and **SeekSync Bridge** on, once.
+- Download the first SeekSync version yourself: the update button of an older SeekDrop can't install it, because
+  the app has another name. After that, updating from inside the app works again.
+- The Rekordbox file is now called `SeekSync for Rekordbox.xml` and its folder in Rekordbox is `SeekSync`.
+  Import it once; the old SeekDrop folder in Rekordbox can be removed.
+- The GitHub repository is now `Stormhoogervorst/seeksync` (old links keep working). The environment variable
+  `SEEKDROP_HOME` is now `SEEKSYNC_HOME`.
+
 ## 0.5.1
 
 - Settings, Updates: a *Check now* button that looks on GitHub straight away. In the Mac app, *Install and

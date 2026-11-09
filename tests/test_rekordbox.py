@@ -1,4 +1,4 @@
-"""Roadmap step 12 (Rekordbox only): the XML SeekDrop writes for Rekordbox. Written, read back with
+"""Roadmap step 12 (Rekordbox only): the XML SeekSync writes for Rekordbox. Written, read back with
 independent XML parsing, and driven from the engine with fake downloads. Rekordbox itself is not needed
 (and not available here): the format is checked against its published structure."""
 import asyncio
@@ -8,9 +8,9 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from seekdrop import engine as engine_mod
-from seekdrop import rekordbox as rb
-from seekdrop.matching import Candidate
+from seeksync import engine as engine_mod
+from seeksync import rekordbox as rb
+from seeksync.matching import Candidate
 
 from test_engine import _real_sleep, setup  # noqa: F401  (fixture)
 from test_library import mp3
@@ -32,7 +32,7 @@ def track(i, path, **kw):
 # --- paths -------------------------------------------------------------------------------------
 
 def test_location_is_a_percent_encoded_file_url_and_goes_back_to_the_same_path():
-    for path in ["/Users/dj/Music/SeekDrop/Label/Artist - Title (Extended Mix).flac",
+    for path in ["/Users/dj/Music/SeekSync/Label/Artist - Title (Extended Mix).flac",
                  "/Users/dj/Music/Café Del Mar/Sinéad & Björk - 100% #1 [live].mp3",
                  "/Users/dj/Music/夜/Дельфин - Привет.wav", "/Users/dj/Music/it's here/x.aiff"]:
         url = rb.location(path)
@@ -82,18 +82,18 @@ def test_written_file_is_read_back_with_the_same_content(tmp_path):
     playlists = [rb.Playlist("Label", [1, 2]), rb.Playlist("Friday & Warm-up", [7, 1])]
     rb.write(str(out), tracks, playlists, "0.4.0")
 
-    # an XML parser that doesn't know SeekDrop agrees on what is in the file
+    # an XML parser that doesn't know SeekSync agrees on what is in the file
     root = ET.parse(out).getroot()
     assert root.tag == "DJ_PLAYLISTS" and root.get("Version") == "1.0.0"
     assert out.read_text("utf-8").startswith('<?xml version="1.0" encoding="UTF-8"?>\n<DJ_PLAYLISTS Version="1.0.0">')
     product = root.find("PRODUCT")
-    assert (product.get("Name"), product.get("Version")) == ("SeekDrop", "0.4.0")
+    assert (product.get("Name"), product.get("Version")) == ("SeekSync", "0.4.0")
     coll = root.find("COLLECTION")
     assert coll.get("Entries") == "3" and len(coll.findall("TRACK")) == 3
     node = root.find("PLAYLISTS/NODE")
     assert (node.get("Type"), node.get("Name")) == ("0", "ROOT")
     folder = node.find("NODE")
-    assert (folder.get("Type"), folder.get("Name"), folder.get("Count")) == ("0", "SeekDrop", "2")
+    assert (folder.get("Type"), folder.get("Name"), folder.get("Count")) == ("0", "SeekSync", "2")
     pls = folder.findall("NODE")
     assert [(p.get("Name"), p.get("Type"), p.get("KeyType"), p.get("Entries")) for p in pls] == \
         [("Label", "1", "0", "2"), ("Friday & Warm-up", "1", "0", "2")]
@@ -164,9 +164,9 @@ def _enable(eng, tmp):
 def test_default_settings_and_location(setup):
     eng, db, sc, slsk, tmp = setup
     assert eng.settings.rekordbox_export is False                   # off until asked for
-    assert eng.rekordbox_path() == str(tmp / "out" / "SeekDrop for Rekordbox.xml")
+    assert eng.rekordbox_path() == str(tmp / "out" / "SeekSync for Rekordbox.xml")
     eng.settings.rekordbox_xml_path = str(tmp)                      # a folder: the file goes inside
-    assert eng.rekordbox_path() == str(tmp / "SeekDrop for Rekordbox.xml")
+    assert eng.rekordbox_path() == str(tmp / "SeekSync for Rekordbox.xml")
 
 
 def test_a_finished_download_ends_up_in_the_xml(setup, monkeypatch):
@@ -322,7 +322,7 @@ def test_a_file_that_cant_be_written_is_reported_and_nothing_crashes(setup):
 
 
 def test_the_xml_in_the_download_folder_is_not_mistaken_for_music(setup):
-    from seekdrop import library
+    from seeksync import library
     eng, db, sc, slsk, tmp = setup
     eng.settings.rekordbox_export = True                            # default place: the download folder
     f = str(tmp / "out" / "Artist - Song.flac")
@@ -334,7 +334,7 @@ def test_the_xml_in_the_download_folder_is_not_mistaken_for_music(setup):
 
 
 def test_settings_and_api(setup, monkeypatch):
-    from seekdrop import server
+    from seeksync import server
     eng, db, sc, slsk, tmp = setup
     api = server.Api(eng, db, token="t")
 
@@ -409,7 +409,7 @@ def test_a_link_to_the_folder_is_followed(tmp_path):
     f.write_bytes(b"x")
     (tmp_path / "link").symlink_to(real)
     known = rb.collection_paths(rekordbox_export(tmp_path / "e.xml", rb.location(str(f))))     # Rekordbox has the real path
-    assert rb.has_file(known, str(tmp_path / "link" / "a.mp3"))                        # SeekDrop knows it through the link
+    assert rb.has_file(known, str(tmp_path / "link" / "a.mp3"))                        # SeekSync knows it through the link
 
 
 def _upgradeable(setup, mode, export_locations=None):
@@ -493,7 +493,7 @@ def test_settings_accept_the_new_mode_and_the_export_path(setup):
 
 
 def test_the_track_list_shows_which_files_are_in_rekordbox(setup):
-    from seekdrop import server
+    from seeksync import server
     eng, db, sc, slsk, tmp = setup
     inside, outside = tmp / "out" / "in.flac", tmp / "out" / "out.flac"
     cid = db.add_channel("https://soundcloud.com/x", "X", False, 0)

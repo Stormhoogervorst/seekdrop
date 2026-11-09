@@ -3,8 +3,8 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "seekdrop"
-version = "0.5.1"
+name = "seeksync"
+version = "0.6.0"
 description = "Follow SoundCloud channels and playlists and fetch the tracks from Soulseek, through Nicotine+ or its own login."
 readme = "README.md"
 license = "GPL-3.0-or-later"
@@ -24,13 +24,13 @@ dependencies = [
 dev = ["pytest>=8", "pyinstaller>=6.10"]
 
 [project.gui-scripts]
-seekdrop = "seekdrop.__main__:main"
+seeksync = "seeksync.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-seekdrop = ["ui/*", "ui/fonts/*", "nicotine_plugin/seekdrop_bridge/*"]
+seeksync = ["ui/*", "ui/fonts/*", "nicotine_plugin/seeksync_bridge/*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

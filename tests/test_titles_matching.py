@@ -1,5 +1,5 @@
-from seekdrop.matching import Candidate, MatchPrefs, rank, score_candidate
-from seekdrop.titles import parse_title, search_queries
+from seeksync.matching import Candidate, MatchPrefs, rank, score_candidate
+from seeksync.titles import parse_title, search_queries
 
 
 def test_premiere_and_free_dl_noise():
@@ -115,7 +115,7 @@ def test_implausible_speed_gets_no_bonus():
 
 
 def test_is_mix():
-    from seekdrop.titles import is_mix
+    from seeksync.titles import is_mix
     for raw in ["Defected Radio Show Hosted by Monki w/ Special Guest: Elvis Guetta 06.11.26",
                 "Defected Radio Show Takeover by Ranger Trucco 30.10.26",
                 "Drumcode Live 812 - Adam Beyer Live at Awakenings", "Artist - Essential Mix 2026",
@@ -130,7 +130,7 @@ def test_is_mix():
 
 def test_playlist_urls():
     import pytest
-    from seekdrop.soundcloud import ChannelError, is_playlist_url, normalize_channel_url
+    from seeksync.soundcloud import ChannelError, is_playlist_url, normalize_channel_url
     assert normalize_channel_url("https://soundcloud.com/DefectedRecords/sets/Somehow-It-Flies?si=abc") == \
         "https://soundcloud.com/defectedrecords/sets/somehow-it-flies"
     # Private playlists keep their (case-sensitive) secret token.
@@ -172,7 +172,7 @@ def test_quoted_title_unwrapped():
 # --- Roadmap step 5: every rejection has a reason ---------------------------------------------
 
 def test_rejections_explain_themselves():
-    from seekdrop.matching import closest, summary
+    from seeksync.matching import closest, summary
     p = parse_title("Artist - Track")
     cases = {
         "Artist - Track.mp3|192": "192 kbps, under your minimum (MP3 320)",

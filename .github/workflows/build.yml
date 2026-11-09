@@ -36,19 +36,19 @@ jobs:
       - uses: actions/setup-python@v6
         with: { python-version: "3.12" }
       - run: pip install -e ".[dev]"
-      - run: pyinstaller packaging/seekdrop.spec --noconfirm
+      - run: pyinstaller packaging/seeksync.spec --noconfirm
       - name: Smoke test
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath dist\SeekDrop\SeekDrop.exe -ArgumentList "--headless","--port","8799" -PassThru
+          $p = Start-Process -FilePath dist\SeekSync\SeekSync.exe -ArgumentList "--headless","--port","8799" -PassThru
           Start-Sleep -Seconds 15
           $r = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8799/
-          if ($r.Content -notmatch "SeekDrop") { exit 1 }
+          if ($r.Content -notmatch "SeekSync") { exit 1 }
           Stop-Process -Id $p.Id
       - name: Build installer
         shell: pwsh
         run: |
-          $v = python -c "import sys; sys.path.insert(0,'src'); import seekdrop; print(seekdrop.__version__)"
+          $v = python -c "import sys; sys.path.insert(0,'src'); import seeksync; print(seeksync.__version__)"
           if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) { choco install innosetup -y --no-progress }
           iscc /DAppVersion=$v packaging\windows.iss
       - uses: actions/upload-artifact@v6
@@ -66,12 +66,12 @@ jobs:
       - uses: actions/setup-python@v6
         with: { python-version: "3.12" }
       - run: pip install -e ".[dev]"
-      - run: pyinstaller packaging/seekdrop.spec --noconfirm
+      - run: pyinstaller packaging/seeksync.spec --noconfirm
       - name: Smoke test
         run: |
-          "dist/SeekDrop.app/Contents/MacOS/SeekDrop" --headless --port 8799 &
+          "dist/SeekSync.app/Contents/MacOS/SeekSync" --headless --port 8799 &
           sleep 15
-          curl -sf http://127.0.0.1:8799/ | grep -q SeekDrop
+          curl -sf http://127.0.0.1:8799/ | grep -q SeekSync
           kill %1
       # Optional: sign + notarize when the Apple secrets are set in the repo (Settings > Secrets > Actions):
       #   MACOS_CERT_P12 (base64 of a "Developer ID Application" .p12), MACOS_CERT_PASSWORD,
@@ -93,7 +93,7 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -k "$KP" "$KC"
           security list-keychains -d user -s "$KC" login.keychain
           ID="Developer ID Application"
-          APP="dist/SeekDrop.app"
+          APP="dist/SeekSync.app"
           find "$APP/Contents" \( -name "*.so" -o -name "*.dylib" \) -print0 | \
             xargs -0 codesign --force --timestamp --options runtime --sign "$ID"
           codesign --force --deep --timestamp --options runtime \
@@ -101,9 +101,9 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$APP"
       - name: Build DMG
         run: |
-          V=$(python -c "import sys; sys.path.insert(0,'src'); import seekdrop; print(seekdrop.__version__)")
-          mkdir -p dmg && cp -R "dist/SeekDrop.app" dmg/ && ln -s /Applications dmg/Applications
-          hdiutil create -volname "SeekDrop" -srcfolder dmg -ov -format UDZO "dist/SeekDrop-$V-macos-arm64.dmg"
+          V=$(python -c "import sys; sys.path.insert(0,'src'); import seeksync; print(seeksync.__version__)")
+          mkdir -p dmg && cp -R "dist/SeekSync.app" dmg/ && ln -s /Applications dmg/Applications
+          hdiutil create -volname "SeekSync" -srcfolder dmg -ov -format UDZO "dist/SeekSync-$V-macos-arm64.dmg"
       - name: Notarize DMG
         if: env.MACOS_CERT_P12 != ''
         env:

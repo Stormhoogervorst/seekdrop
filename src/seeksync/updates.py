@@ -1,6 +1,6 @@
 """Find out whether a newer release is on GitHub, and (macOS app only) install it.
 
-Installing: download the .dmg of the release, check size and checksum, copy the new SeekDrop.app next to the
+Installing: download the .dmg of the release, check size and checksum, copy the new SeekSync.app next to the
 current one, then a small shell script waits until this app has quit, moves the old app to
 `previous-versions/` in the app data (a back-up) and puts the new one in its place. Nothing is installed
 without the user pressing the button."""
@@ -30,7 +30,7 @@ CHECK_EVERY = 12 * 3600
 KEEP_BACKUPS = 2
 
 SWAP_SCRIPT = """#!/bin/sh
-# SeekDrop update: wait until the app has quit, keep the old app as a back-up, put the new one in its place.
+# SeekSync update: wait until the app has quit, keep the old app as a back-up, put the new one in its place.
 PID="$1"; NEW="$2"; TARGET="$3"; BACKUP="$4"
 OPEN="${OPEN_CMD:-open}"
 i=0
@@ -40,12 +40,12 @@ while kill -0 "$PID" 2>/dev/null; do
   sleep 0.5
 done
 mkdir -p "$BACKUP" || { $OPEN "$TARGET"; exit 1; }
-OLD="$BACKUP/SeekDrop-$(date +%Y%m%d-%H%M%S).app"
+OLD="$BACKUP/SeekSync-$(date +%Y%m%d-%H%M%S).app"
 if mv "$TARGET" "$OLD"; then
   if mv "$NEW" "$TARGET"; then
     xattr -dr com.apple.quarantine "$TARGET" 2>/dev/null
     rmdir "$(dirname "$NEW")" 2>/dev/null
-    ls -1dt "$BACKUP"/SeekDrop-*.app 2>/dev/null | tail -n +@KEEP@ | while read -r old; do rm -rf "$old"; done
+    ls -1dt "$BACKUP"/SeekSync-*.app 2>/dev/null | tail -n +@KEEP@ | while read -r old; do rm -rf "$old"; done
     $OPEN "$TARGET"
     exit 0
   fi
@@ -84,7 +84,7 @@ def pick_asset(assets: list, platform: str = sys.platform) -> Optional[dict]:
 
 
 def bundle_path() -> Optional[Path]:
-    """The SeekDrop.app this process runs from, or None (running from the source, or not a Mac app)."""
+    """The SeekSync.app this process runs from, or None (running from the source, or not a Mac app)."""
     if sys.platform != "darwin" or not getattr(sys, "frozen", False):
         return None
     p = Path(sys.executable).resolve()
@@ -95,9 +95,9 @@ def install_problem() -> str:
     """Why this copy can't update itself ('' = it can)."""
     app = bundle_path()
     if app is None:
-        return "Automatic updates only work in the SeekDrop app for Mac."
+        return "Automatic updates only work in the SeekSync app for Mac."
     if not os.access(app.parent, os.W_OK) or not os.access(app, os.W_OK):
-        return f"SeekDrop can't change {app.parent}. Move the app to a folder you own (or drag it to Applications yourself)."
+        return f"SeekSync can't change {app.parent}. Move the app to a folder you own (or drag it to Applications yourself)."
     return ""
 
 
@@ -130,13 +130,13 @@ class UpdateChecker:
 
     @property
     def api_url(self) -> str:
-        # SEEKDROP_RELEASE_API lets a test point at a fake GitHub (never set it otherwise).
-        return os.environ.get("SEEKDROP_RELEASE_API") or f"https://api.github.com/repos/{self.repo}/releases/latest"
+        # SEEKSYNC_RELEASE_API lets a test point at a fake GitHub (never set it otherwise).
+        return os.environ.get("SEEKSYNC_RELEASE_API") or f"https://api.github.com/repos/{self.repo}/releases/latest"
 
     async def _fetch(self) -> Optional[dict]:
         """The latest published release (drafts and pre-releases are skipped by GitHub), None when there is none.
         Raises OSError / aiohttp errors when GitHub can't be reached."""
-        headers = {"Accept": "application/vnd.github+json", "User-Agent": f"SeekDrop/{__version__}"}
+        headers = {"Accept": "application/vnd.github+json", "User-Agent": f"SeekSync/{__version__}"}
         async with aiohttp.ClientSession(headers=headers) as s:
             async with s.get(self.api_url, timeout=aiohttp.ClientTimeout(total=15)) as r:
                 if r.status == 404:
@@ -214,7 +214,7 @@ class UpdateChecker:
         asset, version = release["asset"], release["version"]
         problem = install_problem()
         if problem or app is None:
-            raise RuntimeError(problem or "Automatic updates only work in the SeekDrop app for Mac.")
+            raise RuntimeError(problem or "Automatic updates only work in the SeekSync app for Mac.")
         self._check_url(asset["url"])
         work = data_dir() / "update"
         shutil.rmtree(work, ignore_errors=True)
@@ -223,7 +223,7 @@ class UpdateChecker:
         await self.download(asset, dmg)
 
         self.progress["stage"] = "installing"
-        stage = app.parent / f".SeekDrop-update-{version}"
+        stage = app.parent / f".SeekSync-update-{version}"
         shutil.rmtree(stage, ignore_errors=True)
         stage.mkdir()
         try:
@@ -243,15 +243,15 @@ class UpdateChecker:
 
     def _check_url(self, url: str) -> None:
         ok = url.startswith(f"https://github.com/{self.repo}/releases/download/") or \
-            (os.environ.get("SEEKDROP_RELEASE_API") and url.startswith("http://127.0.0.1:"))
+            (os.environ.get("SEEKSYNC_RELEASE_API") and url.startswith("http://127.0.0.1:"))
         if not ok:
-            raise RuntimeError("The download link is not on GitHub, so SeekDrop won't use it.")
+            raise RuntimeError("The download link is not on GitHub, so SeekSync won't use it.")
 
     async def download(self, asset: dict, dest: Path) -> None:
         """Stream the file to `dest`; the size and (when GitHub gave one) the SHA-256 must match."""
         sha = hashlib.sha256()
         done = 0
-        headers = {"User-Agent": f"SeekDrop/{__version__}"}
+        headers = {"User-Agent": f"SeekSync/{__version__}"}
         async with aiohttp.ClientSession(headers=headers) as s:
             async with s.get(asset["url"], timeout=aiohttp.ClientTimeout(total=None, sock_connect=20, sock_read=60)) as r:
                 if r.status != 200:
@@ -277,15 +277,15 @@ class UpdateChecker:
         return out.decode("utf-8", "replace")
 
     async def extract(self, dmg: Path, stage: Path, work: Path) -> Path:
-        """Copy SeekDrop.app out of the disk image into `stage` (on the same disk as the current app)."""
+        """Copy SeekSync.app out of the disk image into `stage` (on the same disk as the current app)."""
         mnt = work / "mnt"
         mnt.mkdir(exist_ok=True)
         await self._run("hdiutil", "attach", "-nobrowse", "-readonly", "-noautoopen", "-mountpoint", str(mnt), str(dmg))
         try:
-            src = mnt / "SeekDrop.app"
+            src = mnt / "SeekSync.app"
             if not src.is_dir():
-                raise RuntimeError("The download doesn't contain SeekDrop.app.")
-            dst = stage / "SeekDrop.app"
+                raise RuntimeError("The download doesn't contain SeekSync.app.")
+            dst = stage / "SeekSync.app"
             await self._run("ditto", str(src), str(dst))
             return dst
         finally:
@@ -297,7 +297,7 @@ class UpdateChecker:
     @staticmethod
     def verify_app(new_app: Path, version: str) -> None:
         plist = new_app / "Contents" / "Info.plist"
-        exe = new_app / "Contents" / "MacOS" / "SeekDrop"
+        exe = new_app / "Contents" / "MacOS" / "SeekSync"
         if not plist.is_file() or not exe.is_file():
             raise RuntimeError("The downloaded app is incomplete.")
         info = plistlib.loads(plist.read_bytes())

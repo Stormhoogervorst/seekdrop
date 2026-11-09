@@ -1,7 +1,7 @@
 import asyncio
 
-from seekdrop import updates
-from seekdrop.updates import UpdateChecker, is_newer, parse_version
+from seeksync import updates
+from seeksync.updates import UpdateChecker, is_newer, parse_version
 
 
 def test_version_compare():
@@ -49,14 +49,14 @@ import sys
 
 import pytest
 
-from seekdrop import __version__
+from seeksync import __version__
 
-DMG = {"name": "SeekDrop-9.0.0-macos-arm64.dmg", "browser_download_url": "https://github.com/x/y/releases/download/v9.0.0/SeekDrop-9.0.0-macos-arm64.dmg",
+DMG = {"name": "SeekSync-9.0.0-macos-arm64.dmg", "browser_download_url": "https://github.com/x/y/releases/download/v9.0.0/SeekSync-9.0.0-macos-arm64.dmg",
        "size": 1234, "digest": "sha256:ABCDEF"}
 
 
 def test_pick_asset():
-    a = updates.pick_asset([{"name": "SeekDrop-9-windows.zip", "browser_download_url": "u"}, DMG], "darwin")
+    a = updates.pick_asset([{"name": "SeekSync-9-windows.zip", "browser_download_url": "u"}, DMG], "darwin")
     assert a == {"name": DMG["name"], "url": DMG["browser_download_url"], "size": 1234, "sha256": "abcdef"}
     assert updates.pick_asset([DMG], "win32") is None
     assert updates.pick_asset([{"name": "notes.txt", "browser_download_url": "u"}], "darwin") is None
@@ -104,7 +104,7 @@ def test_a_newer_release_that_is_gone_clears_the_banner():
 
 def test_source_run_can_not_install_itself():
     assert updates.bundle_path() is None
-    assert "only work in the SeekDrop app" in updates.install_problem()
+    assert "only work in the SeekSync app" in updates.install_problem()
     c = _Fake({"tag_name": "v9.0.0"})
     asyncio.run(c.check_now())
     with pytest.raises(RuntimeError):
@@ -149,11 +149,11 @@ def test_only_github_downloads_are_used(monkeypatch):
 
 
 def test_downloaded_app_is_verified(tmp_path):
-    app = tmp_path / "SeekDrop.app"
+    app = tmp_path / "SeekSync.app"
     (app / "Contents" / "MacOS").mkdir(parents=True)
     with pytest.raises(RuntimeError, match="incomplete"):
         UpdateChecker.verify_app(app, "9.0.0")
-    (app / "Contents" / "MacOS" / "SeekDrop").write_text("x")
+    (app / "Contents" / "MacOS" / "SeekSync").write_text("x")
     (app / "Contents" / "Info.plist").write_bytes(plistlib.dumps({"CFBundleShortVersionString": "8.0.0"}))
     with pytest.raises(RuntimeError, match="not 9.0.0"):
         UpdateChecker.verify_app(app, "9.0.0")
@@ -163,7 +163,7 @@ def test_downloaded_app_is_verified(tmp_path):
 
 def _swap(tmp_path, *, with_new=True, old_backups=0):
     """Run the swap script on fake apps. Returns (target, backup dir, file the fake `open` wrote)."""
-    target, new, backup = tmp_path / "SeekDrop.app", tmp_path / ".stage" / "SeekDrop.app", tmp_path / "prev"
+    target, new, backup = tmp_path / "SeekSync.app", tmp_path / ".stage" / "SeekSync.app", tmp_path / "prev"
     target.mkdir()
     (target / "v").write_text("old")
     if with_new:
@@ -171,8 +171,8 @@ def _swap(tmp_path, *, with_new=True, old_backups=0):
         (new / "v").write_text("new")
     backup.mkdir()
     for i in range(old_backups):
-        (backup / f"SeekDrop-2020010{i + 1}-000000.app").mkdir()
-        os.utime(backup / f"SeekDrop-2020010{i + 1}-000000.app", (1_000_000 + i, 1_000_000 + i))
+        (backup / f"SeekSync-2020010{i + 1}-000000.app").mkdir()
+        os.utime(backup / f"SeekSync-2020010{i + 1}-000000.app", (1_000_000 + i, 1_000_000 + i))
     opened = tmp_path / "opened.txt"
     fake_open = tmp_path / "fakeopen.sh"
     fake_open.write_text(f'#!/bin/sh\necho "$1" >> "{opened}"\n')
@@ -209,7 +209,7 @@ def test_swap_puts_the_old_app_back_when_the_new_one_is_missing(tmp_path):
 
 def test_update_routes(setup):
     from aiohttp.test_utils import TestClient, TestServer
-    from seekdrop.server import Api
+    from seeksync.server import Api
 
     eng, db, _sc, slsk, tmp = setup
     up = _Fake({"tag_name": "v9.0.0", "html_url": "page", "assets": [DMG]})

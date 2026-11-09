@@ -79,7 +79,7 @@ def fetch_cover(url: str, opener: Optional[Callable] = None, timeout: float = 10
             log.info("not fetching artwork from %s", urllib.parse.urlparse(u).hostname)
             continue
         try:
-            req = urllib.request.Request(u, headers={"User-Agent": "SeekDrop"})
+            req = urllib.request.Request(u, headers={"User-Agent": "SeekSync"})
             with (opener or urllib.request.urlopen)(req, timeout=timeout) as r:
                 data = r.read(MAX_COVER_BYTES + 1)
         except Exception as e:

@@ -1,8 +1,8 @@
 """Roadmap step 4: quality ladder and profiles."""
 import json
 
-from seekdrop.config import SettingsStore
-from seekdrop.quality import PROFILES, is_better, position, profile, profile_from_old_settings, tier_of, wants_upgrade
+from seeksync.config import SettingsStore
+from seeksync.quality import PROFILES, is_better, position, profile, profile_from_old_settings, tier_of, wants_upgrade
 
 
 def test_tiers():

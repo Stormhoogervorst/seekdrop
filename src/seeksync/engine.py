@@ -41,7 +41,8 @@ TRASH_DAYS = 30               # replaced files stay in the app's trash this long
 
 
 REKORDBOX_DELAY = 30           # seconds to wait after a download before the Rekordbox XML is written again
-PART_SUFFIX = ".seekdrop-part"   # hidden temp name while a file is copied to another disk
+PART_SUFFIX = ".seeksync-part"   # hidden temp name while a file is copied to another disk
+OLD_PART_SUFFIXES = (".seekdrop-part",)    # leftovers of the previous app name are tidied up too
 
 # A check gets the track row and the staged file and returns a reason to reject it, or None.
 Check = Callable[[dict, str], Optional[str]]
@@ -216,7 +217,7 @@ class Engine:
             dirs = [root] + [os.path.join(root, d) for d in os.listdir(root) if os.path.isdir(os.path.join(root, d))]
             for d in dirs:
                 for name in os.listdir(d):
-                    if name.startswith(".") and name.endswith(PART_SUFFIX):
+                    if name.startswith(".") and name.endswith((PART_SUFFIX, *OLD_PART_SUFFIXES)):
                         try:
                             os.remove(os.path.join(d, name))
                             n += 1
@@ -259,10 +260,10 @@ class Engine:
         if self.settings.soulseek_mode == "nicotine":
             try:
                 if await asyncio.to_thread(migrate_legacy_plugin):
-                    self.note("The Nicotine+ plugin has a new name. In Nicotine+, turn off Nicotine+ Sync Bridge "
-                              "and turn on SeekDrop Bridge (Preferences, Plugins).", "warn")
+                    self.note("The Nicotine+ plugin has a new name. In Nicotine+, turn off the old bridge plugin (SeekDrop Bridge) "
+                              "and turn on SeekSync Bridge (Preferences, Plugins).", "warn")
                 elif await asyncio.to_thread(update_plugin_if_outdated):
-                    self.note("Updated the Nicotine+ plugin. In Nicotine+, turn SeekDrop Bridge off and on "
+                    self.note("Updated the Nicotine+ plugin. In Nicotine+, turn SeekSync Bridge off and on "
                               "(Preferences, Plugins) to use the new version.", "warn")
             except OSError as e:
                 log.warning("couldn't update the Nicotine+ plugin: %s", e)
@@ -580,7 +581,7 @@ class Engine:
 
     # ------------------------------------------------------------------ your own music folders (step 11)
     def library_roots(self) -> list[str]:
-        """The folders that count as "what the DJ has": the listed ones and SeekDrop's own download folder."""
+        """The folders that count as "what the DJ has": the listed ones and SeekSync's own download folder."""
         return library.clean_roots([self.settings.download_dir, *self.settings.library_dirs])
 
     def _collection_hit(self, p, duration) -> Optional[dict]:
@@ -643,7 +644,7 @@ class Engine:
         return found, lost
 
     def duplicates(self) -> list[dict]:
-        """Duplicate files in SeekDrop's download folder, best copy first. Nothing is touched."""
+        """Duplicate files in SeekSync's download folder, best copy first. Nothing is touched."""
         rows = [r for r in self.db.library_under(self.settings.download_dir) if os.path.exists(r["path"])]
         return library.duplicates(rows, self.settings.quality_profile)
 
@@ -1150,7 +1151,7 @@ class Engine:
                     if known is True:
                         self.note(f"{os.path.basename(cur['file_path'])} is in Rekordbox, so the better copy waits for your OK.")
                     elif known is None:
-                        self.note("The better copy waits for your OK: SeekDrop can't tell what is in Rekordbox "
+                        self.note("The better copy waits for your OK: SeekSync can't tell what is in Rekordbox "
                                   "(choose your Rekordbox export in Settings).", "warn")
                 if mode == "auto" or (mode == "auto_unless_dj" and known is False):
                     self._replace(cur, staged, c, meta, new_tier)

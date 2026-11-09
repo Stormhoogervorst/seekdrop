@@ -5,7 +5,7 @@ import subprocess
 
 import pytest
 
-from seekdrop.checks import FileChecker, Tools, analyse, verdict
+from seeksync.checks import FileChecker, Tools, analyse, verdict
 
 TOOLS = Tools.find()
 needs_ffmpeg = pytest.mark.skipif(not TOOLS.available, reason="ffmpeg/ffprobe not installed")
@@ -79,7 +79,7 @@ def test_without_ffmpeg_checks_are_skipped(tmp_path):
 
 def test_finds_homebrew_ffmpeg_without_path(monkeypatch, tmp_path):
     # GUI apps on macOS don't get the shell PATH; the known install folders are searched too.
-    from seekdrop import checks
+    from seeksync import checks
     fake = tmp_path / "bin"
     fake.mkdir()
     tool = fake / "ffprobe"
@@ -93,7 +93,7 @@ def test_finds_homebrew_ffmpeg_without_path(monkeypatch, tmp_path):
 # --- Roadmap step 3: fake lossless ------------------------------------------------------------
 import time  # noqa: E402
 
-from seekdrop.checks import classify, measure_cutoff  # noqa: E402
+from seeksync.checks import classify, measure_cutoff  # noqa: E402
 
 numpy = pytest.importorskip("numpy")
 

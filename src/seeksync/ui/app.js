@@ -70,7 +70,7 @@ async function refresh() {
     ui.state = await api("GET", "/api/state" + q);
     render();
   } catch (e) {
-    $("#deck-title").textContent = "SeekDrop stopped";
+    $("#deck-title").textContent = "SeekSync stopped";
     $("#deck-sub").textContent = "Restart the app.";
     $("#ring").className = "ring err";
   } finally {
@@ -167,7 +167,7 @@ function renderDeck(s) {
   } else {
     ring.className = "ring err";
     title.textContent = viaNic ? "Not connected to Nicotine+" : "Not connected to Soulseek";
-    sub.textContent = s.soulseek.error || (viaNic ? "Open Nicotine+ and turn on the SeekDrop Bridge plugin." : "Check your account in Settings.");
+    sub.textContent = s.soulseek.error || (viaNic ? "Open Nicotine+ and turn on the SeekSync Bridge plugin." : "Check your account in Settings.");
     sub.classList.add("err");
   }
 }
@@ -329,7 +329,7 @@ function renderTracks(s) {
     if (!s.channels.length) {
       msg = `<h2>Add your first channel</h2><p>Paste the link to a SoundCloud profile on the left, for example a label, artist or promo channel. New uploads show up here and get searched on Soulseek. A public Spotify playlist works too.</p>`;
     } else if (ui.filter === "all") {
-      msg = `<h2>Nothing new yet</h2><p>SeekDrop checks your channels ${inTime(s.next_check_in) ? "again " + inTime(s.next_check_in) : "regularly"}. New uploads appear here.</p>`;
+      msg = `<h2>Nothing new yet</h2><p>SeekSync checks your channels ${inTime(s.next_check_in) ? "again " + inTime(s.next_check_in) : "regularly"}. New uploads appear here.</p>`;
     } else {
       msg = `<p>No tracks here.</p>`;
     }
@@ -395,7 +395,7 @@ for (const r of document.querySelectorAll('input[name="s-mode"]')) r.addEventLis
 
 function nicInstalledNote(dir) {
   const el = $("#s-nic-done");
-  el.innerHTML = `<b>Plugin added.</b> Now open Nicotine+, go to Preferences, then Plugins, and turn on <b>SeekDrop Bridge</b>. If it was already on, turn it off and on again.`;
+  el.innerHTML = `<b>Plugin added.</b> Now open Nicotine+, go to Preferences, then Plugins, and turn on <b>SeekSync Bridge</b>. If it was already on, turn it off and on again.`;
   el.title = dir;
   el.hidden = false;
   $("#s-nic-install").textContent = "Add plugin again";
@@ -533,7 +533,7 @@ $("#list").addEventListener("click", async (e) => {
     if (b.dataset.act === "retry") { await api("POST", `/api/tracks/${id}/retry`); toast("Searching again"); }
     if (b.dataset.act === "skip") await api("POST", `/api/tracks/${id}/skip`);
     if (b.dataset.act === "why") return openWhy(Number(id));
-    if (b.dataset.act === "replace") { await api("POST", `/api/tracks/${id}/upgrade/replace`); toast("Replaced. The old file is in SeekDrop's trash."); }
+    if (b.dataset.act === "replace") { await api("POST", `/api/tracks/${id}/upgrade/replace`); toast("Replaced. The old file is in SeekSync's trash."); }
     if (b.dataset.act === "keep") { await api("POST", `/api/tracks/${id}/upgrade/keep`); toast("Kept your file"); }
   } catch (ex) { toast(ex.message); }
   refresh();
@@ -562,10 +562,10 @@ function openSettings() {
     else if (LIST_FIELDS.includes(el.name)) el.value = (v || []).join("\n");
     else el.value = v ?? "";
   }
-  $("#version").textContent = `SeekDrop ${ui.state.version}`;
+  $("#version").textContent = `SeekSync ${ui.state.version}`;
   $("#set-checks-status").textContent = ui.state.checks && ui.state.checks.available
     ? "On. Every download is checked with ffmpeg before it goes to your music folder."
-    : "Off: ffmpeg isn't installed, so downloads aren't checked. Install ffmpeg (on a Mac: brew install ffmpeg) and restart SeekDrop.";
+    : "Off: ffmpeg isn't installed, so downloads aren't checked. Install ffmpeg (on a Mac: brew install ffmpeg) and restart SeekSync.";
   profileHelp();
   libraryStatus();
   rekordboxStatus();
@@ -582,10 +582,10 @@ function settingsMode() {
   for (const el of document.querySelectorAll("#settings-form [data-mode]")) el.hidden = el.dataset.mode !== mode;
   const st = ui.state;
   const msg = !st.nicotine.plugin_installed
-    ? "The plugin isn't in Nicotine+ yet. Add it, then turn on SeekDrop Bridge in Nicotine+ (Preferences, Plugins)."
+    ? "The plugin isn't in Nicotine+ yet. Add it, then turn on SeekSync Bridge in Nicotine+ (Preferences, Plugins)."
     : st.settings.soulseek_mode === "nicotine" && st.soulseek.status === "connected"
       ? (st.soulseek.username ? `Connected through Nicotine+ as ${st.soulseek.username}.` : "Connected through Nicotine+.")
-      : "Plugin added. Turn on SeekDrop Bridge in Nicotine+ (Preferences, Plugins). Save to switch.";
+      : "Plugin added. Turn on SeekSync Bridge in Nicotine+ (Preferences, Plugins). Save to switch.";
   $("#set-nic-status").textContent = msg;
   $("#set-nic-install").textContent = st.nicotine.plugin_installed ? "Add plugin to Nicotine+ again" : "Add plugin to Nicotine+";
 }
@@ -638,7 +638,7 @@ function updateStatus() {
   if (busy) {
     const pct = w.total ? ` ${Math.min(100, Math.round(100 * w.done / w.total))}%` : "";
     msg = { downloading: `Downloading${pct}…`, checking: "Checking the download…", installing: "Installing…",
-            restarting: "Restarting SeekDrop…" }[w.stage];
+            restarting: "Restarting SeekSync…" }[w.stage];
   } else if (w.error) {
     msg = w.error;
   } else if (!msg) {
@@ -704,7 +704,7 @@ function renderDuplicates() {
   const groups = ui.dups;
   let html;
   if (!groups) html = `<div class="empty"><p>Looking for duplicates…</p></div>`;
-  else if (!groups.length) html = `<div class="empty"><p>No duplicates in your download folder. The same track in several files shows up here. SeekDrop never deletes anything by itself.</p></div>`;
+  else if (!groups.length) html = `<div class="empty"><p>No duplicates in your download folder. The same track in several files shows up here. SeekSync never deletes anything by itself.</p></div>`;
   else {
     html = groups.map((g) => {
       const v = g.version ? ` <span class="v">(${esc(g.version)})</span>` : "";
@@ -830,7 +830,7 @@ async function openWhy(id) {
       <label class="field"><span>Version</span><input class="plain" name="version" value="${esc(t.fix_version || t.version || "")}" placeholder="Original" spellcheck="false"></label>
       <button class="btn soft" type="submit">Save and search again</button>
     </form>
-    <p class="hint">Your correction wins over how SeekDrop read the SoundCloud title.</p>
+    <p class="hint">Your correction wins over how SeekSync read the SoundCloud title.</p>
     <h3>Search with another term</h3>
     <form class="why-query" id="why-query"><input class="plain" name="q" value="${esc(t.custom_query || "")}" placeholder="e.g. artist title remixer" spellcheck="false">
     <button class="btn soft" type="submit">Search</button></form>

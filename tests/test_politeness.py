@@ -7,10 +7,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from seekdrop import politeness as pol
-from seekdrop.config import SettingsStore
-from seekdrop.matching import Candidate, MatchPrefs, rank, score_candidate
-from seekdrop.titles import parse_title
+from seeksync import politeness as pol
+from seeksync.config import SettingsStore
+from seeksync.matching import Candidate, MatchPrefs, rank, score_candidate
+from seeksync.titles import parse_title
 
 from test_engine import FakeSC, FakeSlsk, _fresh_track, _real_sleep, setup  # noqa: F401  (fixture + fakes)
 
@@ -90,7 +90,7 @@ def test_settings_can_slow_down_but_never_remove_the_limits(tmp_path):
 
 
 def test_safe_defaults():
-    from seekdrop.config import Settings
+    from seeksync.config import Settings
     s = Settings()
     assert (s.search_spacing, s.search_max_per_5min, s.min_free_gb) == (8, 20, 5)
 
@@ -116,7 +116,7 @@ def test_downloads_pause_below_the_limit_and_resume(setup, monkeypatch):
     sc.tracks = sc.tracks[:1]
     asyncio.run(eng.check_channel(cid))
     eng.settings.min_free_gb = 5
-    from seekdrop import engine as engine_mod
+    from seeksync import engine as engine_mod
     free = {"gb": 1.0}
     monkeypatch.setattr(engine_mod, "low_disk_space",
                         lambda paths, limit: pol.low_disk_space(paths, limit, usage=_usage(free["gb"])))
@@ -238,7 +238,7 @@ def test_download_outcomes_are_counted_per_peer(setup):
 
 def test_peer_stats_table_is_added_to_an_old_database(tmp_path):
     import sqlite3
-    from seekdrop.db import Database
+    from seeksync.db import Database
     path = tmp_path / "old.db"
     con = sqlite3.connect(path)
     con.execute("CREATE TABLE channels (id INTEGER PRIMARY KEY, url TEXT NOT NULL UNIQUE, name TEXT NOT NULL DEFAULT '',"
@@ -315,7 +315,7 @@ def test_engine_picks_the_right_source_for_the_warning(setup, tmp_path):
 
 
 def test_state_api_carries_the_notices(setup):
-    from seekdrop.server import Api
+    from seeksync.server import Api
     eng, db, sc, slsk, tmp = setup
     eng.settings.share_downloads, eng.settings.share_dirs = False, []
     eng.paused_reason = "Only 1.0 GB free"

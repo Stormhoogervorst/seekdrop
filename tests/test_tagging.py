@@ -14,12 +14,12 @@ import zlib
 import numpy as np
 import pytest
 
-from seekdrop import naming, tagging
-from seekdrop.checks import Tools
-from seekdrop.config import Settings, SettingsStore
-from seekdrop.db import Database
-from seekdrop.matching import Candidate
-from seekdrop.soundcloud import SoundCloudClient
+from seeksync import naming, tagging
+from seeksync.checks import Tools
+from seeksync.config import Settings, SettingsStore
+from seeksync.db import Database
+from seeksync.matching import Candidate
+from seeksync.soundcloud import SoundCloudClient
 
 from test_engine import FakeSlsk, _fresh_track, setup  # noqa: F401  (fixture + fakes)
 
@@ -465,7 +465,7 @@ def test_approving_a_quarantined_file_tags_it_too(setup, monkeypatch):
 
 
 def test_new_downloads_store_genre_and_release_date_from_soundcloud(setup):
-    from seekdrop.soundcloud import TrackInfo, TrackStub
+    from seeksync.soundcloud import TrackInfo, TrackStub
     eng, db, sc, slsk, tmp = setup
     sc.tracks = [TrackStub("1", "https://soundcloud.com/lbl/a", "Artist - One"), TrackStub("2", "https://soundcloud.com/lbl/b", "Artist - Two")]
     sc.track = lambda url: TrackInfo(url[-1], url, "Artist - One" if url.endswith("a") else "Artist - Two", duration=300,
@@ -580,7 +580,7 @@ def test_settings_defaults_and_validation(tmp_path):
 
 
 def test_api_explains_a_bad_template_and_previews_a_good_one(setup):
-    from seekdrop.server import Api
+    from seeksync.server import Api
 
     class Req:
         def __init__(self, data):

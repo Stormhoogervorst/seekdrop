@@ -5,17 +5,17 @@
 
 [Setup]
 AppId={{AFE9CD32-27AE-44FE-8A3C-548DA2EC0AF1}
-AppName=SeekDrop
+AppName=SeekSync
 AppVersion={#AppVersion}
-AppPublisher=SeekDrop
-DefaultDirName={autopf}\SeekDrop
-DefaultGroupName=SeekDrop
+AppPublisher=SeekSync
+DefaultDirName={autopf}\SeekSync
+DefaultGroupName=SeekSync
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=..\dist
-OutputBaseFilename=SeekDrop-{#AppVersion}-windows-setup
+OutputBaseFilename=SeekSync-{#AppVersion}-windows-setup
 SetupIconFile=icon.ico
-UninstallDisplayIcon={app}\SeekDrop.exe
+UninstallDisplayIcon={app}\SeekSync.exe
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -23,15 +23,22 @@ LicenseFile=..\LICENSE
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
-Name: "startup"; Description: "Start SeekDrop when I log in"; Flags: unchecked
+Name: "startup"; Description: "Start SeekSync when I log in"; Flags: unchecked
+
+[InstallDelete]
+; the app was called SeekDrop before: remove its program file and shortcuts when updating over it
+Type: files; Name: "{app}\SeekDrop.exe"
+Type: files; Name: "{group}\SeekDrop.lnk"
+Type: files; Name: "{autodesktop}\SeekDrop.lnk"
+Type: files; Name: "{userstartup}\SeekDrop.lnk"
 
 [Files]
-Source: "..\dist\SeekDrop\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
+Source: "..\dist\SeekSync\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 
 [Icons]
-Name: "{group}\SeekDrop"; Filename: "{app}\SeekDrop.exe"
-Name: "{autodesktop}\SeekDrop"; Filename: "{app}\SeekDrop.exe"; Tasks: desktopicon
-Name: "{userstartup}\SeekDrop"; Filename: "{app}\SeekDrop.exe"; Tasks: startup
+Name: "{group}\SeekSync"; Filename: "{app}\SeekSync.exe"
+Name: "{autodesktop}\SeekSync"; Filename: "{app}\SeekSync.exe"; Tasks: desktopicon
+Name: "{userstartup}\SeekSync"; Filename: "{app}\SeekSync.exe"; Tasks: startup
 
 [Run]
-Filename: "{app}\SeekDrop.exe"; Description: "Open SeekDrop"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\SeekSync.exe"; Description: "Open SeekSync"; Flags: nowait postinstall skipifsilent

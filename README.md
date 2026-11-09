@@ -1,6 +1,6 @@
-# SeekDrop
+# SeekSync
 
-Follow SoundCloud channels and playlists. When a track shows up, SeekDrop looks for it on
+Follow SoundCloud channels and playlists. When a track shows up, SeekSync looks for it on
 Soulseek and downloads the best copy it can find.
 
 For DJs and producers who don't want to check twenty label pages every day.
@@ -11,7 +11,7 @@ For DJs and producers who don't want to check twenty label pages every day.
   New uploads are checked every hour (you can change this).
 - **Playlists:** paste a playlist link (`soundcloud.com/name/sets/…`, private `…/s-xxxx` links
   work too). Every track in it is searched and downloaded, and tracks added later are fetched too.
-- **Spotify playlists:** paste the link of a *public* Spotify playlist. SeekDrop reads title, artists and length
+- **Spotify playlists:** paste the link of a *public* Spotify playlist. SeekSync reads title, artists and length
   and looks for the tracks on Soulseek, just like a SoundCloud playlist. Only the first 100 tracks of a
   playlist are shown by Spotify. Nothing is downloaded from Spotify.
 - Messy titles are cleaned up: `PREMIERE: Artist - Track (Someone Remix) [FREE DL]` becomes
@@ -29,7 +29,7 @@ For DJs and producers who don't want to check twenty label pages every day.
 - Quality profiles: **Club** (lossless, MP3 320 at least), **Balanced** (MP3 320 or better) or
   **Space saver**. If a track first comes in below your goal (say MP3 320 while you want lossless),
   the app keeps looking for a better copy for 30 days and asks before it replaces your file (cue
-  points in Rekordbox or Serato are tied to the file name). Replaced files go to SeekDrop's trash.
+  points in Rekordbox or Serato are tied to the file name). Replaced files go to SeekSync's trash.
 - A good Soulseek citizen: searches are spaced out (8 s apart, at most 20 per 5 minutes, you can only
   slow that down), downloads pause when the disk runs low (5 GB by default), peers that were slow,
   failed or sent fake lossless files score lower and are blocked after repeated problems, tracks of
@@ -37,52 +37,52 @@ For DJs and producers who don't want to check twenty label pages every day.
   you share nothing (many users block that).
 - Not on Soulseek yet? It tries again after 1 h, 3 h, 6 h, 12 h, then daily, for up to 30 days.
 - Rekordbox: turn on "Keep a Rekordbox XML file up to date" in Settings. Every downloaded track becomes a track and
-  every channel or playlist a playlist in a folder called SeekDrop; import it through Rekordbox' Preferences, Advanced,
-  Database, rekordbox xml. SeekDrop only writes that one file and never touches Rekordbox' own library.
-  Point SeekDrop at an export of your Rekordbox collection (File, Export Collection in xml format) and the upgrade
+  every channel or playlist a playlist in a folder called SeekSync; import it through Rekordbox' Preferences, Advanced,
+  Database, rekordbox xml. SeekSync only writes that one file and never touches Rekordbox' own library.
+  Point SeekSync at an export of your Rekordbox collection (File, Export Collection in xml format) and the upgrade
   setting "Replace right away, but ask for tracks that are in Rekordbox" keeps your cue points safe.
-- Already have it? Point SeekDrop at your music folders (Settings). A new track that is in there under a
+- Already have it? Point SeekSync at your music folders (Settings). A new track that is in there under a
   slightly different name is marked "Already in your collection" and not downloaded again; a Duplicates tab lists
-  doubles in the download folder with the best copy marked. SeekDrop only reads your folders.
+  doubles in the download folder with the best copy marked. SeekSync only reads your folders.
 - Files get tags for DJ software: artist, title with the version in it, genre, year, the SoundCloud link,
   and the SoundCloud artwork (500 px) embedded. MP3 gets ID3v2.3, FLAC Vorbis comments, AIFF ID3. Turn on
   "Convert WAV to AIFF" for lossless files that keep their tags in Rekordbox and Serato. Folders and file
-  names follow a template (default `Music/SeekDrop/<channel>/Artist - Title (Version).flac`).
+  names follow a template (default `Music/SeekSync/<channel>/Artist - Title (Version).flac`).
 
-SeekDrop is an independent project. It is not made by or affiliated with the Nicotine+ team.
+SeekSync is an independent project. It is not made by or affiliated with the Nicotine+ team.
 
 ## Install
 
 Download the latest version from the
-[Releases page](https://github.com/Stormhoogervorst/seekdrop/releases/latest).
+[Releases page](https://github.com/Stormhoogervorst/seeksync/releases/latest).
 
-**macOS 11 or newer, Apple Silicon (M1 and later):** `SeekDrop-x.y.z-macos-arm64.dmg`
+**macOS 11 or newer, Apple Silicon (M1 and later):** `SeekSync-x.y.z-macos-arm64.dmg`
 
-1. Open the DMG and drag **SeekDrop** to Applications.
+1. Open the DMG and drag **SeekSync** to Applications.
 2. Open it. If macOS says it can't check the app for malicious software: open
    **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to
-   SeekDrop, then confirm. You only need to do this once.
+   SeekSync, then confirm. You only need to do this once.
 
-**Windows 10/11:** `SeekDrop-x.y.z-windows-setup.exe`
+**Windows 10/11:** `SeekSync-x.y.z-windows-setup.exe`
 
 Windows may show a SmartScreen warning because the app isn't code-signed: click
 **More info**, then **Run anyway**. The installer can start the app when you log in.
 
 The app tells you when a new version is out (Settings → Updates), and **Check now** looks on GitHub straight away.
 On the Mac app, **Install and restart** downloads the new version, checks it, replaces the app and starts it again;
-the old app is kept in `previous-versions` in the app data (the last two). On Windows, or when SeekDrop can't change
+the old app is kept in `previous-versions` in the app data (the last two). On Windows, or when SeekSync can't change
 its own folder, use the Releases page and install over the old one. Your channels and settings are kept either way.
 
 ## Two ways to connect to Soulseek
 
 - **Through Nicotine+ (recommended if you already use it).** Uses your Nicotine+ account and
   shares. In setup (or Settings) click *Add plugin to Nicotine+*, then in Nicotine+ open
-  **Preferences → Plugins** and turn on **SeekDrop Bridge**. If it isn't in the list,
+  **Preferences → Plugins** and turn on **SeekSync Bridge**. If it isn't in the list,
   close Preferences and open it again, or restart Nicotine+.
-  The plugin only listens on 127.0.0.1 and only accepts SeekDrop's key. Searches don't
+  The plugin only listens on 127.0.0.1 and only accepts SeekSync's key. Searches don't
   create search tabs or history in Nicotine+; downloads show up in its Downloads tab.
-  Nicotine+ must be open while SeekDrop works.
-- **With its own account.** SeekDrop logs in to Soulseek itself; no other app needed.
+  Nicotine+ must be open while SeekSync works.
+- **With its own account.** SeekSync logs in to Soulseek itself; no other app needed.
   Use a separate Soulseek account for it: logging in with the same account somewhere else
   disconnects one of them. A name that doesn't exist yet is created when you first log in.
 
@@ -102,7 +102,7 @@ and the app tries another peer. Without ffmpeg the checks are skipped (Settings 
 
 Soulseek is a network where people share their own music folders. Only download music you have
 the right to have, such as free downloads, promos sent to you, or tracks you bought elsewhere.
-You are responsible for what you download and share. SeekDrop reads only public (or
+You are responsible for what you download and share. SeekSync reads only public (or
 shared-with-you) SoundCloud pages and never downloads audio from SoundCloud itself.
 
 ## Privacy
@@ -111,20 +111,20 @@ Everything stays on your computer. The app talks to SoundCloud and Spotify (to r
 to Soulseek (directly or through Nicotine+), and twice a day to GitHub to see if there is a new
 version (you can turn that off in Settings). There is no tracking or analytics.
 
-Settings, database and logs live in `~/Library/Application Support/SeekDrop` (macOS) or
-`%LOCALAPPDATA%\SeekDrop` (Windows).
+Settings, database and logs live in `~/Library/Application Support/SeekSync` (macOS) or
+`%LOCALAPPDATA%\SeekSync` (Windows).
 
 ## Troubleshooting
 
-- **"Can't reach Nicotine+"**: open Nicotine+ and check that SeekDrop Bridge is turned on
+- **"Can't reach Nicotine+"**: open Nicotine+ and check that SeekSync Bridge is turned on
   (Preferences → Plugins). After updating the app, turn the plugin off and on once.
 - **A track stays at "Waiting for peer"**: the peer has a queue. After 45 minutes the app tries
   another peer.
 - **"Not on Soulseek yet"** for a track you can find by hand: open an issue with the SoundCloud
   link and the file name you found. Title matching is strict on purpose.
-- Logs: `seekdrop.log` in the folder above. Please attach it to bug reports.
+- Logs: `seeksync.log` in the folder above. Please attach it to bug reports.
 
-Report problems on the [Issues page](https://github.com/Stormhoogervorst/seekdrop/issues).
+Report problems on the [Issues page](https://github.com/Stormhoogervorst/seeksync/issues).
 
 ## Run from source
 
@@ -133,21 +133,21 @@ Python 3.11 to 3.13.
 ```bash
 python3.13 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
-python -m seekdrop            # app window
-python -m seekdrop --browser  # UI in your browser
+python -m seeksync            # app window
+python -m seeksync --browser  # UI in your browser
 pytest
 ```
 
 **UI work:** `python scripts/demo.py` starts the real UI with made-up data at
 http://localhost:8765/#token=dev, without SoundCloud or Soulseek, in a throwaway data folder.
-Edits to `src/seekdrop/ui/` show up when you refresh the page; Python changes need a restart.
+Edits to `src/seeksync/ui/` show up when you refresh the page; Python changes need a restart.
 `DEMO_SETUP=1` shows the first-run setup instead. (In Claude Code: `.claude/launch.json` → `ui-demo`.)
-Use a throwaway data folder with `SEEKDROP_HOME=/tmp/ns python -m seekdrop --browser`.
+Use a throwaway data folder with `SEEKSYNC_HOME=/tmp/ns python -m seeksync --browser`.
 
 ## Releases
 
-1. Update the version in `pyproject.toml`, `src/seekdrop/__init__.py` and (if the plugin
-   changed) `src/seekdrop/nicotine_plugin/seekdrop_bridge/PLUGININFO`, and add the
+1. Update the version in `pyproject.toml`, `src/seeksync/__init__.py` and (if the plugin
+   changed) `src/seeksync/nicotine_plugin/seeksync_bridge/PLUGININFO`, and add the
    changes to `CHANGELOG.md`.
 2. Push a tag like `v0.3.0`. GitHub Actions runs the tests, builds the Windows installer and the
    macOS DMG, smoke-tests both, and attaches them to a **draft** release.
@@ -157,30 +157,30 @@ macOS signing and notarization run automatically once these repository secrets a
 `MACOS_CERT_P12` (base64 of a Developer ID Application certificate), `MACOS_CERT_PASSWORD`,
 `APPLE_ID`, `APPLE_TEAM_ID` and `APPLE_APP_PASSWORD`. That needs an Apple Developer account.
 
-Local build: `pyinstaller packaging/seekdrop.spec --noconfirm`.
+Local build: `pyinstaller packaging/seeksync.spec --noconfirm`.
 
 ## How it's built
 
 | Part | File |
 |---|---|
-| Read SoundCloud profiles and playlists (via yt-dlp) | `src/seekdrop/soundcloud.py` |
-| Read public Spotify playlists | `src/seekdrop/spotify.py` |
-| Hand each link to SoundCloud or Spotify | `src/seekdrop/sources.py` |
-| Clean up titles, spot mixes, build search queries | `src/seekdrop/titles.py` |
-| Score Soulseek results | `src/seekdrop/matching.py` |
-| Soulseek client (via aioslsk) | `src/seekdrop/soulseek.py` |
-| Nicotine+ client + plugin installer | `src/seekdrop/nicotine.py` |
-| Nicotine+ plugin (runs inside Nicotine+) | `src/seekdrop/nicotine_plugin/seekdrop_bridge/` |
-| Scheduler, retries, file naming | `src/seekdrop/engine.py` |
-| Update notice | `src/seekdrop/updates.py` |
-| Local API + UI | `src/seekdrop/server.py`, `src/seekdrop/ui/` |
-| App window (pywebview) | `src/seekdrop/__main__.py` |
+| Read SoundCloud profiles and playlists (via yt-dlp) | `src/seeksync/soundcloud.py` |
+| Read public Spotify playlists | `src/seeksync/spotify.py` |
+| Hand each link to SoundCloud or Spotify | `src/seeksync/sources.py` |
+| Clean up titles, spot mixes, build search queries | `src/seeksync/titles.py` |
+| Score Soulseek results | `src/seeksync/matching.py` |
+| Soulseek client (via aioslsk) | `src/seeksync/soulseek.py` |
+| Nicotine+ client + plugin installer | `src/seeksync/nicotine.py` |
+| Nicotine+ plugin (runs inside Nicotine+) | `src/seeksync/nicotine_plugin/seeksync_bridge/` |
+| Scheduler, retries, file naming | `src/seeksync/engine.py` |
+| Update notice | `src/seeksync/updates.py` |
+| Local API + UI | `src/seeksync/server.py`, `src/seeksync/ui/` |
+| App window (pywebview) | `src/seeksync/__main__.py` |
 
 ## Uitleg in het Nederlands
 
-### Wat is SeekDrop?
+### Wat is SeekSync?
 
-SeekDrop volgt SoundCloud-kanalen en -playlists en openbare Spotify-playlists. Komt er een nieuwe track op, dan zoekt de app die op
+SeekSync volgt SoundCloud-kanalen en -playlists en openbare Spotify-playlists. Komt er een nieuwe track op, dan zoekt de app die op
 Soulseek, kiest de beste kopie, controleert het bestand, zet er tags en een hoes in en legt het in je
 muziekmap. Optioneel maakt het ook een bestand waarmee je alles in Rekordbox kunt inlezen.
 De app downloadt zelf **nooit** audio van SoundCloud of Spotify: die worden alleen gebruikt om te lezen welke
@@ -232,7 +232,7 @@ tot 30 dagen (instelbaar).
 - **Skipped:** overgeslagen door een regel of door jou, met de reden en *Get it*.
 - **Quarantine:** bestanden die de controles niet haalden, met de reden. Je kunt ze toch goedkeuren
   (*Approve anyway*) of verwijderen.
-- **Duplicates:** dubbele bestanden in je downloadmap, de beste kopie gemarkeerd. SeekDrop verwijdert nooit
+- **Duplicates:** dubbele bestanden in je downloadmap, de beste kopie gemarkeerd. SeekSync verwijdert nooit
   iets zelf.
 
 ### Waarom vindt hij mijn track niet? ("Why not?")
@@ -298,7 +298,7 @@ Staan de tags je niet aan? Zet *Write tags and cover art* uit in Settings.
 ### Wat heb je al? (je eigen muziekmappen)
 
 Zet bij **Settings → Music folders you already have** de mappen waar je muziek staat. De downloadmap van
-SeekDrop telt altijd mee. De app leest die mappen (alleen lezen, hij wijzigt of verwijdert niets) en onthoudt
+SeekSync telt altijd mee. De app leest die mappen (alleen lezen, hij wijzigt of verwijdert niets) en onthoudt
 wat erin staat. De eerste keer worden alle bestanden gelezen, daarna alleen nieuwe of gewijzigde. Een nieuwe
 track die er al in staat (ook onder een iets andere naam, of via een ander kanaal) wordt niet gedownload.
 Een versie telt apart: een remix van iemand anders of een radio edit is niet de originele track.
@@ -308,13 +308,13 @@ toch op.
 ### Rekordbox
 
 Zet in **Settings → Rekordbox** het vinkje *Keep a Rekordbox XML file ... up to date* aan.
-SeekDrop schrijft dan één bestand (standaard `SeekDrop for Rekordbox.xml` in je downloadmap) met elke
-gedownloade track en een playlist per kanaal of playlist, in een map "SeekDrop". Het wordt een halve minuut na
+SeekSync schrijft dan één bestand (standaard `SeekSync for Rekordbox.xml` in je downloadmap) met elke
+gedownloade track en een playlist per kanaal of playlist, in een map "SeekSync". Het wordt een halve minuut na
 elke download, upgrade of verwijderd kanaal bijgewerkt.
 
 Inlezen in Rekordbox: **Voorkeuren → Geavanceerd → Database → rekordbox xml** en kies dit bestand. Open daarna
 **rekordbox xml** in de boomstructuur, klik met rechts op een playlist en kies **Import Playlist**.
-SeekDrop schrijft alleen dit ene bestand en komt nooit aan de database van Rekordbox.
+SeekSync schrijft alleen dit ene bestand en komt nooit aan de database van Rekordbox.
 
 Wil je dat een betere kopie geen cue points kost? Maak in Rekordbox een export van je collectie
 (**File → Export Collection in xml format**), kies dat bestand bij *Your Rekordbox collection export* en kies
@@ -339,9 +339,9 @@ Soulseek wordt door vrijwilligers gedragen. De app is daarom rustig:
 
 ### Waar staat wat?
 
-- **Je muziek:** de downloadmap (standaard in je Muziek-map: `SeekDrop/<kanaal>/Artiest - Titel (Versie).ext`).
+- **Je muziek:** de downloadmap (standaard in je Muziek-map: `SeekSync/<kanaal>/Artiest - Titel (Versie).ext`).
 - **Instellingen, database, logs en tijdelijke mappen** (`staging`, `quarantine`, `trash`, `upgrades`):
-  `~/Library/Application Support/SeekDrop` (macOS) of `%LOCALAPPDATA%\SeekDrop` (Windows).
+  `~/Library/Application Support/SeekSync` (macOS) of `%LOCALAPPDATA%\SeekSync` (Windows).
 - Alles blijft op je computer. De app praat met SoundCloud en Spotify (lezen), met Soulseek (direct of via Nicotine+) en
   twee keer per dag met GitHub om te zien of er een nieuwe versie is (uit te zetten). In Settings staat ook een
   knop **Check now** die direct kijkt. Op de Mac-app installeert **Install and restart** de nieuwe versie zelf

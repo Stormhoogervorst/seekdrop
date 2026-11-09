@@ -3,7 +3,7 @@
     python scripts/demo.py            -> http://localhost:8765/#token=dev
     DEMO_SETUP=1 python scripts/demo.py   (shows the first-run setup instead)
 
-Edits to src/seekdrop/ui/* (HTML, CSS, JS) show up when you refresh the page.
+Edits to src/seeksync/ui/* (HTML, CSS, JS) show up when you refresh the page.
 Python changes need a restart. Data lives in a throwaway folder, never in your real app data.
 """
 import os
@@ -13,12 +13,12 @@ import threading
 import time
 
 # Never touch the real app data.
-os.environ.setdefault("SEEKDROP_HOME", os.path.join(tempfile.gettempdir(), "seekdrop-demo"))
+os.environ.setdefault("SEEKSYNC_HOME", os.path.join(tempfile.gettempdir(), "seeksync-demo"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from seekdrop.app import Backend, setup_logging  # noqa: E402
-from seekdrop.config import SettingsStore, data_dir  # noqa: E402
-from seekdrop.db import Database  # noqa: E402
+from seeksync.app import Backend, setup_logging  # noqa: E402
+from seeksync.config import SettingsStore, data_dir  # noqa: E402
+from seeksync.db import Database  # noqa: E402
 
 PORT = int(os.environ.get("PORT", "8765"))
 TOKEN = os.environ.get("DEMO_TOKEN", "dev")
@@ -43,14 +43,14 @@ class IdleSlsk:
 class IdleSC:
     def latest(self, *a, **k): return []   # nothing new on SoundCloud in the demo
     def channel_info(self, url):
-        from seekdrop.soundcloud import ChannelInfo, is_playlist_url
+        from seeksync.soundcloud import ChannelInfo, is_playlist_url
         name = url.rstrip("/").rsplit("/", 1)[-1].replace("-", " ").title()
         return ChannelInfo(url, name, "playlist" if is_playlist_url(url) else "profile")
 
 
 class DemoUpdates:
     """Pretend a newer release exists, so the update button shows."""
-    latest = {"version": "9.9.9", "url": "https://github.com/Stormhoogervorst/seekdrop/releases", "asset": None}
+    latest = {"version": "9.9.9", "url": "https://github.com/Stormhoogervorst/seeksync/releases", "asset": None}
     progress = {"stage": "", "done": 0, "total": 0, "error": ""}
     checked_at = 0
     async def check_now(self):
@@ -66,7 +66,7 @@ store = SettingsStore()
 if not SETUP:
     store.update({"accepted_terms": True, "soulseek_mode": "nicotine", "nicotine_token": "demo",
                   "download_dir": str(home / "Music")})
-db = Database(home / "seekdrop.db")
+db = Database(home / "seeksync.db")
 if not db.channels() and not SETUP:
     now = time.time()
     chans = [("https://soundcloud.com/nightshift-records", "Nightshift Records", "profile"),
@@ -143,7 +143,7 @@ if not db.channels() and not SETUP:
         db.add_reject(tracks[title], peer, remote, reason, str(f))
 
 # Step 11: two copies of one track in the download folder, for the Duplicates view.
-from seekdrop import library as _lib  # noqa: E402
+from seeksync import library as _lib  # noqa: E402
 if not SETUP:
     (home / "Music").mkdir(exist_ok=True)
     for name, size in (("Ostin Pell - Lights Out.flac", 31_000_000), ("Ostin Pell - Lights Out.mp3", 8_400_000),
@@ -162,7 +162,7 @@ if not SETUP:
 setup_logging()
 
 # Keep the demo rows as they are: no searching, polling or reconnecting.
-import seekdrop.engine as E  # noqa: E402
+import seeksync.engine as E  # noqa: E402
 
 
 async def _noop(self):
@@ -184,7 +184,7 @@ async def _start(self):
     self.note("Kellerraum: couldn't check SoundCloud (blocked)", "warn")
     self.note("Downloaded Ostin Pell - Lights Out.flac")
     # Step 8: a paused disk, a blocked peer and a note about it.
-    self.paused_reason = "Only 3.2 GB free on the disk with the SeekDrop folder. Downloads are paused until there are 5 GB free (change this in Settings)."
+    self.paused_reason = "Only 3.2 GB free on the disk with the SeekSync folder. Downloads are paused until there are 5 GB free (change this in Settings)."
     self.db.block_peer("rawzik_mirror", time.time() + 30 * 86400, "Delivered fake lossless or fake 320 files 3 times")
     self.note("Blocked rawzik_mirror for 30 days: delivered fake lossless or fake 320 files 3 times", "warn")
     self._tasks = []

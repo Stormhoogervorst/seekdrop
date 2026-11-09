@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import socket
 import threading
 from logging.handlers import RotatingFileHandler
@@ -21,9 +22,9 @@ from .soulseek import SoulseekService
 from .soundcloud import SoundCloudClient
 from .sources import Sources
 
-log = logging.getLogger("seekdrop")
+log = logging.getLogger("seeksync")
 
-INSTANCE_PORT = 47811  # localhost-only lock so two copies don't fight over one Soulseek account
+INSTANCE_PORT = int(os.environ.get("SEEKSYNC_LOCK_PORT") or 47811)  # localhost-only lock so two copies don't fight over one Soulseek account (the variable is for tests)
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -31,7 +32,7 @@ def setup_logging(verbose: bool = False) -> None:
     if root.handlers:
         return
     root.setLevel(logging.DEBUG if verbose else logging.INFO)
-    fh = RotatingFileHandler(log_dir() / "seekdrop.log", maxBytes=2_000_000, backupCount=3, encoding="utf-8")
+    fh = RotatingFileHandler(log_dir() / "seeksync.log", maxBytes=2_000_000, backupCount=3, encoding="utf-8")
     fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
     root.addHandler(fh)
     sh = logging.StreamHandler()

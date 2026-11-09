@@ -2,7 +2,7 @@
 and a list that an earlier version split into single letters is cleared on load."""
 import json
 
-from seekdrop.config import SettingsStore
+from seeksync.config import SettingsStore
 
 
 def test_text_box_string_becomes_one_folder_per_line(tmp_path):

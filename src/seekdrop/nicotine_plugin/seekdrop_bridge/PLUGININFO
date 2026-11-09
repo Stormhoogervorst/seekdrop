@@ -1,4 +1,0 @@
-Name = "SeekDrop Bridge"
-Version = "0.5.1"
-Authors = ["SeekDrop"]
-Description = "Lets the SeekDrop app search and download through Nicotine+, using your own Soulseek account. Only listens on this computer (127.0.0.1) and only accepts requests with the key that SeekDrop created when it installed this plugin.\n\nSeekDrop searches don't show up as tabs or in your search history. Downloads appear in the Downloads tab as usual."

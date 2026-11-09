@@ -5,12 +5,12 @@ import time
 
 import pytest
 
-from seekdrop import engine as engine_mod
-from seekdrop.config import SettingsStore
-from seekdrop.db import Database
-from seekdrop.engine import Engine
-from seekdrop.matching import Candidate
-from seekdrop.soundcloud import TrackInfo, TrackStub
+from seeksync import engine as engine_mod
+from seeksync.config import SettingsStore
+from seeksync.db import Database
+from seeksync.engine import Engine
+from seeksync.matching import Candidate
+from seeksync.soundcloud import TrackInfo, TrackStub
 
 
 class FakeSC:
@@ -297,7 +297,7 @@ def test_leftover_transfers_are_tidied_up_after_restart(setup):
 
 
 def test_outdated_plugin_is_replaced(tmp_path, monkeypatch):
-    from seekdrop import nicotine
+    from seeksync import nicotine
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
     dest = nicotine.install_plugin(47820, "key")
     assert not nicotine.update_plugin_if_outdated()            # same version: nothing to do
@@ -392,7 +392,7 @@ def test_publish_to_other_disk_appears_in_one_go(tmp_path, monkeypatch):
     monkeypatch.setattr(engine_mod.shutil, "copy2", watching_copy)
 
     engine_mod.publish_file(str(src), str(dest))
-    assert during == [[".Artist - Track.flac.seekdrop-part"]]   # never the real name while copying
+    assert during == [[".Artist - Track.flac.seeksync-part"]]   # never the real name while copying
     assert sorted(os.listdir(dest_dir)) == ["Artist - Track.flac"]
     assert dest.read_bytes() == b"a" * 1000 and not src.exists()
 
@@ -403,7 +403,7 @@ def test_start_removes_leftovers(setup):
     (tmp / "staging" / "12" / "half.flac").write_bytes(b"x")
     label = tmp / "out" / "Label"
     label.mkdir(parents=True)
-    (label / ".Artist - Track.flac.seekdrop-part").write_bytes(b"x")
+    (label / ".Artist - Track.flac.seeksync-part").write_bytes(b"x")
     (label / "Artist - Kept.flac").write_bytes(b"x")
 
     async def scenario():

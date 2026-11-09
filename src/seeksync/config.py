@@ -16,23 +16,23 @@ from platformdirs import user_data_dir, user_log_dir, user_music_dir
 from .naming import DEFAULT_TEMPLATE, FLAT_TEMPLATE, template_error
 from .politeness import MAX_MAX_SEARCHES, MIN_MAX_SEARCHES, MIN_SEARCH_SPACING
 
-APP_NAME = "SeekDrop"
-GITHUB_REPO = "Stormhoogervorst/seekdrop"
+APP_NAME = "SeekSync"
+GITHUB_REPO = "Stormhoogervorst/seeksync"
 
 
 log = logging.getLogger(__name__)
 
-# Earlier names of this app. Their data folder is taken over once, on the first start as SeekDrop.
-LEGACY_APP_NAMES = ("Nicotine+ Sync", "Cratewatch")
-LEGACY_DB_NAMES = ("nicotine-sync.db", "cratewatch.db")
-DB_NAME = "seekdrop.db"
+# Earlier names of this app. Their data folder is taken over once, on the first start as SeekSync.
+LEGACY_APP_NAMES = ("Nicotine+ Sync", "Cratewatch", "SeekDrop")
+LEGACY_DB_NAMES = ("nicotine-sync.db", "cratewatch.db", "seekdrop.db")
+DB_NAME = "seeksync.db"
 
 
 def migrate_legacy_data(new: Optional[Path] = None, legacy: Optional[list[Path]] = None) -> Optional[Path]:
-    """Move the data folder of an older app name (settings, database, channels) to SeekDrop's.
-    Only when SeekDrop has no data yet; never merges or overwrites. Returns the folder it took over."""
+    """Move the data folder of an older app name (settings, database, channels) to SeekSync's.
+    Only when SeekSync has no data yet; never merges or overwrites. Returns the folder it took over."""
     if new is None:
-        if os.environ.get("SEEKDROP_HOME"):
+        if os.environ.get("SEEKSYNC_HOME"):
             return None
         new = Path(user_data_dir(APP_NAME, appauthor=False))
     if legacy is None:
@@ -62,7 +62,7 @@ def migrate_legacy_data(new: Optional[Path] = None, legacy: Optional[list[Path]]
 
 
 def _retarget_default_download_dir(settings_file: Path, music: Optional[Path] = None) -> None:
-    """The old default download folder (Music/<old name>) becomes Music/SeekDrop, but only when it
+    """The old default download folder (Music/<old name>) becomes Music/SeekSync, but only when it
     is missing or empty. A folder that already holds music is left alone."""
     try:
         data = json.loads(settings_file.read_text("utf-8"))
@@ -79,14 +79,14 @@ def _retarget_default_download_dir(settings_file: Path, music: Optional[Path] = 
 
 
 def data_dir() -> Path:
-    p = Path(os.environ.get("SEEKDROP_HOME") or user_data_dir(APP_NAME, appauthor=False))
+    p = Path(os.environ.get("SEEKSYNC_HOME") or user_data_dir(APP_NAME, appauthor=False))
     p.mkdir(parents=True, exist_ok=True)
     return p
 
 
 def log_dir() -> Path:
-    p = Path(os.environ.get("SEEKDROP_HOME") or user_log_dir(APP_NAME, appauthor=False))
-    if os.environ.get("SEEKDROP_HOME"):
+    p = Path(os.environ.get("SEEKSYNC_HOME") or user_log_dir(APP_NAME, appauthor=False))
+    if os.environ.get("SEEKSYNC_HOME"):
         p = p / "logs"
     p.mkdir(parents=True, exist_ok=True)
     return p
@@ -130,7 +130,7 @@ class Settings:
     search_spacing: int = 8                 # seconds between Soulseek searches (step 8; at least 4)
     search_max_per_5min: int = 20           # most searches in any 5 minutes (5 to 60)
     rekordbox_export: bool = False          # step 12: keep a Rekordbox XML of the downloads up to date
-    rekordbox_xml_path: str = ""            # '' = "SeekDrop for Rekordbox.xml" in the download folder
+    rekordbox_xml_path: str = ""            # '' = "SeekSync for Rekordbox.xml" in the download folder
     library_dirs: list[str] = field(default_factory=list)     # step 11: music folders you already have (the download folder is always included)
     block_keywords: list[str] = field(default_factory=list)   # step 9: words that skip an upload, every channel
     block_artists: list[str] = field(default_factory=list)    # step 9: artists that are never fetched

@@ -1,4 +1,4 @@
-"""Use Nicotine+ (with the SeekDrop Bridge plugin) instead of a built-in Soulseek login."""
+"""Use Nicotine+ (with the SeekSync Bridge plugin) instead of a built-in Soulseek login."""
 from __future__ import annotations
 
 import asyncio
@@ -17,7 +17,7 @@ from .matching import Candidate, file_ext
 
 log = logging.getLogger(__name__)
 
-PLUGIN_NAME = "seekdrop_bridge"
+PLUGIN_NAME = "seeksync_bridge"
 PLUGIN_SRC = Path(__file__).parent / "nicotine_plugin" / PLUGIN_NAME
 DEFAULT_PORT = 47820
 
@@ -31,7 +31,7 @@ STATUS_MAP = {
     "Cancelled": "ABORTED",
 }
 
-MSG_UNREACHABLE = ("Can't reach Nicotine+. Open Nicotine+ and turn on the SeekDrop Bridge plugin "
+MSG_UNREACHABLE = ("Can't reach Nicotine+. Open Nicotine+ and turn on the SeekSync Bridge plugin "
                    "(Preferences, Plugins).")
 MSG_KEY = "The Nicotine+ plugin has a different key. Install the plugin again from Settings, then turn it off and on in Nicotine+."
 MSG_OFFLINE = "Nicotine+ is open but not connected to Soulseek."
@@ -75,7 +75,7 @@ def _plugin_version(folder: Path) -> str:
 
 
 # Earlier plugin folder names; their key is reused so the app keeps working after a rename.
-LEGACY_PLUGIN_NAMES = ("nicotine_sync_bridge", "cratewatch_bridge")
+LEGACY_PLUGIN_NAMES = ("nicotine_sync_bridge", "cratewatch_bridge", "seekdrop_bridge")
 
 
 def migrate_legacy_plugin() -> bool:

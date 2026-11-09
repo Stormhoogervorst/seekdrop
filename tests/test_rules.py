@@ -3,10 +3,10 @@ import asyncio
 import json
 import sqlite3
 
-from seekdrop import rules as R
-from seekdrop.db import Database
-from seekdrop.soundcloud import TrackInfo, TrackStub
-from seekdrop.titles import parse_title
+from seeksync import rules as R
+from seeksync.db import Database
+from seeksync.soundcloud import TrackInfo, TrackStub
+from seeksync.titles import parse_title
 
 from test_engine import setup  # noqa: F401  (fixture)
 
@@ -216,7 +216,7 @@ class Req:
 
 
 def test_api_saves_rules_and_reports_what_changed(setup):
-    from seekdrop.server import Api
+    from seeksync.server import Api
     eng, db, sc, slsk, tmp = setup
     cid = _channel(eng, db, sc, TRACKS)
     api = Api(eng, db, token="t")

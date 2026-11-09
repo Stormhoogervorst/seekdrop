@@ -1,5 +1,5 @@
-"""Load the SeekDrop Bridge plugin into a headless Nicotine+ core (no network) and
-exercise it through SeekDrop's NicotineBridge client.
+"""Load the SeekSync Bridge plugin into a headless Nicotine+ core (no network) and
+exercise it through SeekSync's NicotineBridge client.
 
     PYTHONPATH=src:/path/to/nicotine-plus python tests/manual/nicotine_harness.py
 """
@@ -18,8 +18,8 @@ from pynicotine.core import core            # noqa: E402
 from pynicotine.events import events        # noqa: E402
 from pynicotine import slskmessages         # noqa: E402
 
-from seekdrop.config import Settings      # noqa: E402
-from seekdrop.nicotine import NicotineBridge, install_plugin, new_token  # noqa: E402
+from seeksync.config import Settings      # noqa: E402
+from seeksync.nicotine import NicotineBridge, install_plugin, new_token  # noqa: E402
 
 PORT = 47899
 token = new_token()
@@ -35,7 +35,7 @@ core.users.login_username = "nina_test"
 sent = []
 type(core).send_message_to_server = lambda self, msg: sent.append(msg)
 
-assert core.pluginhandler.enable_plugin("seekdrop_bridge"), "plugin failed to load"
+assert core.pluginhandler.enable_plugin("seeksync_bridge"), "plugin failed to load"
 
 
 def main_loop():
@@ -87,7 +87,7 @@ async def run():
     await asyncio.sleep(0.5)
     t = core.downloads.transfers.get("peer1" + results[0].filename)
     print("nicotine transfer:", t.status if t else None, t.folder_path if t else None)
-    print("seekdrop view:", bridge.transfer_info(h))
+    print("seeksync view:", bridge.transfer_info(h))
     assert t is not None and t.folder_path == os.path.join(tmp, "incoming")
 
     # pretend Nicotine+ finished it
@@ -123,7 +123,7 @@ async def run():
     await bridge.forget(h)
     await bridge.stop()
 
-    core.pluginhandler.disable_plugin("seekdrop_bridge")
+    core.pluginhandler.disable_plugin("seeksync_bridge")
     await asyncio.sleep(0.5)
     print("ALL GOOD")
 
