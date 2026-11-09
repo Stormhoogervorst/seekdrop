@@ -92,6 +92,7 @@ def setup(tmp_path, monkeypatch):
     store.settings.search_spacing = 0        # the fake clock of real time would slow every test down
     store.settings.search_max_per_5min = 10_000
     store.settings.min_free_gb = 0           # the test machine's disk is none of our business
+    store.settings.tag_files = False         # these tests download fake bytes; tagging has its own tests
     db = Database(tmp_path / "db.sqlite")
     incoming = tmp_path / "in"
     incoming.mkdir()

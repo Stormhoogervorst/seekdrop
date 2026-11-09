@@ -2,6 +2,11 @@
 
 ## 0.4.0
 
+- Tags and artwork: every finished file gets artist, title with version, genre, year, the SoundCloud
+  link and the SoundCloud cover (500 px) written in (MP3 ID3v2.3, FLAC, AIFF, M4A). BPM and key tags the
+  uploader embedded stay. Optional: convert WAV to AIFF (same audio, tags that DJ software reads), and use the
+  channel name as the label. Folder and file names now follow a template with a live example in Settings
+  (the "folder per channel" checkbox became the default template). Turn tagging off in Settings if you prefer.
 - Rules per channel and playlist (button *Rules* above the list): shortest and longest track (2 to 12
   minutes by default, was a fixed 10), remixes on or off, skip previews and clips, skip mixes and
   radio shows, words that exclude a track or are required, and reposts. A blocklist of words and

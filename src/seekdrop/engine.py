@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import errno
+import json
 import logging
 import os
 import re
@@ -23,6 +24,7 @@ from .nicotine import migrate_legacy_plugin, update_plugin_if_outdated
 from .soundcloud import SoundCloudClient, TrackStub
 from .quality import (TIER_LABELS, UPGRADE_DAYS, UPGRADE_EVERY, is_better, profile, tier_of,
                       wants_upgrade)
+from . import naming, tagging
 from . import rules as rules_mod
 from .titles import parse_title, search_queries
 
@@ -88,6 +90,21 @@ def _clear_dir(path: str) -> int:
         except OSError:
             log.debug("couldn't remove %s", full, exc_info=True)
     return n
+
+
+def _load_meta(t: dict) -> dict:
+    try:
+        meta = json.loads(t.get("sc_meta") or "{}")
+        return meta if isinstance(meta, dict) else {}
+    except ValueError:
+        return {}
+
+
+def _year(ts) -> str:
+    try:
+        return str(time.gmtime(float(ts)).tm_year) if ts else ""
+    except (TypeError, ValueError, OverflowError, OSError):
+        return ""
 
 
 def safe_filename(name: str, limit: int = 150) -> str:
@@ -430,8 +447,19 @@ class Engine:
             uploader=uploader, publisher_artist=pub, artist=p.artist, title=p.title, version=p.version,
             duration=duration, artwork=info.artwork if info else "",
             uploaded_at=info.uploaded_at if info else None,
-            state=states.SKIPPED if reason else states.WANTED, last_error=reason, skip_rule=reason)
+            state=states.SKIPPED if reason else states.WANTED, last_error=reason, skip_rule=reason,
+            sc_meta=self._sc_meta(info))
         return not reason
+
+    @staticmethod
+    def _sc_meta(info) -> str:
+        """What SoundCloud knows that goes into the tags (step 10): genre and release date."""
+        meta = {}
+        if info and info.genre:
+            meta["genre"] = info.genre
+        if info and info.released_at:
+            meta["released_at"] = info.released_at
+        return json.dumps(meta) if meta else ""
 
     # ------------------------------------------------------------------ Soulseek
     async def _search_loop(self) -> None:
@@ -757,7 +785,43 @@ class Engine:
                     self._record_peer(c.username, "fake")
                 self._quarantine(t, staged, c, why)
                 return None, why
+        staged = await asyncio.to_thread(self.finish_file, t, staged)     # step 10: AIFF, tags, cover
         return staged, ""
+
+    def finish_file(self, t: dict, path: str) -> str:
+        """Convert WAV to AIFF when asked and write the tags and the cover (roadmap step 10).
+        A problem here never keeps a good file from the user: it is published as it is, with a note.
+        Returns the (possibly new) path."""
+        s = self.settings
+        if s.wav_to_aiff and path.lower().endswith(".wav"):
+            dst = os.path.splitext(path)[0] + ".aiff"
+            try:
+                tagging.wav_to_aiff(path, dst)
+                os.remove(path)
+                path = dst
+            except tagging.NotConvertible as e:
+                self.note(f"Kept {os.path.basename(path)} as WAV ({e}).")
+            except Exception as e:
+                log.exception("WAV to AIFF failed")
+                self.note(f"Couldn't convert {os.path.basename(path)} to AIFF ({e}); kept as WAV.", "warn")
+        if s.tag_files and os.path.splitext(path)[1].lower().lstrip(".") in tagging.TAGGABLE:
+            try:
+                cover = tagging.fetch_cover(t.get("artwork") or "")
+                tagging.tag_file(path, self._tag_meta(t), cover)
+                if not cover and t.get("artwork"):
+                    self.note(f"{os.path.basename(path)}: tagged, but the cover couldn't be downloaded.", "warn")
+            except Exception as e:
+                log.exception("tagging failed")
+                self.note(f"Couldn't write tags into {os.path.basename(path)} ({e}); it is published without.", "warn")
+        return path
+
+    def _tag_meta(self, t: dict) -> tagging.TagMeta:
+        f = self._name_fields(t)
+        ch = self.db.channel(t["channel_id"])
+        label = f["channel"] if self.settings.label_from_channel and ch and ch["kind"] == "profile" else ""
+        return tagging.TagMeta(
+            artist=t["artist"], title=t["title"] + (f" ({t['version']})" if t["version"] else ""),
+            genre=f["genre"], year=f["year"], label=label, comment=t.get("url") or "")
 
     async def _stage_and_publish(self, t: dict, src: str, c: Candidate) -> tuple[Optional[str], str]:
         """incoming -> staging -> checks -> music folder. Returns (published path, "") or
@@ -795,18 +859,20 @@ class Engine:
         shutil.move(src, staged)    # incoming and staging are both in the app data: a rename
         return staged
 
+    def _name_fields(self, t: dict) -> dict:
+        """The values a file name template can use (naming.TOKENS)."""
+        ch = self.db.channel(t["channel_id"])
+        meta = _load_meta(t)
+        return {"channel": ch["name"] if ch else "Other", "artist": t["artist"], "title": t["title"],
+                "version": t["version"], "year": _year(meta.get("released_at") or t.get("uploaded_at")),
+                "genre": meta.get("genre", "")}
+
     def _finalize(self, t: dict, src: str, c: Candidate) -> str:
         s = self.settings
-        dest_dir = s.download_dir
-        if s.organize_by_channel:
-            ch = self.db.channel(t["channel_id"])
-            dest_dir = os.path.join(dest_dir, safe_filename(ch["name"] if ch else "Other"))
+        *folders, base = naming.render(s.filename_template, self._name_fields(t))
+        dest_dir = os.path.join(s.download_dir, *folders)
         os.makedirs(dest_dir, exist_ok=True)
         ext = os.path.splitext(src)[1].lower() or ("." + c.ext if c.ext else "")
-        base = t["title"] + (f" ({t['version']})" if t["version"] else "")
-        if t["artist"]:
-            base = f"{t['artist']} - {base}"
-        base = safe_filename(base)
         dest = os.path.join(dest_dir, base + ext)
         n = 2
         while os.path.exists(dest):
@@ -1005,7 +1071,8 @@ class Engine:
             return None
         if t["state"] == states.DONE:     # it was a candidate for a better copy: replace, keep the old in trash
             self._to_trash(t["file_path"], t["id"])
-        path = self._finalize(t, r["path"], Candidate(r["peer"], r["remote_file"]))
+        ready = self.finish_file(t, r["path"])            # it never got its tags: it was held back
+        path = self._finalize(t, ready, Candidate(r["peer"], r["remote_file"]))
         self.db.update_track(t["id"], state=states.DONE, file_path=path, progress=1.0, last_error="",
                              peer=r["peer"], remote_file=r["remote_file"],
                              tier=tier_of(os.path.splitext(path)[1]) or "", next_upgrade=0)

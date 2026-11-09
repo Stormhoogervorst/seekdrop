@@ -556,6 +556,7 @@ function openSettings() {
     ? "On. Every download is checked with ffmpeg before it goes to your music folder."
     : "Off: ffmpeg isn't installed, so downloads aren't checked. Install ffmpeg (on a Mac: brew install ffmpeg) and restart SeekDrop.";
   profileHelp();
+  templatePreview();
   renderBlocked();
   settingsMode();
   showError($("#set-error"), "");
@@ -582,6 +583,20 @@ $("#set-nic-install").addEventListener("click", async () => {
     settingsMode();
   } catch (e) { showError($("#set-error"), e.message); }
 });
+
+let templateTimer = null;
+function templatePreview() {
+  clearTimeout(templateTimer);
+  templateTimer = setTimeout(async () => {
+    const out = $("#set-template-example");
+    try {
+      const r = await api("POST", "/api/template/preview", { template: $("#set-template").value });
+      out.textContent = r.error || `Example: ${r.example}`;
+      out.classList.toggle("error", !!r.error);
+    } catch (e) { out.textContent = ""; }
+  }, 200);
+}
+$("#set-template").addEventListener("input", templatePreview);
 
 function closeSettings() { $("#drawer").hidden = $("#why").hidden = $("#rules").hidden = $("#scrim").hidden = true; ui.why = null; }
 

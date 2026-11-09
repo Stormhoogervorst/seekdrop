@@ -13,6 +13,7 @@ from pathlib import Path
 from aiohttp import web
 
 from . import __version__
+from . import naming
 from . import rules as rules_mod
 from .db import Database
 from .engine import Engine
@@ -87,6 +88,7 @@ class Api:
         r.add_post("/api/rejects/{id}/approve", self.approve_reject)
         r.add_post("/api/rejects/{id}/delete", self.delete_reject)
         r.add_post("/api/peers/unblock", self.unblock_peer)
+        r.add_post("/api/template/preview", self.template_preview)
         r.add_post("/api/open", self.open_path)
         r.add_post("/api/nicotine/install", self.install_nicotine)
         return app
@@ -146,10 +148,19 @@ class Api:
             except OSError as ex:
                 return web.json_response({"error": f"Can't use that folder: {ex.strerror}"}, status=400)
             data["download_dir"] = os.path.abspath(d)
+        if "filename_template" in data:
+            problem = naming.template_error(str(data["filename_template"]))
+            if problem:
+                return web.json_response({"error": problem}, status=400)
         _, changed = self.engine.store.update(data)
         if changed:
             asyncio.create_task(self.engine.apply_settings(changed))
         return web.json_response({"ok": True, "changed": sorted(changed)})
+
+    async def template_preview(self, request: web.Request):
+        template = str((await self.body(request)).get("template") or "")
+        problem = naming.template_error(template)
+        return web.json_response({"error": problem, "example": "" if problem else naming.example(template)})
 
     async def install_nicotine(self, request: web.Request):
         store = self.engine.store
@@ -276,7 +287,7 @@ class Api:
         return web.json_response({"ok": True})
 
     async def approve_reject(self, request: web.Request):
-        path = self.engine.approve_reject(int(request.match_info["id"]))
+        path = await asyncio.to_thread(self.engine.approve_reject, int(request.match_info["id"]))   # may fetch the cover
         if not path:
             return web.json_response({"error": "That file is no longer in quarantine."}, status=404)
         return web.json_response({"ok": True, "path": path})

@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS tracks (
     fix_artist TEXT NOT NULL DEFAULT '',   -- manual corrections (step 6): win over the automatic parse
     fix_title TEXT NOT NULL DEFAULT '',
     fix_version TEXT NOT NULL DEFAULT '',
+    sc_meta TEXT NOT NULL DEFAULT '',      -- JSON from SoundCloud for the tags: genre, release date (step 10)
     skip_rule TEXT NOT NULL DEFAULT '',    -- why a rule skipped it (rules.py); 'overridden' = user fetched it anyway
     created_at REAL NOT NULL,
     updated_at REAL NOT NULL
@@ -134,6 +135,8 @@ class Database:
                              ("fix_title", "TEXT NOT NULL DEFAULT ''"), ("fix_version", "TEXT NOT NULL DEFAULT ''")):
                 if col not in tcols:   # databases from before quality profiles
                     self.conn.execute(f"ALTER TABLE tracks ADD COLUMN {col} {ddl}")
+            if "sc_meta" not in tcols:   # step 10
+                self.conn.execute("ALTER TABLE tracks ADD COLUMN sc_meta TEXT NOT NULL DEFAULT ''")
             if "skip_rule" not in tcols:   # step 9: the two fixed rules of before are now rules
                 self.conn.execute("ALTER TABLE tracks ADD COLUMN skip_rule TEXT NOT NULL DEFAULT ''")
                 self.conn.execute("""UPDATE tracks SET skip_rule=last_error WHERE state='skipped'

@@ -13,6 +13,7 @@ from typing import Optional
 
 from platformdirs import user_data_dir, user_log_dir, user_music_dir
 
+from .naming import DEFAULT_TEMPLATE, FLAT_TEMPLATE, template_error
 from .politeness import MAX_MAX_SEARCHES, MIN_MAX_SEARCHES, MIN_SEARCH_SPACING
 
 APP_NAME = "SeekDrop"
@@ -110,7 +111,10 @@ class Settings:
     download_dir: str = field(default_factory=default_download_dir)
     share_dirs: list[str] = field(default_factory=list)
     share_downloads: bool = True
-    organize_by_channel: bool = True
+    filename_template: str = DEFAULT_TEMPLATE   # folders and file name of a finished track (naming.py, step 10)
+    tag_files: bool = True                  # write artist, title, genre, year, cover ... into the file
+    wav_to_aiff: bool = False               # convert WAV to AIFF (same audio, better tags in DJ software)
+    label_from_channel: bool = False        # use the channel name of a profile as the label tag
     quality_profile: str = "club"           # club | balanced | space (quality.PROFILES)
     upgrade_mode: str = "ask"               # better copy found later: "ask" | "auto" | "off"
     artist_aliases: str = ""                # one line per artist: "Name = Alias 1, Alias 2" (step 6)
@@ -159,6 +163,8 @@ class SettingsStore:
                     from .quality import profile_from_old_settings
                     raw["quality_profile"] = profile_from_old_settings(raw.get("preferred_format", "lossless"),
                                                                        int(raw.get("min_bitrate") or 320))
+                if "filename_template" not in raw and raw.get("organize_by_channel") is False:
+                    raw["filename_template"] = FLAT_TEMPLATE      # the old "no folder per channel" checkbox
                 known = {f.name for f in fields(Settings)}
                 return Settings(**{k: v for k, v in raw.items() if k in known})
             except Exception:
@@ -189,7 +195,8 @@ class SettingsStore:
                        "check_length_margin", "check_silence_seconds", "search_spacing", "search_max_per_5min",
                        "min_free_gb"):
                 value = int(value)
-            if key in ("accepted_terms", "share_downloads", "organize_by_channel", "check_updates"):
+            if key in ("accepted_terms", "share_downloads", "tag_files", "wav_to_aiff", "label_from_channel",
+                       "check_updates"):
                 value = bool(value)
             if key == "share_dirs":
                 value = [str(v).strip() for v in (value or []) if str(v).strip()]
@@ -200,6 +207,10 @@ class SettingsStore:
                 value = "\n".join(line.strip() for line in str(value or "").splitlines() if line.strip())[:5000]
             if key in ("soulseek_username", "download_dir"):
                 value = str(value).strip()
+            if key == "filename_template":
+                value = str(value or "").strip()
+                if template_error(value):
+                    continue                       # the API reports the reason before it gets here
             if key == "quality_profile" and value not in ("club", "balanced", "space"):
                 continue
             if key == "upgrade_mode" and value not in ("ask", "auto", "off"):

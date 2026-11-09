@@ -44,6 +44,8 @@ class TrackInfo:
     duration: Optional[float] = None
     artwork: str = ""
     uploaded_at: Optional[float] = None
+    genre: str = ""
+    released_at: Optional[float] = None
 
 
 def normalize_channel_url(text: str) -> str:
@@ -143,6 +145,7 @@ class SoundCloudClient:
         with self._ydl() as ydl:
             info = ydl.extract_info(url, download=False, process=False)
         artists = info.get("artists") or []
+        genres = info.get("genres") or []
         return TrackInfo(
             sc_id=str(info.get("id")),
             url=info.get("webpage_url") or url,
@@ -152,6 +155,8 @@ class SoundCloudClient:
             duration=info.get("duration"),
             artwork=_thumb(info),
             uploaded_at=info.get("timestamp"),
+            genre=str(genres[0]) if genres else "",
+            released_at=info.get("release_timestamp"),
         )
 
 

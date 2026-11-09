@@ -222,7 +222,7 @@ Na deze fase komen tracks netjes getagd binnen, downloadt de app niets wat de DJ
 
 ### Stap 10: tags, artwork en bestandsnamen
 
-**Status: bestaat niet.** Alleen de bestandsnaam `Artiest - Titel (Versie)` en een map per kanaal staan vast. Er worden geen tags of hoezen geschreven (mutagen is nog geen afhankelijkheid).
+**Status: klaar (nov 2026), op één punt na.** `tagging.py` schrijft na alle checks en vóór de publicatie (`Engine.finish_file`, ook voor upgrades en *Approve anyway*): MP3 ID3v2.3, AIFF en WAV ID3 in het bestand, FLAC Vorbis-comments plus een plaatje, M4A MP4-tags. Artiest, titel met versie ("Track (Extended Mix)"), genre, jaar (releasedatum, anders uploaddatum), de SoundCloud-link als commentaar, en optioneel het kanaal als label (`label_from_channel`, alleen voor profielen). SoundCloud geeft geen label of album, dus het album blijft leeg. Wat de uploader zelf inbedde (BPM, toonsoort) blijft staan. Hoes: SoundCloud-artwork op 500 px (alleen van `sndcdn.com`, time-out en groottegrens); een bestaande hoes van minstens 500 px blijft. Een fout bij het taggen houdt een goed bestand niet tegen. `wav_to_aiff` (standaard uit): zuiver Python, 16/24/32 bit integer-PCM, byte-voor-byte dezelfde samples (ook EXTENSIBLE-headers); float en 8 bit blijven WAV. Sjabloon `filename_template` (standaard `{channel}/{artist} - {title} ({version})`, ook `{year}` en `{genre}`) met een voorbeeld in de instellingen; het oude vinkje "map per kanaal" is omgezet. Kolom `tracks.sc_meta` (genre en releasedatum van SoundCloud); `mutagen` staat nu in `pyproject.toml` (zat al in de build via aioslsk). Echt getest: artwork van een publieke SoundCloud-track (500×500) in een MP3, FLAC en AIFF. **Nog niet getest:** een volledige download van Soulseek met tags in de muziekmap, en de bestanden in Rekordbox of Serato zelf.
 
 Doel: DJ-software toont de juiste artiest, titel, versie, label en hoes, ongeacht hoe slordig het bestand op Soulseek heette.
 
@@ -236,8 +236,8 @@ Bouwen:
 
 Klaar als:
 
-- [ ] Een getest MP3-, FLAC- en AIFF-bestand hebben na afloop de juiste tags en hoes, gecontroleerd met mutagen.
-- [ ] Een WAV wordt met de instelling aan omgezet naar AIFF zonder kwaliteitsverlies (zelfde PCM-data).
+- [x] Een getest MP3-, FLAC- en AIFF-bestand hebben na afloop de juiste tags en hoes, gecontroleerd met mutagen.
+- [x] Een WAV wordt met de instelling aan omgezet naar AIFF zonder kwaliteitsverlies (zelfde PCM-data).
 
 ### Stap 11: kijken of de DJ de track al heeft
 

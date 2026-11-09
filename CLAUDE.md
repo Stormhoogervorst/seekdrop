@@ -66,6 +66,15 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   Done tracks below target (lossy only) get `next_upgrade`; the search loop runs `_upgrade_search` with a
   free slot, downloads with `record=False` (track row untouched), and either replaces (`auto`, old file
   to `trash/`) or parks the copy in `upgrades/` for Replace/Keep (`ask`, default).
+- **Tags and names** (`tagging.py`, `naming.py`, step 10): `Engine.finish_file(t, path)` runs after the checks in
+  `_stage_and_check` (and for *Approve anyway*): optional WAV -> AIFF (`tagging.wav_to_aiff`, same PCM, pure Python),
+  then `tagging.tag_file` (ID3v2.3 for MP3/AIFF/WAV, Vorbis + picture for FLAC, MP4 for M4A) with `TagMeta` built by
+  `Engine._tag_meta`; our fields are always set or cleared, other tags (BPM, key) stay. Cover from `tracks.artwork`
+  (300 px link rewritten to t500x500, only sndcdn.com/soundcloud.com), an existing cover >= 500 px is kept. Genre and
+  release date come from SoundCloud into `tracks.sc_meta` (JSON) when a track is added. Failures never block a
+  file. `settings.filename_template` (`naming.render`, tokens channel/artist/title/version/year/genre) replaced
+  `organize_by_channel` (migrated in `SettingsStore._load`); `_finalize` uses it. Settings: `tag_files`,
+  `wav_to_aiff` (off), `label_from_channel` (off). Tests build their own MP3/FLAC/WAV bytes; ffmpeg-based ones skip.
 - **Politeness** (`politeness.py`, step 8): `SearchThrottle` (spacing + max per 5 min, used by both
   search paths via `Engine._throttle`; settings `search_spacing` >= 4 s, `search_max_per_5min`),
   `low_disk_space` (`min_free_gb`; `Engine._check_disk` pauses new downloads, `paused_reason` in the
