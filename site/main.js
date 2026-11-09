@@ -9,7 +9,7 @@
     nav_how: "Hoe het werkt", nav_features: "Functies", nav_download: "Download", nav_faq: "Vragen",
     github_short: "GitHub",
     eyebrow: "Gratis · Open source · Mac en Windows",
-    h1: "Volg SoundCloud en Spotify. <span class=\"mark\">Haal de bestanden van Soulseek.</span>",
+    h1: "Sync je SoundCloud en Spotify <span class=\"mark\">met Soulseek</span>",
     lede: "SeekDrop houdt de labels, artiesten en playlists bij die jij volgt. Komt er een nieuwe track, dan zoekt het de beste kopie op Soulseek, controleert die, zet er tags in en legt hem in je muziekmap.",
     view_github: "Bekijk op GitHub",
     meta_default: "Nieuwste versie op GitHub · GPL-3.0-licentie",
@@ -118,7 +118,7 @@
     nl: { mac: "Download voor Mac", win: "Download voor Windows", other: "Download SeekDrop",
           meta: function (v, s) { return "Versie " + v + (s ? " · " + s : "") + " · GPL-3.0-licentie"; } }
   };
-  var TITLE_NL = "SeekDrop: volg SoundCloud en Spotify, haal de bestanden van Soulseek";
+  var TITLE_NL = "SeekDrop: sync je SoundCloud en Spotify met Soulseek";
   var DESC_NL = "SeekDrop is een gratis desktopapp voor DJ's. Het volgt SoundCloud-kanalen en Spotify-playlists, vindt elke nieuwe track op Soulseek, controleert het bestand, tagt het en legt het in je muziekmap.";
 
   var state = { lang: "en", os: detectOs(), release: null };
