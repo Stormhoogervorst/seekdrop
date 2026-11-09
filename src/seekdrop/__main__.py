@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import signal
 import sys
 import time
@@ -85,8 +86,10 @@ def main(argv: list[str] | None = None) -> int:
             window = webview.create_window(APP_NAME, url, js_api=api, width=1200, height=800,
                                            min_size=(860, 560), background_color="#0f0f10")
             api.window = window
+            backend.on_quit = window.destroy          # the update button closes the app this way
             webview.start()
         else:
+            backend.on_quit = lambda: os.kill(os.getpid(), signal.SIGTERM)
             print(f"{APP_NAME} is running at {url}", flush=True)
             if not args.headless:
                 webbrowser.open(url)

@@ -360,6 +360,12 @@
 
     <h3>Updates</h3>
     <label class="check"><input type="checkbox" name="check_updates"> Tell me when a new version is out (asks GitHub twice a day)</label>
+    <div class="row-inline"><p class="hint" id="set-update-status"></p><button type="button" class="btn soft" id="set-update-check">Check now</button></div>
+    <div class="row-inline" id="set-update-found" hidden>
+      <a class="btn quiet" id="set-update-link" href="#" target="_blank" rel="noopener">Release notes</a>
+      <button type="button" class="btn primary" id="set-update-install">Install and restart</button>
+    </div>
+    <p class="hint" id="set-update-note" hidden></p>
 
     <p class="error" id="set-error" hidden></p>
     <div class="drawer-foot">

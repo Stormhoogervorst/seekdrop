@@ -95,7 +95,7 @@ function render() {
   renderActivity(s);
   renderUpdate(s);
   renderNotices(s);
-  if (!$("#drawer").hidden) { libraryStatus(); rekordboxStatus(); }
+  if (!$("#drawer").hidden) { libraryStatus(); rekordboxStatus(); updateStatus(); }
 }
 
 function renderUpdate(s) {
@@ -569,6 +569,7 @@ function openSettings() {
   profileHelp();
   libraryStatus();
   rekordboxStatus();
+  updateStatus();
   templatePreview();
   renderBlocked();
   settingsMode();
@@ -626,6 +627,51 @@ $("#set-rb-update").addEventListener("click", async () => {
 });
 $("#set-rb-show").addEventListener("click", async () => {
   try { await api("POST", "/api/open", { rekordbox: true }); } catch (e) { toast(e.message); }
+});
+
+/* ---------------- updates from GitHub ---------------- */
+let updateMsg = "";
+function updateStatus() {
+  const st = ui.state || {}, u = st.update, w = st.updating || {};
+  const busy = ["downloading", "checking", "installing", "restarting"].includes(w.stage);
+  let msg = updateMsg;
+  if (busy) {
+    const pct = w.total ? ` ${Math.min(100, Math.round(100 * w.done / w.total))}%` : "";
+    msg = { downloading: `Downloading${pct}…`, checking: "Checking the download…", installing: "Installing…",
+            restarting: "Restarting SeekDrop…" }[w.stage];
+  } else if (w.error) {
+    msg = w.error;
+  } else if (!msg) {
+    msg = u ? `Version ${u.version} is available (you have ${st.version}).`
+      : `You have ${st.version}.${w.checked_at ? ` Last checked ${ago(w.checked_at)}.` : ""}`;
+  }
+  $("#set-update-status").textContent = msg;
+  $("#set-update-check").disabled = busy;
+  const found = $("#set-update-found");
+  found.hidden = !u;
+  if (u) {
+    $("#set-update-link").href = u.url;
+    const inst = $("#set-update-install");
+    inst.hidden = !w.can_install;
+    inst.disabled = busy;
+    const note = $("#set-update-note");
+    note.hidden = !!w.can_install || !w.problem;
+    note.textContent = w.problem || "";
+  } else {
+    $("#set-update-note").hidden = true;
+  }
+}
+$("#set-update-check").addEventListener("click", async () => {
+  $("#set-update-status").textContent = "Looking on GitHub…";
+  try { updateMsg = (await api("POST", "/api/update/check")).message; } catch (e) { updateMsg = e.message; }
+  await refresh();
+  updateStatus();
+});
+$("#set-update-install").addEventListener("click", async () => {
+  updateMsg = "";
+  try { await api("POST", "/api/update/install"); } catch (e) { updateMsg = e.message; }
+  await refresh();
+  updateStatus();
 });
 
 /* ---------------- your music folders (roadmap step 11) ---------------- */

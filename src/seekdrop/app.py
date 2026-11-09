@@ -6,7 +6,7 @@ import logging
 import socket
 import threading
 from logging.handlers import RotatingFileHandler
-from typing import Optional
+from typing import Callable, Optional
 
 from aiohttp import web
 
@@ -58,6 +58,7 @@ class Backend:
         self.url = ""
         self.token = token or ""      # fixed key only for the demo/dev server; normally random
         self._updates = updates
+        self.on_quit: Optional[Callable[[], None]] = None      # set by the window: how to close the app
         self._slsk = slsk
         self._sc = sc
         self._ready = threading.Event()
@@ -106,7 +107,7 @@ class Backend:
         engine.file_checker = FileChecker(lambda: store.settings)
         engine.checks.append(engine.file_checker)
         updates = self._updates or UpdateChecker(store)
-        api = Api(engine, db, token=self.token or None, updates=updates)
+        api = Api(engine, db, token=self.token or None, updates=updates, quit_app=lambda: self.on_quit and self.on_quit())
         self.token = api.token
 
         runner = web.AppRunner(api.app(), access_log=None)

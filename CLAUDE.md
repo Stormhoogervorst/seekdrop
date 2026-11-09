@@ -112,7 +112,11 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   `set_query()` / `stop_looking()`; `tracks.custom_query` is tried before the automatic queries.
 - **Storage**: `db.py` (SQLite: `channels`, `tracks`, `rejects`, `searches`), `config.py` (settings.json, data dir, migration).
 - **UI**: `server.py` (aiohttp JSON API with a per-run key) + `ui/` (plain HTML/CSS/JS, no build),
-  shown in a pywebview window by `__main__.py`; `updates.py` checks GitHub releases.
+  shown in a pywebview window by `__main__.py`; `updates.py` checks GitHub releases (`/releases/latest`, so only published ones) and, in the macOS .app only, installs one:
+  download the `*macos*.dmg` asset (size + SHA-256 from the API), `ditto` the app next to the current one, then a shell script
+  (`SWAP_SCRIPT`) waits for the app to quit, moves the old app to `<data>/previous-versions/` (keeps 2) and `open`s the new one.
+  `Backend.on_quit` is how the route closes the app. Test it without GitHub: `SEEKDROP_RELEASE_API=<url of a release JSON>`
+  (download URLs may then be http://127.0.0.1) and `OPEN_CMD=<script>` instead of `open`. Verified end to end on a copy of the build.
 
 ## Design notes
 - Engine (`engine.py`) only uses the service interface: start/stop/status/error/connected/

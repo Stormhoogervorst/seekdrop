@@ -21,6 +21,7 @@ from .engine import Engine
 from .quality import PROFILES, TIER_LABELS, UPGRADE_DAYS
 from .nicotine import install_plugin, new_token, nicotine_plugins_dir, plugin_installed
 from .sources import ChannelError, is_playlist_url, normalize_channel_url
+from .updates import install_problem
 
 log = logging.getLogger(__name__)
 UI_DIR = Path(__file__).parent / "ui"
@@ -40,10 +41,11 @@ def open_in_file_manager(path: str) -> None:
 
 
 class Api:
-    def __init__(self, engine: Engine, db: Database, token: str | None = None, updates=None):
+    def __init__(self, engine: Engine, db: Database, token: str | None = None, updates=None, quit_app=None):
         self.engine = engine
         self.db = db
         self.updates = updates
+        self.quit_app = quit_app or (lambda: None)
         self.token = token or secrets.token_urlsafe(24)
 
     # -- helpers
@@ -91,6 +93,8 @@ class Api:
         r.add_post("/api/peers/unblock", self.unblock_peer)
         r.add_post("/api/template/preview", self.template_preview)
         r.add_post("/api/rekordbox/update", self.update_rekordbox)
+        r.add_post("/api/update/check", self.check_update)
+        r.add_post("/api/update/install", self.install_update)
         r.add_post("/api/library/scan", self.scan_library)
         r.add_get("/api/duplicates", self.duplicates)
         r.add_post("/api/open", self.open_path)
@@ -127,7 +131,8 @@ class Api:
             c["rules_summary"] = rules_mod.summary(c["rules"])
         return web.json_response({
             "version": __version__,
-            "update": (self.updates.latest if self.updates and e.settings.check_updates else None),
+            "update": getattr(self.updates, "latest", None),
+            "updating": self.update_view(),
             "settings": e.settings.public(),
             "soulseek": {"status": e.slsk.status, "error": e.slsk.error,
                          "username": getattr(e.slsk, "username", "") or e.settings.soulseek_username},
@@ -306,6 +311,30 @@ class Api:
 
     async def delete_reject(self, request: web.Request):
         self.engine.delete_reject(int(request.match_info["id"]))
+        return web.json_response({"ok": True})
+
+    def update_view(self) -> dict:
+        """What the Updates part of Settings needs: can this copy install by itself, and how far is it."""
+        u = self.updates
+        problem = install_problem()
+        asset = ((getattr(u, "latest", None) or {}).get("asset"))
+        return {"can_install": not problem and bool(asset), "problem": problem,
+                "checked_at": getattr(u, "checked_at", 0) or 0, **(getattr(u, "progress", None) or {})}
+
+    async def check_update(self, request: web.Request):
+        check = getattr(self.updates, "check_now", None)
+        if not check:
+            return web.json_response({"error": "Updates aren't available here."}, status=400)
+        return web.json_response(await check())
+
+    async def install_update(self, request: web.Request):
+        u = self.updates
+        if not getattr(u, "start_install", None):
+            return web.json_response({"error": "Updates aren't available here."}, status=400)
+        try:
+            u.start_install(self.quit_app)
+        except RuntimeError as ex:
+            return web.json_response({"error": str(ex)}, status=400)
         return web.json_response({"ok": True})
 
     async def update_rekordbox(self, request: web.Request):

@@ -50,7 +50,13 @@ class IdleSC:
 
 class DemoUpdates:
     """Pretend a newer release exists, so the update button shows."""
-    latest = {"version": "9.9.9", "url": "https://github.com/Stormhoogervorst/seekdrop/releases"}
+    latest = {"version": "9.9.9", "url": "https://github.com/Stormhoogervorst/seekdrop/releases", "asset": None}
+    progress = {"stage": "", "done": 0, "total": 0, "error": ""}
+    checked_at = 0
+    async def check_now(self):
+        import time
+        self.checked_at = time.time()
+        return {"status": "update", "version": "9.9.9", "message": "Version 9.9.9 is available (you have 0.5.0)."}
     def start(self): pass
     async def stop(self): pass
 
