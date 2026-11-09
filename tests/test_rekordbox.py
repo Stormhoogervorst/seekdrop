@@ -24,7 +24,7 @@ def mk_flac(path):
 
 def track(i, path, **kw):
     base = dict(track_id=i, path=str(path), name=f"Title {i}", artist="Artist", size=1000, seconds=300,
-                kind="FLAC File", added=1767225600.0)
+                kind="FLAC File", added=1767268800.0)
     base.update(kw)
     return rb.Track(**base)
 

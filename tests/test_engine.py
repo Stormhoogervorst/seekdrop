@@ -278,6 +278,11 @@ def test_leftover_transfers_are_tidied_up_after_restart(setup):
 
     slsk.lookup, slsk.cancel = lookup, cancel
 
+    async def idle():
+        await asyncio.Event().wait()
+    # Only the start-up recovery is under test: the loops that search, scan and write files must not run along.
+    eng._search_loop = eng._poll_loop = eng.scan_library = eng.write_rekordbox = idle
+
     async def scenario():
         await eng.start()          # what a restart does
         await eng._recover_stale()

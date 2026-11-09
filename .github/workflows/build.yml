@@ -16,7 +16,17 @@ jobs:
         with: { python-version: "3.12" }
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg   # for the file-check tests
       - run: pip install -e ".[dev]"
-      - run: pytest -q
+      - name: pytest
+        shell: bash
+        run: |
+          pytest -q -rf --tb=short 2>&1 | tee pytest.out
+          code=${PIPESTATUS[0]}
+          if [ "$code" -ne 0 ]; then
+            # The log needs a login to read; an annotation on the run does not.
+            msg=$(tail -n 80 pytest.out | sed -e 's/%/%25/g' -e 's/\r//g' -e ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=pytest failed::$msg"
+          fi
+          exit $code
 
   windows:
     needs: test
