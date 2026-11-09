@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.1
+
+- Fixed: in the downloaded app, *Check now* said "Can't reach GitHub" although the internet worked. The app didn't
+  trust any HTTPS certificates on other computers than the one it was built on. That also stopped Spotify playlists
+  and the artwork in the tags from working. The app now carries its own certificates.
+- Because of this, the update button of version 0.6.0 can't find 0.6.1: download this version yourself once.
+
 ## 0.6.0
 
 - The app is now called **SeekSync** (it was SeekDrop). Your settings, channels and history are taken over from the
