@@ -1,4 +1,4 @@
-/* SeekSync website: EN/NL switch and download buttons that point at the newest GitHub release. */
+/* SeekSync website, home page: download buttons that point at the newest GitHub release, and the Dutch text. */
 (function () {
   "use strict";
   var REPO = "Stormhoogervorst/seeksync";
@@ -123,39 +123,12 @@
 
   var state = { lang: "en", os: detectOs(), release: null };
   var doc = document;
-  var els = [].slice.call(doc.querySelectorAll("[data-i18n]"));
-  var alts = [].slice.call(doc.querySelectorAll("[data-i18n-alt]"));
-  els.forEach(function (el) { el._en = el.innerHTML; });
-  alts.forEach(function (el) { el._en = el.getAttribute("alt"); });
-  var enTitle = doc.title;
-  var descEl = doc.querySelector('meta[name="description"]');
-  var enDesc = descEl ? descEl.getAttribute("content") : "";
 
   function detectOs() {
     var ua = navigator.userAgent || "";
     if (/Windows/i.test(ua)) return "win";
     if (/Macintosh|Mac OS X/i.test(ua) && !/iPhone|iPad|iPod/i.test(ua)) return "mac";
     return "other";
-  }
-  function store(key, value) { try { if (value === undefined) return localStorage.getItem(key); localStorage.setItem(key, value); } catch (e) { return null; } }
-
-  function setLang(lang) {
-    state.lang = lang;
-    els.forEach(function (el) {
-      var key = el.getAttribute("data-i18n");
-      el.innerHTML = lang === "nl" && NL[key] !== undefined ? NL[key] : el._en;
-    });
-    alts.forEach(function (el) {
-      var key = el.getAttribute("data-i18n-alt");
-      el.setAttribute("alt", lang === "nl" && NL[key] !== undefined ? NL[key] : el._en);
-    });
-    doc.documentElement.lang = lang;
-    doc.title = lang === "nl" ? TITLE_NL : enTitle;
-    if (descEl) descEl.setAttribute("content", lang === "nl" ? DESC_NL : enDesc);
-    [].forEach.call(doc.querySelectorAll(".lang button"), function (b) {
-      b.setAttribute("aria-pressed", String(b.getAttribute("data-lang") === lang));
-    });
-    renderDownloads();
   }
 
   function renderDownloads() {
@@ -195,17 +168,9 @@
       .catch(function () { /* offline or rate limited: the buttons keep pointing at the releases page */ });
   }
 
-  [].forEach.call(doc.querySelectorAll(".lang button"), function (b) {
-    b.addEventListener("click", function () {
-      var l = b.getAttribute("data-lang");
-      store("lang", l);
-      setLang(l);
-    });
+  SeekSyncI18n.init({
+    nl: NL, titleNl: TITLE_NL, descNl: DESC_NL,
+    onChange: function (lang) { state.lang = lang; renderDownloads(); }
   });
-
-  var wanted = null;
-  try { wanted = new URLSearchParams(location.search).get("lang"); } catch (e) { wanted = null; }
-  wanted = wanted || store("lang") || ((navigator.language || "").toLowerCase().indexOf("nl") === 0 ? "nl" : "en");
-  setLang(wanted === "nl" ? "nl" : "en");
   loadRelease();
 })();
