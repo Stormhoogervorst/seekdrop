@@ -257,9 +257,9 @@ sec("list", "The track list", "De tracklijst",
 sec("why", "When a track isn't found", "Als een track niet gevonden wordt",
     P("Click <strong>Why not?</strong> on a track that wasn't found. SeekSync doesn't hide its reasoning:",
       "Klik op <strong>Why not?</strong> bij een track die niet gevonden is. SeekSync verbergt zijn redenering niet:"),
-    FIG("img/app-why.png", "The Why not panel: the reason, what was searched for, the three closest files with the reason each was rejected, and fields to correct the track.",
+    FIG("app-why.png", "The Why not panel: the reason, what was searched for, the three closest files with the reason each was rejected, and fields to correct the track.",
         "Het paneel Why not?: de reden, waarop gezocht is, de drie dichtstbijzijnde bestanden met de reden van afwijzing, en velden om de track te corrigeren.",
-        "The Why not? panel.", "Het paneel Why not?.").replace('src="img/img/', 'src="img/'),
+        "The Why not? panel.", "Het paneel Why not?."),
     UL([
         ("<strong>The summary</strong> in one line, such as <em>3 results, none matched: closest was 192 kbps, under your minimum (MP3 320)</em>.",
          "<strong>De samenvatting</strong> in één regel, zoals <em>3 results, none matched: closest was 192 kbps, under your minimum (MP3 320)</em>."),
@@ -372,8 +372,8 @@ sec("settings", "Settings, one by one", "De instellingen, één voor één",
     FIG("guide/s-etiquette.png", "Settings, Soulseek etiquette: wait between searches, searches per five minutes, and the disk space at which downloads pause.",
         "Instellingen, Soulseek etiquette: wachttijd tussen zoekopdrachten, zoekopdrachten per vijf minuten en de schijfruimte waaronder downloads pauzeren.",
         "Settings, Soulseek etiquette.", "Settings, Soulseek etiquette.", narrow=True),
-    P("Soulseek is run by volunteers. Searching slowly and not filling your disk keeps you from being blocked. You can only make these settings slower than the minimum, never faster.",
-      "Soulseek wordt door vrijwilligers gedraaid. Langzaam zoeken en je schijf niet vol laten lopen voorkomt dat je geblokkeerd wordt. Je kunt deze instellingen alleen trager maken dan het minimum, nooit sneller."),
+    P("Soulseek is run by volunteers. Searching slowly and not filling your disk keeps you from being blocked. The choices are limited on purpose: the wait between searches can never go below a few seconds.",
+      "Soulseek wordt door vrijwilligers gedraaid. Langzaam zoeken en je schijf niet vol laten lopen voorkomt dat je geblokkeerd wordt. De keuzes zijn met opzet beperkt: de wachttijd tussen zoekopdrachten kan nooit onder een paar seconden komen."),
     DL([
         ("Wait between searches", "Wait between searches", "8 seconds (default), 12, 20 or 30.", "8 seconden (standaard), 12, 20 of 30."),
         ("At most, per 5 minutes", "At most, per 5 minutes", "10, 20 (default), 30 or 40 searches.", "10, 20 (standaard), 30 of 40 zoekopdrachten."),
@@ -532,7 +532,7 @@ HEAD = """<!doctype html>
       <a href="index.html#how" data-keep-lang data-i18n="{n_how}">How it works</a>
       <a href="index.html#features" data-keep-lang data-i18n="{n_feat}">Features</a>
       <a href="index.html#download" data-keep-lang data-i18n="{n_dl}">Download</a>
-      <a href="guide" data-keep-lang aria-current="page" data-i18n="{n_guide}">Guide</a>
+      <a href="guide.html" data-keep-lang aria-current="page" data-i18n="{n_guide}">Guide</a>
     </nav>
     <div class="nav-actions">
       <div class="lang" role="group" aria-label="Language">

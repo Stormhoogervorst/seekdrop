@@ -6,7 +6,9 @@
 
   var NL = {
     skip: "Naar de inhoud",
-    nav_how: "Hoe het werkt", nav_features: "Functies", nav_download: "Download", nav_faq: "Vragen",
+    nav_how: "Hoe het werkt", nav_features: "Functies", nav_download: "Download", nav_guide: "Handleiding", nav_faq: "Vragen",
+    hero_guide: "Nieuw hier? Lees de stap-voor-stap handleiding",
+    dl_guide: "Lees de volledige handleiding",
     github_short: "GitHub",
     eyebrow: "Gratis · Open source · Mac en Windows",
     h1: "Sync je SoundCloud en Spotify <span class=\"mark\">met Soulseek</span>",

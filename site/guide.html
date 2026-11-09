@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SeekSync guide: from install to your first tracks</title>
+  <meta name="description" content="A step-by-step guide to SeekSync: install, connect to Soulseek, add SoundCloud channels and Spotify playlists, read the track list, set the rules and settings, and use Rekordbox.">
+  <meta name="theme-color" content="#E0E0E0">
+  <meta property="og:title" content="SeekSync guide">
+  <meta property="og:description" content="From install to your first tracks, step by step, with screenshots.">
+  <meta property="og:type" content="article">
+  <link rel="icon" href="img/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="guide-page">
+<a class="skip" href="#main" data-i18n="g268">Skip to content</a>
+
+<header class="nav">
+  <div class="wrap nav-row">
+    <a class="brand" href="index.html" data-keep-lang aria-label="SeekSync">
+      <img src="img/logo.svg" alt="" width="36" height="36"><span>SeekSync</span>
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="index.html#how" data-keep-lang data-i18n="g269">How it works</a>
+      <a href="index.html#features" data-keep-lang data-i18n="g270">Features</a>
+      <a href="index.html#download" data-keep-lang data-i18n="g271">Download</a>
+      <a href="guide.html" data-keep-lang aria-current="page" data-i18n="g272">Guide</a>
+    </nav>
+    <div class="nav-actions">
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang="nl" aria-pressed="false">NL</button>
+      </div>
+      <a class="btn dark small" href="https://github.com/Stormhoogervorst/seeksync">GitHub</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <section class="guide-hero">
+    <div class="wrap">
+      <p class="eyebrow" data-i18n="g273">Guide</p>
+      <h1 data-i18n="g274">From install to your first tracks</h1>
+      <p class="lede" data-i18n="g275">This guide takes you through SeekSync from start to finish: installing it, connecting to Soulseek, adding channels, reading the list and every setting. The screenshots are from the app with made-up example data.</p>
+    </div>
+  </section>
+
+  <div class="wrap guide-layout">
+    <nav class="toc" aria-label="Contents">
+      <details open>
+        <summary data-i18n="g276">Contents</summary>
+        <ol>
+          <li><a href="#need" data-i18n="g283">What you need</a></li>
+          <li><a href="#install" data-i18n="g284">Install</a></li>
+          <li><a href="#first" data-i18n="g285">First start</a></li>
+          <li><a href="#connect" data-i18n="g286">Connect to Soulseek</a></li>
+          <li><a href="#add" data-i18n="g287">Add channels and playlists</a></li>
+          <li><a href="#list" data-i18n="g288">The track list</a></li>
+          <li><a href="#why" data-i18n="g289">When a track isn't found</a></li>
+          <li><a href="#rules" data-i18n="g290">Rules per channel</a></li>
+          <li><a href="#settings" data-i18n="g291">Settings, one by one</a></li>
+          <li><a href="#collection" data-i18n="g292">Your collection and duplicates</a></li>
+          <li><a href="#quarantine" data-i18n="g293">Quarantine</a></li>
+          <li><a href="#rekordbox" data-i18n="g294">Rekordbox</a></li>
+          <li><a href="#updating" data-i18n="g295">Updating</a></li>
+          <li><a href="#help" data-i18n="g296">Troubleshooting</a></li>
+          <li><a href="#data" data-i18n="g297">Your data and privacy</a></li>
+        </ol>
+      </details>
+    </nav>
+    <article class="doc">
+      <section class="doc-sec" id="need">
+        <h2><span class="n">1</span><span data-i18n="g283">What you need</span></h2>
+        <ul><li data-i18n="g1"><strong>A Mac or a Windows PC.</strong> Mac: macOS 11 or newer on Apple Silicon (M1 and later). Windows: 10 or 11.</li><li data-i18n="g2"><strong>A way into Soulseek.</strong> Either Nicotine+ (if you already use it) or a free Soulseek account that SeekSync logs in with by itself. You don't need the Soulseek app.</li><li data-i18n="g3"><strong>Free disk space.</strong> SeekSync pauses downloads when less than 5 GB is free (you can change that).</li><li data-i18n="g4"><strong>Optional: ffmpeg.</strong> It switches on the file checks. On a Mac: <code>brew install ffmpeg</code>. Without it, files are not checked.</li></ul>
+        <aside class="note warn"><strong><span data-i18n="g5">Good to know</span></strong><p data-i18n="g6">SeekSync only <em>reads</em> SoundCloud and Spotify: titles, artists, lengths and artwork. It never downloads audio from them. The audio comes from Soulseek, where people share their own music folders. Only download music you have the right to have, such as free downloads, promos sent to you, or tracks you bought elsewhere. You are responsible for what you download and share.</p></aside>
+      </section>
+      <section class="doc-sec" id="install">
+        <h2><span class="n">2</span><span data-i18n="g284">Install</span></h2>
+        <h3 data-i18n="g7">On a Mac</h3>
+        <ol><li data-i18n="g8">Download the <code>.dmg</code> from the <a href="index.html#download" data-keep-lang>download section</a> or the <a href="https://github.com/Stormhoogervorst/seeksync/releases/latest">Releases page</a>.</li><li data-i18n="g9">Open the <code>.dmg</code> and drag <strong>SeekSync</strong> to Applications.</li><li data-i18n="g10">Open SeekSync. If macOS says it can't check the app for malicious software, open <strong>System Settings, Privacy &amp; Security</strong>, scroll down and click <strong>Open Anyway</strong> next to SeekSync. You only need to do this once.</li></ol>
+        <h3 data-i18n="g11">On Windows</h3>
+        <ol><li data-i18n="g12">Download the installer (<code>SeekSync-x.y.z-windows-setup.exe</code>) and run it.</li><li data-i18n="g13">Windows may show a SmartScreen warning. Click <strong>More info</strong>, then <strong>Run anyway</strong>.</li><li data-i18n="g14">Choose whether to add a desktop shortcut and whether SeekSync should start when you log in.</li></ol>
+        <aside class="note tip"><strong><span data-i18n="g15">Tip</span></strong><p data-i18n="g16">The warnings appear because the app isn't signed with a paid developer certificate yet. The code is open source, and you can read it on GitHub.</p></aside>
+      </section>
+      <section class="doc-sec" id="first">
+        <h2><span class="n">3</span><span data-i18n="g285">First start</span></h2>
+        <p data-i18n="g17">The first time you open SeekSync you see one screen with three steps. When you are done, click <strong>Start watching</strong>.</p>
+        <figure class="fig narrow"><img src="img/guide/setup.png" width="700" height="1193" loading="lazy" alt="The SeekSync first-run screen with three steps: before you start, connect to Soulseek, and where tracks go." data-i18n-alt="g18"><figcaption data-i18n="g19">The first-run screen.</figcaption></figure>
+        <ol><li data-i18n="g20"><strong>Before you start.</strong> Tick the box to say you understand that you decide what you download and share.</li><li data-i18n="g21"><strong>Connect to Soulseek.</strong> Choose <em>Through Nicotine+</em> or <em>With its own Soulseek account</em>. Both are explained in the next section.</li><li data-i18n="g22"><strong>Where tracks go.</strong> Pick the download folder (by default a folder called SeekSync in your Music folder). The box <em>Share this folder on Soulseek</em> is on by default: many people on Soulseek only let you download if you share something too. Sharing means others can download the files in that folder from you. Untick it if you don't want that.</li></ol>
+      </section>
+      <section class="doc-sec" id="connect">
+        <h2><span class="n">4</span><span data-i18n="g286">Connect to Soulseek</span></h2>
+        <p data-i18n="g23">You can change this at any time under <strong>Settings, Soulseek, Connect</strong>.</p>
+        <h3 data-i18n="g24">Option A: through Nicotine+</h3>
+        <p data-i18n="g25">Best if you already use Nicotine+: SeekSync uses your account and your shared folders. This is also the most thoroughly tested route.</p>
+        <figure class="fig narrow"><img src="img/guide/s-soulseek-nicotine.png" width="520" height="220" loading="lazy" alt="Settings, Soulseek section, with Through Nicotine+ selected and the button Add plugin to Nicotine+." data-i18n-alt="g26"><figcaption data-i18n="g27">Settings, Soulseek: Through Nicotine+.</figcaption></figure>
+        <ol><li data-i18n="g28">Install Nicotine+ and log in to Soulseek there.</li><li data-i18n="g29">In SeekSync click <strong>Add plugin to Nicotine+</strong>. This copies a small plugin into Nicotine+. It only listens on your own computer and only accepts SeekSync's key.</li><li data-i18n="g30">In Nicotine+ open <strong>Preferences, Plugins</strong> and switch on <strong>SeekSync Bridge</strong>. If it isn't in the list, close Preferences and open it again, or restart Nicotine+.</li><li data-i18n="g31">Keep Nicotine+ open while SeekSync works. Searches don't create tabs or history in Nicotine+, and downloads show up in its Downloads tab.</li></ol>
+        <aside class="note warn"><strong><span data-i18n="g32">Good to know</span></strong><p data-i18n="g33">After an update SeekSync may tell you the plugin was updated. Then turn SeekSync Bridge off and on once in Nicotine+. Sharing is set up in Nicotine+, not in SeekSync.</p></aside>
+        <h3 data-i18n="g34">Option B: with its own account</h3>
+        <figure class="fig narrow"><img src="img/guide/s-soulseek-builtin.png" width="520" height="298" loading="lazy" alt="Settings, Soulseek section, with With its own Soulseek account selected: username, password and listening port." data-i18n-alt="g35"><figcaption data-i18n="g36">Settings, Soulseek: its own account.</figcaption></figure>
+        <dl class="fields"><dt data-i18n="g37">Username and password</dt><dd data-i18n="g38">Use a separate account just for SeekSync. A name that doesn't exist yet is created automatically the first time you log in. If you log in with the same account in another Soulseek app, one of the two gets disconnected. The password field shows <em>Unchanged</em> when one is saved.</dd><dt data-i18n="g39">Listening port</dt><dd data-i18n="g40">The port other users connect to for transfers (default 60000). Leave it as it is unless something else uses it. Where your router allows it, SeekSync opens the port by itself.</dd></dl>
+      </section>
+      <section class="doc-sec" id="add">
+        <h2><span class="n">5</span><span data-i18n="g287">Add channels and playlists</span></h2>
+        <p data-i18n="g41">Paste a link into the field at the top left, under <em>Add a channel or playlist</em>. SeekSync understands:</p>
+        <ul><li data-i18n="g42"><strong>A SoundCloud profile</strong>: a label, an artist, a promo or repost channel. Paste <code>soundcloud.com/name</code> or just the name.</li><li data-i18n="g43"><strong>A SoundCloud playlist</strong> (<code>soundcloud.com/name/sets/…</code>). Private playlist links that end in <code>/s-xxxx</code> work too.</li><li data-i18n="g44"><strong>A public Spotify playlist</strong>. Spotify only shows the first 100 tracks of a playlist, and private playlists or Liked Songs can't be read.</li></ul>
+        <p data-i18n="g45">Short links (<code>on.soundcloud.com</code>, <code>spotify.link</code>), single tracks and albums are not supported: open the page and copy the full link of the profile or playlist.</p>
+        <figure class="fig narrow"><img src="img/guide/add-soundcloud.png" width="300" height="281" loading="lazy" alt="The add form with a SoundCloud profile pasted in: the choice to also get the latest tracks, the Include reposts box and the Add channel button." data-i18n-alt="g46"><figcaption data-i18n="g47">A SoundCloud profile.</figcaption></figure>
+        <dl class="fields"><dt data-i18n="g48">Also get the latest</dt><dd data-i18n="g49">For a profile: by default only <em>new</em> uploads from now on are fetched. Choose 5, 10 or 25 to also fetch that many of the most recent tracks.</dd><dt data-i18n="g50">Include reposts</dt><dd data-i18n="g51">Also follow what the profile reposts, not only what it uploads.</dd></dl>
+        <figure class="fig narrow"><img src="img/guide/add-spotify.png" width="300" height="292" loading="lazy" alt="The add form with a Spotify playlist link pasted in and a note that the playlist must be public." data-i18n-alt="g52"><figcaption data-i18n="g53">A Spotify playlist.</figcaption></figure>
+        <p data-i18n="g54">For a <strong>playlist</strong> every track in it is wanted, in the order of the playlist, and tracks added to the playlist later are fetched too. SeekSync checks every channel once an hour (change this under Settings, Schedule).</p>
+        <h3 data-i18n="g55">The top bar and the sidebar</h3>
+        <figure class="fig"><img src="img/guide/topbar.png" width="900" height="69" loading="lazy" alt="The top bar: a status line, and the buttons Check now, Open folder and Settings." data-i18n-alt="g56"><figcaption data-i18n="g57">The top bar.</figcaption></figure>
+        <ul><li data-i18n="g58">The <strong>status line</strong> says what SeekSync is doing, for example <em>Downloading 1</em>, how many tracks wait to be searched or are not found yet, when the next check is, and how you are connected.</li><li data-i18n="g59"><strong>Check now</strong> looks at all your channels right away. <strong>Open folder</strong> opens your download folder. The gear opens <strong>Settings</strong>. A yellow <em>Get version x</em> button appears when a new version is out.</li><li data-i18n="g60">The <strong>sidebar</strong> lists your channels with when they were last checked and how many tracks are in progress. A red line under a channel is an error, such as <em>SoundCloud is blocking requests right now</em>; it usually clears by itself, so try again in a few minutes. <strong>All channels</strong> shows everything together.</li><li data-i18n="g61"><strong>Activity</strong> at the bottom left opens a log of what just happened.</li></ul>
+        <figure class="fig narrow"><img src="img/guide/activity.png" width="300" height="900" loading="lazy" alt="The sidebar with the Activity log open, listing recent events such as downloads and checks." data-i18n-alt="g62"><figcaption data-i18n="g63">The Activity log.</figcaption></figure>
+      </section>
+      <section class="doc-sec" id="list">
+        <h2><span class="n">6</span><span data-i18n="g288">The track list</span></h2>
+        <p data-i18n="g64">Every track SeekSync wants shows up in the list with a status. The tabs above the list filter it: <em>All, In progress, Downloaded, In collection, Not found yet, Skipped, Quarantine, Duplicates</em>.</p>
+        <figure class="fig"><img src="img/guide/list.png" width="900" height="649" loading="lazy" alt="The track list with statuses such as Downloading 62 percent, Searching Soulseek, Better copy found, Downloaded and Already in your collection." data-i18n-alt="g65"><figcaption data-i18n="g66">The track list.</figcaption></figure>
+        <div class="tablewrap"><table class="t"><thead><tr><th data-i18n="g67">Status</th><th data-i18n="g68">What it means</th></tr></thead><tbody><tr><td data-i18n="g69">In line to search</td><td data-i18n="g70">The track is waiting its turn. Searches are spaced out on purpose.</td></tr><tr><td data-i18n="g71">Searching Soulseek</td><td data-i18n="g72">SeekSync is searching right now and scoring the results.</td></tr><tr><td data-i18n="g73">Waiting for peer</td><td data-i18n="g74">A copy was chosen but the other user has a queue. It shows your place in line. After 45 minutes SeekSync tries another user.</td></tr><tr><td data-i18n="g75">Downloading 62%</td><td data-i18n="g76">The file is coming in, with the name of the user it comes from.</td></tr><tr><td data-i18n="g77">Not found yet</td><td data-i18n="g78">Nothing good was found. SeekSync tries again after 1, 3, 6 and 12 hours, then daily, until the time set under Settings, Schedule (30 days by default). The reason is shown, for example <em>3 results, none matched</em>.</td></tr><tr><td data-i18n="g79">Downloaded</td><td data-i18n="g80">Done. It shows the quality (such as FLAC 16-bit or MP3 320), where the audio stops (such as 21 kHz) and the file name. <em>Looking for better until …</em> means SeekSync still searches for a better copy.</td></tr><tr><td data-i18n="g81">Better copy found</td><td data-i18n="g82">A better file than the one you have turned up. You choose: <em>Replace</em> or <em>Keep</em>.</td></tr><tr><td data-i18n="g83">Already in your collection</td><td data-i18n="g84">You already own this track (see <a href="#collection">Your collection</a>), so it isn't downloaded again.</td></tr><tr><td data-i18n="g85">Skipped</td><td data-i18n="g86">Your rules (or the blocklist) said no. The reason is shown, and you can still get it with <em>Get it</em>.</td></tr><tr><td data-i18n="g87">Stopped looking</td><td data-i18n="g88">The time ran out, or you pressed Stop looking. <em>Search now</em> starts again.</td></tr></tbody></table></div>
+        <h3 data-i18n="g89">The buttons on a row</h3>
+        <dl class="fields"><dt data-i18n="g90">Search now</dt><dd data-i18n="g91">Search again right away, without waiting for the next try.</dd><dt data-i18n="g92">Why not?</dt><dd data-i18n="g93">Shows what was searched and why files were rejected. See the next section.</dd><dt data-i18n="g94">Skip</dt><dd data-i18n="g95">Stop looking for this track.</dd><dt data-i18n="g96">Show file</dt><dd data-i18n="g97">Shows the finished file in Finder or Explorer.</dd><dt data-i18n="g98">Replace / Keep</dt><dd data-i18n="g99">For a better copy: replace your file (the old one goes to SeekSync's trash for 30 days) or keep what you have.</dd><dt data-i18n="g100">Get it / Get it anyway</dt><dd data-i18n="g101">Fetch a track that was skipped by a rule, or that you already own.</dd></dl>
+      </section>
+      <section class="doc-sec" id="why">
+        <h2><span class="n">7</span><span data-i18n="g289">When a track isn't found</span></h2>
+        <p data-i18n="g102">Click <strong>Why not?</strong> on a track that wasn't found. SeekSync doesn't hide its reasoning:</p>
+        <figure class="fig"><img src="img/app-why.png" width="1200" height="750" loading="lazy" alt="The Why not panel: the reason, what was searched for, the three closest files with the reason each was rejected, and fields to correct the track." data-i18n-alt="g103"><figcaption data-i18n="g104">The Why not? panel.</figcaption></figure>
+        <ul><li data-i18n="g105"><strong>The summary</strong> in one line, such as <em>3 results, none matched: closest was 192 kbps, under your minimum (MP3 320)</em>.</li><li data-i18n="g106"><strong>Searched for</strong>: the search terms and how many results each gave.</li><li data-i18n="g107"><strong>Closest files</strong>: the nearest candidates with the reason each was rejected (too short, a radio edit, another remix, too low a quality). <strong>Download this anyway</strong> fetches one of them. It still goes through the file checks.</li><li data-i18n="g108"><strong>Correct this track</strong>: if SeekSync misread the artist, title or version, fix it here. Your correction wins over the automatic reading.</li><li data-i18n="g109"><strong>Search with another term</strong> is tried before the automatic searches from then on. <strong>Stop looking</strong> gives up on the track.</li></ul>
+        <p data-i18n="g110">SeekSync is strict on purpose: an original is never replaced by a remix, and a radio edit, dub, VIP or someone else's remix is never taken for the version you want. Original and Extended go together.</p>
+      </section>
+      <section class="doc-sec" id="rules">
+        <h2><span class="n">8</span><span data-i18n="g290">Rules per channel</span></h2>
+        <p data-i18n="g111">Click a channel in the sidebar. Above its tracks you see a bar with the link and four buttons.</p>
+        <figure class="fig"><img src="img/guide/channel-bar.png" width="900" height="317" loading="lazy" alt="A playlist opened: the channel bar with the link and the buttons Check now, Pause, Rules and Remove playlist." data-i18n-alt="g112"><figcaption data-i18n="g113">The channel bar.</figcaption></figure>
+        <ul><li data-i18n="g114"><strong>Check now</strong>: check just this channel.</li><li data-i18n="g115"><strong>Pause</strong>: stop following it for a while.</li><li data-i18n="g116"><strong>Rules</strong>: what gets fetched from this channel (below).</li><li data-i18n="g117"><strong>Remove</strong>: stop following it. Files you already have stay where they are.</li></ul>
+        <figure class="fig narrow"><img src="img/guide/rules.png" width="520" height="603" loading="lazy" alt="The Rules panel: shortest and longest track, switches for remixes, previews, mixes and reposts, and lists of words to exclude or require." data-i18n-alt="g118"><figcaption data-i18n="g119">The Rules panel.</figcaption></figure>
+        <dl class="fields"><dt data-i18n="g120">Shortest / longest track</dt><dd data-i18n="g121">By default 2 to 12 minutes. Enter 0 as the longest for no limit. A label channel and a mix channel need different numbers.</dd><dt data-i18n="g122">Fetch remixes, reworks, flips and bootlegs</dt><dd data-i18n="g123">On by default. VIP, dub and edit versions are always allowed.</dd><dt data-i18n="g124">Skip previews, clips and snippets</dt><dd data-i18n="g125">On by default.</dd><dt data-i18n="g126">Skip DJ mixes, radio shows and podcasts</dt><dd data-i18n="g127">On by default. Switch it off for a channel that only posts mixes.</dd><dt data-i18n="g128">Include reposts</dt><dd data-i18n="g129">Only for profiles.</dd><dt data-i18n="g130">Skip a track when the title has one of these</dt><dd data-i18n="g131">One word or phrase per line, for example <code>live at</code> or <code>podcast</code>.</dd><dt data-i18n="g132">Only fetch tracks whose title has one of these</dt><dd data-i18n="g133">One per line. Empty means everything.</dd></dl>
+        <p data-i18n="g134">Tracks that don't pass stay in the <em>Skipped</em> tab with the rule that stopped them, so you can still get one with a click. If you change the rules, tracks that now pass come back, and tracks that haven't been searched yet and no longer pass are skipped. Downloads, tracks in progress and tracks you skipped yourself are left alone. <strong>Back to defaults</strong> resets the rules.</p>
+        <p data-i18n="g135">Rules for everything at once (blocked words and artists) live under <a href="#settings">Settings, Blocklist</a>, and they win over a channel's rules.</p>
+      </section>
+      <section class="doc-sec" id="settings">
+        <h2><span class="n">9</span><span data-i18n="g291">Settings, one by one</span></h2>
+        <p data-i18n="g136">Open Settings with the gear at the top right. Change what you like and click <strong>Save settings</strong> at the bottom. The sections follow the order of the screen.</p>
+        <h3 data-i18n="g137" id="set-soulseek">Soulseek and Files</h3>
+        <p data-i18n="g138">Soulseek is covered in <a href="#connect">Connect to Soulseek</a>. Under <em>Files</em> you set the <strong>Download folder</strong>: where finished tracks are placed. Use <em>Choose…</em> to pick it. Unfinished files are kept in a separate working area and only move to your folder once they passed every check.</p>
+        <h3 data-i18n="g139" id="set-names">Names and tags</h3>
+        <figure class="fig narrow"><img src="img/guide/s-names.png" width="520" height="317" loading="lazy" alt="Settings, Names and tags: the folder and file name template with a live example, and three checkboxes for tags, WAV to AIFF and label." data-i18n-alt="g140"><figcaption data-i18n="g141">Settings, Names and tags.</figcaption></figure>
+        <dl class="fields"><dt data-i18n="g142">Folder and file name</dt><dd data-i18n="g143">A template with these pieces: <code>{channel}</code> <code>{artist}</code> <code>{title}</code> <code>{version}</code> <code>{year}</code> <code>{genre}</code>. Use <code>/</code> for folders. The default is <code>{channel}/{artist} - {title} ({version})</code>, which gives <em>Nightshift Records/Mira Kova - Night Signal (Extended Mix).flac</em>. Empty brackets and dashes disappear when a field is missing. A live example is shown under the field.</dd><dt data-i18n="g144">Write tags and cover art</dt><dd data-i18n="g145">On by default. Every finished file gets artist, title with the version, genre, year, the link and a 500 px cover (MP3 ID3v2.3, FLAC, AIFF, M4A). BPM and key tags the uploader embedded stay. Spotify tracks get no cover or genre, because Spotify's page doesn't give them.</dd><dt data-i18n="g146">Convert WAV to AIFF</dt><dd data-i18n="g147">Off by default. Same audio, but DJ software reads the tags of AIFF files better than those of WAV files.</dd><dt data-i18n="g148">Use the channel name as the label tag</dt><dd data-i18n="g149">Off by default. Useful for label channels: the label tag then holds the name of the channel.</dd></dl>
+        <h3 data-i18n="g150" id="set-sharing">Sharing</h3>
+        <p data-i18n="g151">With its own account: <em>Share the download folder on Soulseek</em> and a box for <em>other shared folders</em>, one per line. Through Nicotine+: sharing is set up in Nicotine+. SeekSync warns you at the top when you share nothing, because many users block people who share nothing.</p>
+        <h3 data-i18n="g152" id="set-checks">File checks</h3>
+        <figure class="fig narrow"><img src="img/guide/s-checks.png" width="520" height="250" loading="lazy" alt="Settings, File checks: allowed length difference, longest silence at start or end, and what to do with suspect lossless files." data-i18n-alt="g153"><figcaption data-i18n="g154">Settings, File checks.</figcaption></figure>
+        <p data-i18n="g155">Needs ffmpeg (the line at the top says whether the checks are on). Every download is checked before it reaches your music folder.</p>
+        <dl class="fields"><dt data-i18n="g156">Length may differ from SoundCloud by</dt><dd data-i18n="g157">5, 10 (default), 20 or 30 seconds. An Extended version may be longer than the original upload.</dd><dt data-i18n="g158">Reject silence at start or end longer than</dt><dd data-i18n="g159">5, 10 (default), 20 or 30 seconds.</dd><dt data-i18n="g160">Lossless (or 320 kbps) that may be a converted MP3</dt><dd data-i18n="g161">SeekSync reads the spectrum of each file. A fake lossless file stops at a hard cutoff around 16 to 19 kHz. Choose <em>Keep it, but mark it as suspect</em> (default) or <em>Reject it and look for another copy</em>. A file that is clearly fake is always rejected.</dd></dl>
+        <h3 data-i18n="g162" id="set-quality">Quality</h3>
+        <figure class="fig narrow"><img src="img/guide/s-quality.png" width="520" height="294" loading="lazy" alt="Settings, Quality: the profile (Club, Balanced, Space saver) with an explanation, and what to do when a better copy turns up later." data-i18n-alt="g163"><figcaption data-i18n="g164">Settings, Quality.</figcaption></figure>
+        <div class="tablewrap"><table class="t"><thead><tr><th data-i18n="g165">Profile</th><th data-i18n="g166">What you get</th></tr></thead><tbody><tr><td data-i18n="g167">Club (default)</td><td data-i18n="g168">Lossless (FLAC 24-bit, FLAC 16-bit, WAV). MP3 320 is the minimum; SeekSync keeps looking for a lossless copy.</td></tr><tr><td data-i18n="g169">Balanced</td><td data-i18n="g170">MP3 320 or better. MP3 256 is the minimum.</td></tr><tr><td data-i18n="g171">Space saver</td><td data-i18n="g172">MP3 320 or 256; MP3 192 is the minimum. Lossless only if there is nothing else.</td></tr></tbody></table></div>
+        <p data-i18n="g173"><strong>When a better copy turns up later</strong>: if a track first arrives below your goal (say MP3 320 while you want lossless), SeekSync keeps looking for 30 days. You choose what happens when it finds one:</p>
+        <ul><li data-i18n="g174"><strong>Ask me first</strong> (default): you see <em>Better copy found</em> with Replace and Keep. This keeps your cue points safe.</li><li data-i18n="g175"><strong>Replace the file right away</strong>.</li><li data-i18n="g176"><strong>Replace right away, but ask for tracks that are in Rekordbox</strong>: see <a href="#rekordbox">Rekordbox</a>.</li><li data-i18n="g177"><strong>Don't look for better copies</strong>.</li></ul>
+        <aside class="note warn"><strong><span data-i18n="g178">Good to know</span></strong><p data-i18n="g179">Replacing an MP3 with a FLAC changes the file name, so Rekordbox or Serato lose the cue points of the old file. The old file goes to SeekSync's trash for 30 days.</p></aside>
+        <h3 data-i18n="g180" id="set-blocklist">Blocklist</h3>
+        <figure class="fig narrow"><img src="img/guide/s-blocklist.png" width="520" height="296" loading="lazy" alt="Settings, Blocklist: words that skip a track and artists that are never fetched." data-i18n-alt="g181"><figcaption data-i18n="g182">Settings, Blocklist.</figcaption></figure>
+        <p data-i18n="g183">Applies to every channel and playlist and wins over their rules. <em>Skip tracks with these words in the title</em> and <em>Never fetch these artists</em>, one per line.</p>
+        <h3 data-i18n="g184" id="set-etiquette">Soulseek etiquette</h3>
+        <figure class="fig narrow"><img src="img/guide/s-etiquette.png" width="520" height="338" loading="lazy" alt="Settings, Soulseek etiquette: wait between searches, searches per five minutes, and the disk space at which downloads pause." data-i18n-alt="g185"><figcaption data-i18n="g186">Settings, Soulseek etiquette.</figcaption></figure>
+        <p data-i18n="g187">Soulseek is run by volunteers. Searching slowly and not filling your disk keeps you from being blocked. The choices are limited on purpose: the wait between searches can never go below a few seconds.</p>
+        <dl class="fields"><dt data-i18n="g188">Wait between searches</dt><dd data-i18n="g189">8 seconds (default), 12, 20 or 30.</dd><dt data-i18n="g190">At most, per 5 minutes</dt><dd data-i18n="g191">10, 20 (default), 30 or 40 searches.</dd><dt data-i18n="g192">Pause downloads when free disk space is under</dt><dd data-i18n="g193">5 GB by default (or never). A notice appears at the top while downloads are paused, and they continue by themselves when there is room again.</dd><dt data-i18n="g194">Blocked users</dt><dd data-i18n="g195">Users who repeatedly sent fake files or failed are scored lower and, after repeated problems, blocked for 30 days. They appear in a list with an <strong>Unblock</strong> button.</dd></dl>
+        <h3 data-i18n="g196" id="set-schedule">Schedule and Artists</h3>
+        <figure class="fig narrow"><img src="img/guide/s-schedule.png" width="520" height="420" loading="lazy" alt="Settings, Schedule and Artists: how often channels are checked, how long to keep looking, parallel downloads, and artist aliases." data-i18n-alt="g197"><figcaption data-i18n="g198">Settings, Schedule and Artists.</figcaption></figure>
+        <dl class="fields"><dt data-i18n="g199">Check channels every</dt><dd data-i18n="g200">30 minutes, an hour (default), 3 hours, 6 hours or a day. SeekSync only checks while the app is open.</dd><dt data-i18n="g201">Keep looking for</dt><dd data-i18n="g202">1 week, 30 days (default), 90 days or a year. After that a track becomes <em>Stopped looking</em>.</dd><dt data-i18n="g203">Downloads at the same time</dt><dd data-i18n="g204">1, 2, 3 (default) or 5.</dd><dt data-i18n="g205">Other names of the same artist</dt><dd data-i18n="g206">For producers with several names. One line per artist, for example <code>Four Tet = Kieran Hebden, KH</code>. Tracks by that artist are also searched under the other names, and a file under any of the names counts.</dd></dl>
+        <h3 data-i18n="g207" id="set-more">Collection, Rekordbox and Updates</h3>
+        <p data-i18n="g208">These three have their own sections below: <a href="#collection">Your collection</a>, <a href="#rekordbox">Rekordbox</a> and <a href="#updating">Updating</a>.</p>
+      </section>
+      <section class="doc-sec" id="collection">
+        <h2><span class="n">10</span><span data-i18n="g292">Your collection and duplicates</span></h2>
+        <p data-i18n="g209">SeekSync can see which tracks you already own, so it doesn't download them again, even when they have a slightly different name or come from another channel.</p>
+        <figure class="fig narrow"><img src="img/guide/s-collection.png" width="520" height="268" loading="lazy" alt="Settings, Your music collection: a box for music folders, an Add folder button, a Scan now button and the number of files known." data-i18n-alt="g210"><figcaption data-i18n="g211">Settings, Your music collection.</figcaption></figure>
+        <ol><li data-i18n="g212">Open <strong>Settings, Your music collection</strong>.</li><li data-i18n="g213">Add your music folders, one per line, or use <strong>Add folder…</strong> to pick one. Subfolders are included. Your download folder always counts.</li><li data-i18n="g214">Click <strong>Save settings</strong> and then <strong>Scan now</strong>. The first scan reads every file; later scans only read what is new or changed, so they are quick. A folder on a drive that isn't connected keeps what was known about it.</li></ol>
+        <p data-i18n="g215">SeekSync <em>only reads</em> these folders. It never changes or deletes anything in them.</p>
+        <p data-i18n="g216">A track counts as already owned when the title, artist (aliases count) and version match, and the length is not very different. A remix is never mistaken for the original. Such a track gets the status <em>Already in your collection</em> and is listed under the <em>In collection</em> tab, with <em>Show file</em> and <em>Get it anyway</em>.</p>
+        <figure class="fig"><img src="img/guide/collection.png" width="900" height="649" loading="lazy" alt="The In collection tab: a track marked Already in your collection with its location and the buttons Show file and Get it anyway." data-i18n-alt="g217"><figcaption data-i18n="g218">The In collection tab.</figcaption></figure>
+        <h3 data-i18n="g219" id="dups">Duplicates</h3>
+        <p data-i18n="g220">The <strong>Duplicates</strong> tab lists files in your download folder that are the same track (same artist, title and version), with the best copy marked <em>Best</em> according to your quality profile. Nothing is deleted or moved: you decide.</p>
+        <figure class="fig"><img src="img/guide/duplicates.png" width="900" height="649" loading="lazy" alt="The Duplicates tab: two copies of one track, FLAC and MP3, with the FLAC marked Best." data-i18n-alt="g221"><figcaption data-i18n="g222">The Duplicates tab.</figcaption></figure>
+      </section>
+      <section class="doc-sec" id="quarantine">
+        <h2><span class="n">11</span><span data-i18n="g293">Quarantine</span></h2>
+        <p data-i18n="g223">When a downloaded file fails a check, it doesn't reach your music folder. It goes to <strong>Quarantine</strong> with the reason, and SeekSync looks for another copy from another user. That file and that user are not used again for this track.</p>
+        <figure class="fig"><img src="img/guide/quarantine.png" width="900" height="649" loading="lazy" alt="The Quarantine tab: two rejected files, one with 30 seconds of silence at the end and one that is not really FLAC, each with the buttons Approve anyway and Delete." data-i18n-alt="g224"><figcaption data-i18n="g225">The Quarantine tab.</figcaption></figure>
+        <p data-i18n="g226">Every download must: play all the way through, be the format its name says (no MP3 renamed to .flac), be about as long as the original, not start or end with a long silence, and not be a converted lossless file. You can <strong>Approve anyway</strong> (the file continues to your folder) or <strong>Delete</strong> it.</p>
+        <aside class="note tip"><strong><span data-i18n="g227">Tip</span></strong><p data-i18n="g228">Finished tracks show where their audio stops, such as <em>21.9 kHz</em> or <em>Suspect: stops at 20.3 kHz</em>. A real FLAC or 320 kbps MP3 goes up to about 20 kHz or higher.</p></aside>
+      </section>
+      <section class="doc-sec" id="rekordbox">
+        <h2><span class="n">12</span><span data-i18n="g294">Rekordbox</span></h2>
+        <p data-i18n="g229">SeekSync can write a Rekordbox XML file with every track it downloaded and a playlist for each channel or playlist, inside a folder called SeekSync. SeekSync only writes this one file and never touches Rekordbox' own library.</p>
+        <figure class="fig narrow"><img src="img/guide/s-rekordbox.png" width="520" height="491" loading="lazy" alt="Settings, Rekordbox: the switch to keep an XML file up to date, its location, Update now and Show file buttons, and the field for your Rekordbox collection export." data-i18n-alt="g230"><figcaption data-i18n="g231">Settings, Rekordbox.</figcaption></figure>
+        <h3 data-i18n="g232">Step by step</h3>
+        <ol><li data-i18n="g233">In SeekSync open <strong>Settings, Rekordbox</strong> and tick <em>Keep a Rekordbox XML file of the downloaded tracks up to date</em>.</li><li data-i18n="g234">The file is called <code>SeekSync for Rekordbox.xml</code> and lives in your download folder (or where you point it). It is rewritten about 30 seconds after a download. <strong>Update now</strong> writes it immediately and <strong>Show file</strong> shows it.</li><li data-i18n="g235">In Rekordbox open <strong>Preferences, Advanced, Database</strong>, tick <strong>rekordbox xml</strong> and choose that file.</li><li data-i18n="g236">In the tree open <strong>rekordbox xml</strong>, right-click a playlist and choose <strong>Import Playlist</strong>.</li></ol>
+        <h3 data-i18n="g237">Keep your cue points safe</h3>
+        <p data-i18n="g238">A better copy of a track gets a new file name, and Rekordbox sees that as a new track without your cue points. To prevent a surprise, let SeekSync read an export of your Rekordbox collection:</p>
+        <ol><li data-i18n="g239">In Rekordbox choose <strong>File, Export Collection in xml format</strong> and save the file.</li><li data-i18n="g240">In SeekSync pick that file under <strong>Your Rekordbox collection export</strong>. SeekSync only reads it. Export again now and then.</li><li data-i18n="g241">Under <strong>Quality</strong> choose <em>Replace right away, but ask for tracks that are in Rekordbox</em>. Tracks in your Rekordbox are then never replaced by themselves, and the list shows <em>in Rekordbox</em> next to them. Without the export file, SeekSync asks first for every track.</li></ol>
+        <p data-i18n="g242">Only Rekordbox is connected so far. Serato crates, M3U playlists and Traktor are not built yet, but the files and their tags work in any DJ software.</p>
+      </section>
+      <section class="doc-sec" id="updating">
+        <h2><span class="n">13</span><span data-i18n="g295">Updating</span></h2>
+        <p data-i18n="g243">SeekSync asks GitHub twice a day whether a new version is out, and tells you with a yellow <em>Get version x</em> button. You can also look right away under <strong>Settings, Updates, Check now</strong>.</p>
+        <figure class="fig narrow"><img src="img/guide/s-updates.png" width="520" height="283" loading="lazy" alt="Settings, Updates: the box to be told about new versions, a Check now button and the status line." data-i18n-alt="g244"><figcaption data-i18n="g245">Settings, Updates.</figcaption></figure>
+        <ul><li data-i18n="g246"><strong>On a Mac</strong> click <strong>Install and restart</strong>. SeekSync downloads the new version, checks it, replaces itself and starts again. The old app is kept in a folder called <code>previous-versions</code> in the app data (the last two).</li><li data-i18n="g247"><strong>On Windows</strong>, or when SeekSync can't change its own folder, use the release page: download the new installer and run it over the old one.</li><li data-i18n="g248">Your channels and settings are kept either way. Switch the notice off with the box <em>Tell me when a new version is out</em>.</li></ul>
+      </section>
+      <section class="doc-sec" id="help">
+        <h2><span class="n">14</span><span data-i18n="g296">Troubleshooting</span></h2>
+        <dl class="fields"><dt data-i18n="g249">“Can't reach Nicotine+”</dt><dd data-i18n="g250">Open Nicotine+ and check that <strong>SeekSync Bridge</strong> is switched on (Preferences, Plugins). After an update, turn the plugin off and on once.</dd><dt data-i18n="g251">A track stays at “Waiting for peer”</dt><dd data-i18n="g252">The other user has a queue. After 45 minutes SeekSync tries another user.</dd><dt data-i18n="g253">“Not found yet” for a track you can find by hand</dt><dd data-i18n="g254">Title matching is strict on purpose. Open <strong>Why not?</strong>: the closest files and their reasons tell you why. Correct the artist, title or version, or download one anyway. If it still looks wrong, open an issue on GitHub with the link and the file name you found.</dd><dt data-i18n="g255">“SoundCloud is blocking requests right now”</dt><dd data-i18n="g256">SoundCloud limits how often a program may ask. It usually clears by itself within minutes; SeekSync tries again at the next check.</dd><dt data-i18n="g257">“Downloads paused”</dt><dd data-i18n="g258">Free disk space is below the limit under Settings, Soulseek etiquette. Free some space; downloads continue by themselves.</dd><dt data-i18n="g259">“Nothing shared”</dt><dd data-i18n="g260">You are not sharing a folder, and many Soulseek users block people who share nothing. Share a folder (see <a href="#connect">Connect to Soulseek</a>).</dd><dt data-i18n="g261">Files aren't being checked</dt><dd data-i18n="g262">Install ffmpeg (on a Mac: <code>brew install ffmpeg</code>) and restart SeekSync. Settings, File checks says whether the checks are on.</dd></dl>
+        <p data-i18n="g263">Still stuck? Open an issue on <a href="https://github.com/Stormhoogervorst/seeksync/issues">GitHub</a> and attach <code>seeksync.log</code> (see below).</p>
+      </section>
+      <section class="doc-sec" id="data">
+        <h2><span class="n">15</span><span data-i18n="g297">Your data and privacy</span></h2>
+        <ul><li data-i18n="g264"><strong>Your music</strong> goes to the download folder you chose (by default <code>Music/SeekSync</code>).</li><li data-i18n="g265"><strong>Settings, database and temporary folders</strong> are in <code>~/Library/Application Support/SeekSync</code> on a Mac and <code>%LOCALAPPDATA%\SeekSync</code> on Windows.</li><li data-i18n="g266"><strong>The log</strong> is <code>seeksync.log</code>: on a Mac in <code>~/Library/Logs/SeekSync</code>, on Windows in the SeekSync folder under <code>%LOCALAPPDATA%</code>. Attach it to bug reports.</li><li data-i18n="g267"><strong>Privacy:</strong> everything stays on your computer. SeekSync talks to SoundCloud and Spotify (to read channels and playlists), to Soulseek (directly or through Nicotine+) and, twice a day, to GitHub (to see if there is a new version; you can turn that off). There is no tracking and there are no analytics.</li></ul>
+      </section>
+      <section class="doc-end">
+        <h2 data-i18n="g277">Ready?</h2>
+        <p data-i18n="g278">Download SeekSync, add your first channel and let it work.</p>
+        <p class="cta"><a class="btn primary big" href="index.html#download" data-keep-lang data-i18n="g279">Download SeekSync</a></p>
+      </section>
+    </article>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-row">
+    <a class="brand" href="index.html" data-keep-lang><img src="img/logo.svg" alt="" width="28" height="28"><span>SeekSync</span></a>
+    <p class="small" data-i18n="g280">Free and open source, GPL-3.0. Not affiliated with SoundCloud, Spotify, Soulseek, Nicotine+ or Rekordbox.</p>
+    <p class="small"><a href="https://github.com/Stormhoogervorst/seeksync">GitHub</a> · <a href="https://github.com/Stormhoogervorst/seeksync/issues" data-i18n="g281">Issues</a> · <a href="https://github.com/Stormhoogervorst/seeksync/blob/main/CHANGELOG.md" data-i18n="g282">Changelog</a></p>
+  </div>
+</footer>
+
+<script src="i18n.js"></script>
+<script src="guide.js"></script>
+</body>
+</html>
