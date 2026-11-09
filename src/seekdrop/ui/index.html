@@ -119,9 +119,11 @@
         <button role="tab" data-f="all" aria-selected="true">All</button>
         <button role="tab" data-f="active">In progress</button>
         <button role="tab" data-f="done">Downloaded</button>
+        <button role="tab" data-f="collected">In collection</button>
         <button role="tab" data-f="waiting">Not found yet</button>
         <button role="tab" data-f="skipped">Skipped</button>
         <button role="tab" data-f="quarantine">Quarantine</button>
+        <button role="tab" data-f="duplicates">Duplicates</button>
       </div>
     </div>
 
@@ -201,6 +203,10 @@
       <label class="field grow"><span>Download folder</span><input name="download_dir" id="set-dir" spellcheck="false"></label>
       <button class="btn soft" data-pick="set-dir" type="button" hidden>Choose…</button>
     </div>
+    <label class="field"><span>Music folders you already have, one per line</span>
+      <textarea name="library_dirs" rows="3" spellcheck="false" placeholder="/Users/you/Music/DJ"></textarea></label>
+    <p class="hint">A new track that is already in one of these folders, or in the download folder, isn't downloaded again. SeekDrop only reads these folders. It never changes or deletes anything in them.</p>
+    <div class="row-inline"><p class="hint" id="set-library-status"></p><button type="button" class="btn soft" id="set-scan">Scan now</button></div>
     <label class="field"><span>Folder and file name</span>
       <input name="filename_template" id="set-template" spellcheck="false" placeholder="{channel}/{artist} - {title} ({version})"></label>
     <p class="hint">You can use {channel} {artist} {title} {version} {year} {genre}. Use / for folders. Empty brackets and dashes disappear when a field is missing.</p>

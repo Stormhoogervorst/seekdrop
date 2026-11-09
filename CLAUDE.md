@@ -66,6 +66,14 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   Done tracks below target (lossy only) get `next_upgrade`; the search loop runs `_upgrade_search` with a
   free slot, downloads with `record=False` (track row untouched), and either replaces (`auto`, old file
   to `trash/`) or parks the copy in `upgrades/` for Replace/Keep (`ask`, default).
+- **Collection** (`library.py`, step 11): table `library` = one row per audio file in `library_dirs` plus the download
+  folder (`Engine.library_roots`). `library.scan` reads only new/changed files (size + mtime + root), keeps rows of folders
+  that are unreachable. `library.find(db, parsed, duration, aliases)` recognises a wanted track (title via `title_key`
+  or the file name, artist/alias, `version_conflict`, length within 25% / 20 s except original vs extended). Track state
+  `collected` (file_path = where): set in `_add_wanted`, in `_search_track` (last check) and by `recheck_collection` after
+  each scan; `retry_now` ("Get it anyway") sets `skip_rule='overridden'`. The search loop pauses while
+  `library_state["scanning"]`; `_finalize` indexes the new file at once. `library.duplicates` groups the download folder
+  by artist/title/version, best first (profile ladder); the app never deletes or moves files. No fingerprints yet (step 7).
 - **Tags and names** (`tagging.py`, `naming.py`, step 10): `Engine.finish_file(t, path)` runs after the checks in
   `_stage_and_check` (and for *Approve anyway*): optional WAV -> AIFF (`tagging.wav_to_aiff`, same PCM, pure Python),
   then `tagging.tag_file` (ID3v2.3 for MP3/AIFF/WAV, Vorbis + picture for FLAC, MP4 for M4A) with `TagMeta` built by

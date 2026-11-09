@@ -83,6 +83,7 @@ if not db.channels() and not SETUP:
         (ids[1], "Sam Hollow - Places (Club Edit)", "Sam Hollow", "Places", "Club Edit", "gave_up", 0, "Not on Soulseek yet", "", 256),
         (ids[0], "Nightshift Radio 042 w/ Mira Kova", "Nightshift Records", "Nightshift Radio 042 w/ Mira Kova", "", "skipped", 0, "Longer than 10 minutes (60:00)", "", 3600),
         (ids[0], "Mira Kova - Night Signal (Delen Remix)", "Mira Kova", "Night Signal", "Delen Remix", "skipped", 0, "Remixes are turned off for this channel", "", 340),
+        (ids[3], "Juno Raske - Overdrive (Original Mix)", "Juno Raske", "Overdrive", "", "collected", 0, "", "", 298),
         (ids[0], "Mira Kova - Night Signal (Clip)", "Mira Kova", "Night Signal", "", "skipped", 0, "Preview or clip", "", 30),
         (ids[2], "Kellerraum Live at Tresor (4h set)", "Kellerraum", "Kellerraum Live at Tresor (4h set)", "", "skipped", 0, "Longer than 10 minutes", "", 14400),
         (ids[2], "Old Upload - From Before", "Old Upload", "From Before", "", "skipped", 0, "", "", 280),
@@ -94,7 +95,8 @@ if not db.channels() and not SETUP:
                      peer=peer, uploaded_at=now - n * 3600 * 5, next_attempt=now + 7200,
                      skip_rule=(err if st == "skipped" and err.startswith(RULE_SKIPS) else ""),
                      remote_file=(f"@@music\\{a} - {t}.flac" if peer else ""),
-                     file_path=(str(home / "Music" / f"{a} - {t}.flac") if st == "done" else ""))
+                     file_path=(str(home / "Music" / f"{a} - {t}.flac") if st == "done"
+                                else "/Users/dj/Music/Crates/Juno Raske - Overdrive.flac" if st == "collected" else ""))
 
     # A stored search attempt, for the "Why not?" drawer (roadmap step 5).
     for t in db.tracks():
@@ -133,6 +135,23 @@ if not db.channels() and not SETUP:
         f = qdir / remote.split("\\")[-1]
         f.write_bytes(b"demo")
         db.add_reject(tracks[title], peer, remote, reason, str(f))
+
+# Step 11: two copies of one track in the download folder, for the Duplicates view.
+from seekdrop import library as _lib  # noqa: E402
+if not SETUP:
+    (home / "Music").mkdir(exist_ok=True)
+    for name, size in (("Ostin Pell - Lights Out.flac", 31_000_000), ("Ostin Pell - Lights Out.mp3", 8_400_000),
+                       ("Lune Varga - Hypnotic Loop.flac", 40_000_000)):
+        f = home / "Music" / name
+        if not f.exists():
+            f.write_bytes(b"demo")
+        row = _lib.read_file(str(f), str(home / "Music"))
+        if row:
+            row.update(size=size, artist=name.split(" - ")[0], title=name.split(" - ")[1].rsplit(".", 1)[0],
+                       tier="flac16" if name.endswith("flac") else "mp3_320", ext=name.rsplit(".", 1)[1],
+                       bitrate=320 if name.endswith("mp3") else None, duration=305.0)
+            row["title_key"] = _lib.title_key(row["title"])
+            db.library_upsert([row])
 
 setup_logging()
 

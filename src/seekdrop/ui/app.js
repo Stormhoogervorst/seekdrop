@@ -95,6 +95,7 @@ function render() {
   renderActivity(s);
   renderUpdate(s);
   renderNotices(s);
+  if (!$("#drawer").hidden) libraryStatus();
 }
 
 function renderUpdate(s) {
@@ -111,6 +112,10 @@ function renderUpdate(s) {
 function renderNotices(s) {
   const p = s.politeness || {}, box = $("#notices");
   const items = [];
+  const lib = s.library || {};
+  if (lib.scanning) {
+    items.push(["Reading your music folders", lib.total ? `${lib.done} of ${lib.total} new or changed files. Searching starts when this is done.` : "Looking for new files."]);
+  }
   if (p.paused) items.push(["Downloads paused", p.paused]);
   if (p.share_warning) items.push(["Nothing shared", p.share_warning]);
   box.hidden = !items.length;
@@ -208,10 +213,12 @@ const GROUPS = {
   done: ["done"],
   waiting: ["waiting", "gave_up"],
   skipped: ["skipped"],
+  collected: ["collected"],
 };
 
 function renderFilters(s) {
-  const counts = { all: 0, active: 0, done: 0, waiting: 0, skipped: 0, quarantine: (s.rejects || []).length };
+  const counts = { all: 0, active: 0, done: 0, waiting: 0, skipped: 0, collected: 0, quarantine: (s.rejects || []).length,
+    duplicates: ui.dups ? ui.dups.length : "" };
   for (const t of s.tracks) {
     if (t.state !== "skipped") counts.all++;
     for (const [g, list] of Object.entries(GROUPS)) if (list.includes(t.state)) counts[g]++;
@@ -260,6 +267,7 @@ function statusOf(t) {
       if (t.next_upgrade > 0) bits.splice(1, 0, `looking for better until ${untilDate(t.created_at)}`);
       return { cls: "done", ic: "check", lbl: "Downloaded", sub: bits.filter(Boolean).join(" · ") };
     }
+    case "collected": return { cls: "done", ic: "check", lbl: "Already in your collection", sub: (t.file_path || "").split(/[\\/]/).slice(-2).join("/") };
     case "gave_up": return { cls: "gone", ic: "circle", lbl: "Stopped looking", sub: t.last_error };
     case "skipped": return { cls: "gone", ic: "circle", lbl: "Skipped", sub: t.last_error };
     default: return { cls: "", ic: "", lbl: t.state };
@@ -272,7 +280,8 @@ function actionsOf(t) {
     a.push(`<button class="rowbtn" data-act="replace" data-id="${t.id}">Replace</button>`);
     a.push(`<button class="rowbtn" data-act="keep" data-id="${t.id}">Keep</button>`);
   }
-  if (t.state === "done") a.push(`<button class="rowbtn" data-act="show" data-id="${t.id}">Show file</button>`);
+  if (t.state === "done" || t.state === "collected") a.push(`<button class="rowbtn" data-act="show" data-id="${t.id}">Show file</button>`);
+  if (t.state === "collected") a.push(`<button class="rowbtn" data-act="retry" data-id="${t.id}">Get it anyway</button>`);
   if (["waiting", "gave_up", "skipped"].includes(t.state)) a.push(`<button class="rowbtn" data-act="retry" data-id="${t.id}">${t.state === "skipped" ? "Get it" : "Search now"}</button>`);
   if (t.attempts > 0 && ["wanted", "waiting", "gave_up", "skipped"].includes(t.state)) a.push(`<button class="rowbtn" data-act="why" data-id="${t.id}">Why not?</button>`);
   if (["wanted", "searching", "downloading", "waiting", "gave_up"].includes(t.state)) a.push(`<button class="rowbtn" data-act="skip" data-id="${t.id}">Skip</button>`);
@@ -310,6 +319,7 @@ function renderRejects(s) {
 function renderTracks(s) {
   const list = $("#list");
   if (ui.filter === "quarantine") return renderRejects(s);
+  if (ui.filter === "duplicates") return renderDuplicates();
   let rows = s.tracks;
   if (ui.filter === "all") rows = rows.filter((t) => t.state !== "skipped");
   else rows = rows.filter((t) => GROUPS[ui.filter].includes(t.state));
@@ -556,6 +566,7 @@ function openSettings() {
     ? "On. Every download is checked with ffmpeg before it goes to your music folder."
     : "Off: ffmpeg isn't installed, so downloads aren't checked. Install ffmpeg (on a Mac: brew install ffmpeg) and restart SeekDrop.";
   profileHelp();
+  libraryStatus();
   templatePreview();
   renderBlocked();
   settingsMode();
@@ -582,6 +593,60 @@ $("#set-nic-install").addEventListener("click", async () => {
     toast("Plugin added. Turn it on in Nicotine+");
     settingsMode();
   } catch (e) { showError($("#set-error"), e.message); }
+});
+
+/* ---------------- your music folders (roadmap step 11) ---------------- */
+function libraryStatus() {
+  const l = (ui.state || {}).library || {};
+  let msg = l.scanning ? `Reading… ${l.done} of ${l.total || "?"}`
+    : `${(l.files || 0).toLocaleString()} files known${l.scanned_at ? `, scanned ${ago(l.scanned_at)}` : ""}.`;
+  if ((l.missing || []).length) msg += ` Not found: ${l.missing.join(", ")}.`;
+  if (l.error) msg += ` ${l.error}`;
+  $("#set-library-status").textContent = msg;
+}
+$("#set-scan").addEventListener("click", async () => {
+  try { await api("POST", "/api/library/scan"); toast("Scanning your music folders"); } catch (e) { toast(e.message); }
+  setTimeout(refresh, 500);
+});
+
+let dupFetched = 0;
+async function loadDuplicates() {
+  if (Date.now() - dupFetched < 8000) return;
+  dupFetched = Date.now();
+  try {
+    ui.dups = (await api("GET", "/api/duplicates")).groups;
+    if (ui.filter === "duplicates") renderDuplicates();
+    renderFilters(ui.state);
+  } catch (e) { dupFetched = 0; }
+}
+function renderDuplicates() {
+  const list = $("#list");
+  loadDuplicates();
+  const groups = ui.dups;
+  let html;
+  if (!groups) html = `<div class="empty"><p>Looking for duplicates…</p></div>`;
+  else if (!groups.length) html = `<div class="empty"><p>No duplicates in your download folder. The same track in several files shows up here. SeekDrop never deletes anything by itself.</p></div>`;
+  else {
+    html = groups.map((g) => {
+      const v = g.version ? ` <span class="v">(${esc(g.version)})</span>` : "";
+      const files = g.files.map((f) => {
+        const q = [(ui.state.tier_labels || {})[f.tier] || f.ext.toUpperCase(), f.bitrate ? `${f.bitrate} kbps` : "", mmss(f.duration), `${(f.size / 1048576).toFixed(1)} MB`].filter(Boolean).join(" · ");
+        return `<div class="dup-file${f.best ? " best" : ""}">
+          <span class="dup-name" title="${esc(f.path)}">${esc(f.path.split(/[\\/]/).slice(-2).join("/"))}</span>
+          <span class="dup-q">${esc(q)}</span>
+          <span class="dup-flag">${f.best ? "Best" : ""}</span>
+          <button class="rowbtn" data-dup="${esc(f.path)}">Show file</button></div>`;
+      }).join("");
+      return `<div class="tr dup"><div class="t-main"><div class="t-title">${esc(g.title)}${v}</div>
+        <div class="t-artist">${esc(g.artist || "Unknown artist")}</div></div><div class="dup-files">${files}</div></div>`;
+    }).join("");
+  }
+  if (list.dataset.k !== html) { list.innerHTML = html; list.dataset.k = html; }
+}
+$("#list").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-dup]");
+  if (!b) return;
+  try { await api("POST", "/api/open", { path: b.dataset.dup }); } catch (ex) { toast(ex.message); }
 });
 
 let templateTimer = null;

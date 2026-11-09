@@ -89,6 +89,8 @@ class Api:
         r.add_post("/api/rejects/{id}/delete", self.delete_reject)
         r.add_post("/api/peers/unblock", self.unblock_peer)
         r.add_post("/api/template/preview", self.template_preview)
+        r.add_post("/api/library/scan", self.scan_library)
+        r.add_get("/api/duplicates", self.duplicates)
         r.add_post("/api/open", self.open_path)
         r.add_post("/api/nicotine/install", self.install_nicotine)
         return app
@@ -128,6 +130,7 @@ class Api:
             "rejects": self.db.quarantined(),
             "politeness": {"paused": e.paused_reason, "share_warning": e.share_warning() if e.slsk.connected else "",
                            "blocked_peers": self.db.blocked_peers(now)},
+            "library": {**e.library_state, "dirs": e.library_roots(), "own": e.settings.download_dir},
             "checks": {"available": bool(e.file_checker and e.file_checker.tools.available)},
             "profiles": {k: {"label": v["label"], "help": v["help"], "ladder": [TIER_LABELS[x] for x in v["order"]]}
                          for k, v in PROFILES.items()},
@@ -296,10 +299,22 @@ class Api:
         self.engine.delete_reject(int(request.match_info["id"]))
         return web.json_response({"ok": True})
 
+    async def scan_library(self, request: web.Request):
+        if not self.engine.library_state["scanning"]:
+            asyncio.create_task(self.engine.scan_library())
+        return web.json_response({"ok": True})
+
+    async def duplicates(self, request: web.Request):
+        return web.json_response({"groups": await asyncio.to_thread(self.engine.duplicates)})
+
     async def open_path(self, request: web.Request):
         data = await self.body(request)
         path = ""
-        if data.get("track"):
+        if data.get("path"):          # a file shown in the duplicates list: only inside the music folders
+            want = os.path.abspath(str(data["path"]))
+            if any((want + os.sep).startswith(r + os.sep) for r in self.engine.library_roots()):
+                path = want
+        elif data.get("track"):
             t = self.db.track(int(data["track"]))
             path = t["file_path"] if t else ""
         else:

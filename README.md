@@ -31,6 +31,9 @@ For DJs and producers who don't want to check twenty label pages every day.
   one playlist are taken from the same user and folder when possible, and the app warns you when
   you share nothing (many users block that).
 - Not on Soulseek yet? It tries again after 1 h, 3 h, 6 h, 12 h, then daily, for up to 30 days.
+- Already have it? Point SeekDrop at your music folders (Settings). A new track that is in there under a
+  slightly different name is marked "Already in your collection" and not downloaded again; a Duplicates tab lists
+  doubles in the download folder with the best copy marked. SeekDrop only reads your folders.
 - Files get tags for DJ software: artist, title with the version in it, genre, year, the SoundCloud link,
   and the SoundCloud artwork (500 px) embedded. MP3 gets ID3v2.3, FLAC Vorbis comments, AIFF ID3. Turn on
   "Convert WAV to AIFF" for lossless files that keep their tags in Rekordbox and Serato. Folders and file

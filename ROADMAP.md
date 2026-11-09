@@ -241,7 +241,7 @@ Klaar als:
 
 ### Stap 11: kijken of de DJ de track al heeft
 
-**Status: bestaat niet.** De app onthoudt alleen welke SoundCloud-tracks hij al kent; hij kijkt niet in de muziekcollectie.
+**Status: klaar (nov 2026), op één punt na.** `library.py` en de tabel `library`: instelling `library_dirs` (mappen die je al hebt; de downloadmap van SeekDrop telt altijd mee), een index per audiobestand (mp3, flac, wav, aiff, m4a, ogg, opus) met artiest, titel, versie, lengte, formaat, bitrate en kwaliteitsniveau, uit de tags of anders uit de bestandsnaam (tracknummers vooraf worden genegeerd). Eerste scan volledig, daarna alleen nieuwe en gewijzigde bestanden (grootte en wijzigingstijd); een map die niet bereikbaar is (losse schijf) houdt zijn rijen, een map die je uit de lijst haalt verliest ze. Herkenning (`library.find`): zelfde titel, artiest (of alias) en versie volgens dezelfde regels als de Soulseek-matching, en een lengte die niet meer dan 25% (en 20 s) afwijkt, behalve tussen Original en Extended. Een nieuwe track die er al is, krijgt de status `collected` (*Already in your collection*, met pad, *Show file* en *Get it anyway*), wordt niet gezocht en niet gedownload; na elke scan worden wachtende tracks opnieuw vergeleken en keert een track terug naar *wanted* als het bestand weg is. Zoeken wacht tot de scan klaar is, en een net gepubliceerd bestand staat meteen in de index (dezelfde track via een tweede kanaal wordt dus ook herkend). Tabbladen *In collection* en *Duplicates*: groepen van dezelfde artiest, titel en versie in de downloadmap, de beste kopie gemarkeerd (volgens je kwaliteitsprofiel), niets wordt verwijderd of verplaatst. Geen vingerafdruk (volgt met stap 7). Echt getest op `~/Music`: 290 bestanden in 0,7 s, tweede scan 0,00 s en niets opnieuw gelezen, een echte titel met tracknummer herkend. **Nog niet getest:** de hele keten met een echt kanaal in de draaiende app.
 
 Doel: nooit downloaden wat al in de collectie staat, en geen dubbele bestanden.
 
@@ -254,8 +254,8 @@ Bouwen:
 
 Klaar als:
 
-- [ ] Een track die al in de muziekmap staat onder een iets andere naam, wordt in een test herkend en niet gedownload.
-- [ ] Een tweede scan van 10.000 ongewijzigde bestanden duurt maar een paar seconden.
+- [x] Een track die al in de muziekmap staat onder een iets andere naam, wordt in een test herkend en niet gedownload.
+- [x] Een tweede scan van 10.000 ongewijzigde bestanden duurt maar een paar seconden.
 
 ### Stap 12: koppeling met DJ-software
 

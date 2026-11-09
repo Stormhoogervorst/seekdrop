@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import threading
 import time
@@ -86,6 +87,25 @@ CREATE TABLE IF NOT EXISTS searches (
     summary TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS searches_track ON searches(track_id, created_at);
+-- The DJ's own music folders (roadmap step 11): one row per audio file, see library.py.
+CREATE TABLE IF NOT EXISTS library (
+    path TEXT PRIMARY KEY,
+    root TEXT NOT NULL DEFAULT '',          -- the listed folder it was found under
+    size INTEGER NOT NULL DEFAULT 0,
+    mtime_ns INTEGER NOT NULL DEFAULT 0,    -- size + mtime decide whether a file is read again
+    artist TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL DEFAULT '',
+    version TEXT NOT NULL DEFAULT '',
+    stem TEXT NOT NULL DEFAULT '',          -- file name without extension (and track number)
+    duration REAL,
+    ext TEXT NOT NULL DEFAULT '',
+    bitrate INTEGER,
+    bit_depth INTEGER,
+    tier TEXT NOT NULL DEFAULT '',          -- quality.py ladder
+    title_key TEXT NOT NULL DEFAULT '',     -- normalised title words, what a lookup starts from
+    stem_key TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS library_title ON library(title_key);
 -- Reputation per Soulseek user (roadmap step 8): good deliveries, failed downloads and fake
 -- lossless / fake 320 files. Feeds the score; blocked_until > now keeps a peer out of the results.
 CREATE TABLE IF NOT EXISTS peer_stats (
@@ -100,6 +120,7 @@ CREATE TABLE IF NOT EXISTS peer_stats (
 """
 
 # Track states
+COLLECTED = "collected"    # already in the DJ's own music folders (step 11); file_path says where
 WANTED = "wanted"          # search as soon as possible
 SEARCHING = "searching"
 DOWNLOADING = "downloading"
@@ -245,6 +266,60 @@ class Database:
             r["candidates"] = json.loads(r["candidates"] or "[]")
         return rows
 
+    # Library index (step 11) --------------------------------------------
+    LIBRARY_COLS = ("path", "root", "size", "mtime_ns", "artist", "title", "version", "stem", "duration", "ext",
+                    "bitrate", "bit_depth", "tier", "title_key", "stem_key")
+
+    def library_stats(self) -> dict[str, tuple]:
+        with self.lock:
+            return {r[0]: (r[1], r[2], r[3]) for r in
+                    self.conn.execute("SELECT path, size, mtime_ns, root FROM library")}
+
+    def library_paths_of(self, root: Optional[str]) -> list[tuple[str, str]]:
+        sql, args = "SELECT path, root FROM library", ()
+        if root is not None:
+            sql, args = sql + " WHERE root=?", (root,)
+        with self.lock:
+            return [(r[0], r[1]) for r in self.conn.execute(sql, args)]
+
+    def library_upsert(self, rows: list[dict]) -> None:
+        if not rows:
+            return
+        cols = self.LIBRARY_COLS
+        sql = (f"INSERT OR REPLACE INTO library({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})")
+        with self.lock:
+            self.conn.execute("BEGIN")
+            try:
+                self.conn.executemany(sql, [tuple(r.get(c) for c in cols) for r in rows])
+                self.conn.execute("COMMIT")
+            except BaseException:
+                self.conn.execute("ROLLBACK")
+                raise
+
+    def library_delete(self, paths: list[str]) -> int:
+        n = 0
+        with self.lock:
+            for i in range(0, len(paths), 500):
+                chunk = paths[i:i + 500]
+                n += self.conn.execute(f"DELETE FROM library WHERE path IN ({','.join('?' * len(chunk))})", chunk).rowcount
+        return n
+
+    def library_count(self) -> int:
+        return self._q("SELECT COUNT(*) AS n FROM library")[0]["n"]
+
+    def library_candidates(self, key: str) -> list[dict]:
+        """Files whose title is `key`, or whose file name contains those words in a row."""
+        return self._q("SELECT * FROM library WHERE title_key=? OR (' ' || stem_key || ' ') LIKE ?",
+                       (key, f"% {key.replace('%', '').replace('_', '')} %"))
+
+    def library_under(self, folder: str) -> list[dict]:
+        prefix = folder.rstrip("/\\") + os.sep          # "/Music/" must not match "/Music2/..."
+        esc = prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        return self._q("SELECT * FROM library WHERE path LIKE ? ESCAPE '\\' ORDER BY path", (esc + "%",))
+
+    def library_has(self, path: str) -> bool:
+        return bool(self._q("SELECT 1 AS x FROM library WHERE path=?", (path,)))
+
     # Peer reputation (step 8) -------------------------------------------
     def peer_stats(self, usernames: Optional[list[str]] = None) -> dict[str, dict]:
         if usernames is not None:
@@ -304,6 +379,11 @@ class Database:
         return self._q(f"""
             SELECT t.*, c.name AS channel_name FROM tracks t JOIN channels c ON c.id=t.channel_id
             {where} ORDER BY COALESCE(t.uploaded_at, t.created_at) DESC, t.id DESC LIMIT ?""", (*args, limit))
+
+    def tracks_for_collection(self) -> list[dict]:
+        """Tracks that may be (or stop being) found in the DJ's own folders: waiting ones and collected ones."""
+        return self._q("""SELECT * FROM tracks WHERE state IN ('wanted','waiting','gave_up','collected')
+                          AND skip_rule!='overridden' ORDER BY id""")
 
     def tracks_for_rules(self, channel_id: Optional[int] = None) -> list[dict]:
         """Tracks the rules may still decide about: skipped by a rule, or wanted and never searched."""

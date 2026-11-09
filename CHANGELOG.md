@@ -2,6 +2,10 @@
 
 ## 0.4.0
 
+- Knows what you already have: add your music folders in Settings and a new track that is already there
+  (also under a slightly different name or from another channel) is marked "Already in your collection"
+  instead of being downloaded again. The first scan reads every file, later scans only what changed.
+  A *Duplicates* tab lists doubles in the download folder with the best copy marked; nothing is deleted.
 - Tags and artwork: every finished file gets artist, title with version, genre, year, the SoundCloud
   link and the SoundCloud cover (500 px) written in (MP3 ID3v2.3, FLAC, AIFF, M4A). BPM and key tags the
   uploader embedded stay. Optional: convert WAV to AIFF (same audio, tags that DJ software reads), and use the

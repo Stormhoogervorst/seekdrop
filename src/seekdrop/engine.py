@@ -24,7 +24,7 @@ from .nicotine import migrate_legacy_plugin, update_plugin_if_outdated
 from .soundcloud import SoundCloudClient, TrackStub
 from .quality import (TIER_LABELS, UPGRADE_DAYS, UPGRADE_EVERY, is_better, profile, tier_of,
                       wants_upgrade)
-from . import naming, tagging
+from . import library, naming, tagging
 from . import rules as rules_mod
 from .titles import parse_title, search_queries
 
@@ -145,6 +145,9 @@ class Engine:
         self._share_rescan: Optional[asyncio.Task] = None
         self.throttle = SearchThrottle()       # step 8: spacing + maximum per 5 minutes
         self.paused_reason = ""                # step 8: set while the disk is too full to download
+        self._scan_lock = asyncio.Lock()       # step 11: one scan of the music folders at a time
+        self.library_state = {"scanning": False, "done": 0, "total": 0, "files": 0,
+                              "scanned_at": 0.0, "missing": [], "error": ""}
 
     # ------------------------------------------------------------------ lifecycle
     @property
@@ -167,6 +170,7 @@ class Engine:
             asyncio.create_task(self._search_loop(), name="search"),
             asyncio.create_task(self._watchdog(), name="watchdog"),
             asyncio.create_task(self._status_watch(), name="status"),
+            asyncio.create_task(self.scan_library(), name="library"),
         ]
 
     async def stop(self) -> None:
@@ -277,6 +281,8 @@ class Engine:
             for entry in list(self.active.values()):
                 entry["task"].cancel()
             await self._connect()
+        if changed & {"library_dirs", "download_dir"}:
+            asyncio.create_task(self.scan_library())
         if changed & {"block_keywords", "block_artists"}:
             self.reapply_rules()
         if changed & {"check_interval_minutes"}:
@@ -314,6 +320,7 @@ class Engine:
             try:
                 if self.settings.configured and time.time() >= self.next_poll_at:
                     self.next_poll_at = time.time() + self.settings.check_interval_minutes * 60
+                    await self.scan_library()           # so new uploads are compared with what you have now
                     for ch in self.db.channels():
                         if ch["enabled"]:
                             await self.check_channel(ch["id"])
@@ -361,13 +368,17 @@ class Engine:
                 wanted = new
                 if wanted:
                     self.note(f"{ch['name']}: {len(wanted)} new track(s).")
-            skipped = failed = 0
+            skipped = failed = collected = 0
             for s in (wanted if playlist else reversed(wanted)):   # profiles: oldest first
                 added = await self._add_wanted(cid, s)
                 if added is None:
                     failed += 1
+                elif added == "collected":
+                    collected += 1
                 elif not added:
                     skipped += 1
+            if collected:
+                self.note(f"{ch['name']}: {collected} track(s) already in your collection.")
             if skipped:
                 self.note(f"{ch['name']}: skipped {skipped} track(s) because of your rules.")
             if failed:
@@ -427,7 +438,8 @@ class Engine:
         return revived, skipped
 
     async def _add_wanted(self, cid: int, stub: TrackStub) -> Optional[bool]:
-        """Store a new upload. Returns False if a rule skipped it (step 9), and None if
+        """Store a new upload. Returns False if a rule skipped it (step 9), "collected" if it is already in
+        the DJ's own folders (step 11), True if it is wanted, and None if
         SoundCloud gave no title for it (not stored, so the next check tries again)."""
         try:
             info = await asyncio.to_thread(self.sc.track, stub.url)
@@ -442,14 +454,15 @@ class Engine:
         p = parse_title(raw, uploader=uploader, publisher_artist=pub)
         duration = info.duration if info else None
         reason = self._rule_reason(cid, p, raw, duration)
+        hit = None if reason else self._collection_hit(p, duration)
         self.db.add_track(
             channel_id=cid, sc_id=stub.sc_id, url=(info.url if info else stub.url), raw_title=raw,
             uploader=uploader, publisher_artist=pub, artist=p.artist, title=p.title, version=p.version,
             duration=duration, artwork=info.artwork if info else "",
             uploaded_at=info.uploaded_at if info else None,
-            state=states.SKIPPED if reason else states.WANTED, last_error=reason, skip_rule=reason,
-            sc_meta=self._sc_meta(info))
-        return not reason
+            state=states.SKIPPED if reason else states.COLLECTED if hit else states.WANTED,
+            last_error=reason, skip_rule=reason, file_path=hit["path"] if hit else "", sc_meta=self._sc_meta(info))
+        return "collected" if hit else not reason
 
     @staticmethod
     def _sc_meta(info) -> str:
@@ -461,6 +474,75 @@ class Engine:
             meta["released_at"] = info.released_at
         return json.dumps(meta) if meta else ""
 
+    # ------------------------------------------------------------------ your own music folders (step 11)
+    def library_roots(self) -> list[str]:
+        """The folders that count as "what the DJ has": the listed ones and SeekDrop's own download folder."""
+        return library.clean_roots([self.settings.download_dir, *self.settings.library_dirs])
+
+    def _collection_hit(self, p, duration) -> Optional[dict]:
+        try:
+            return library.find(self.db, p, duration, parse_aliases(self.settings.artist_aliases))
+        except Exception:
+            log.debug("collection lookup failed", exc_info=True)
+            return None
+
+    def _scan_progress(self, done: int, total: int) -> None:
+        self.library_state.update(done=done, total=total)
+
+    async def scan_library(self) -> None:
+        """Bring the index of the music folders up to date (new and changed files only), then compare
+        the tracks that are still waiting with it."""
+        async with self._scan_lock:
+            st = self.library_state
+            st.update(scanning=True, done=0, total=0, error="")
+            try:
+                if not self.db.library_count():
+                    self.note("Reading your music folders for the first time. Searching starts when that is done.")
+                res = await asyncio.to_thread(library.scan, self.db, self.library_roots(), self._scan_progress)
+                st.update(files=res.files, scanned_at=time.time(), missing=res.missing or [])
+                if res.added or res.removed:
+                    self.note(f"Music folders: {res.files} file(s), {res.added} new, {res.removed} gone.")
+                for m in res.missing or []:
+                    self.note(f"The music folder {m} isn't there (drive not connected?). What was known about it is kept.", "warn")
+                found, lost = await asyncio.to_thread(self.recheck_collection)
+                if found:
+                    self.note(f"{found} track(s) were already in your collection.")
+                if lost:
+                    self.note(f"{lost} track(s) are no longer in your folders and are wanted again.")
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                log.exception("library scan failed")
+                st["error"] = str(e)[:200]
+            finally:
+                st["scanning"] = False
+                st["files"] = self.db.library_count()
+        self._wake_search.set()
+
+    def recheck_collection(self) -> tuple[int, int]:
+        """After a scan: waiting tracks that are in the folders now become 'collected'; collected tracks whose
+        file is gone become wanted again. Tracks being searched, downloaded, finished, skipped by the user or
+        fetched on purpose are left alone. Returns (found, lost)."""
+        found = lost = 0
+        aliases = parse_aliases(self.settings.artist_aliases)
+        for t in self.db.tracks_for_collection():
+            hit = library.find(self.db, self._parsed(t), t["duration"], aliases)
+            if t["state"] == states.COLLECTED:
+                if not hit:
+                    self.db.update_track(t["id"], state=states.WANTED, file_path="", next_attempt=0, last_error="")
+                    lost += 1
+                elif hit["path"] != t["file_path"]:
+                    self.db.update_track(t["id"], file_path=hit["path"])
+            elif hit and t["id"] not in self.active:
+                self.db.update_track(t["id"], state=states.COLLECTED, file_path=hit["path"], last_error="", progress=0)
+                found += 1
+        return found, lost
+
+    def duplicates(self) -> list[dict]:
+        """Duplicate files in SeekDrop's download folder, best copy first. Nothing is touched."""
+        rows = [r for r in self.db.library_under(self.settings.download_dir) if os.path.exists(r["path"])]
+        return library.duplicates(rows, self.settings.quality_profile)
+
     # ------------------------------------------------------------------ Soulseek
     async def _search_loop(self) -> None:
         while True:
@@ -470,7 +552,7 @@ class Engine:
                         await self._recover_stale()
                     if self._clean_incoming and not self._stale:
                         self._tidy_incoming()
-                    paused = self._check_disk()
+                    paused = self._check_disk() or self.library_state["scanning"]   # not while the library is being read
                     for t in ([] if paused else self.db.due_tracks(time.time())):
                         if len(self.active) >= self.settings.max_parallel_downloads:
                             break
@@ -555,6 +637,12 @@ class Engine:
     async def _search_track(self, t: dict) -> None:
         tid = t["id"]
         p = self._parsed(t)
+        if t["skip_rule"] != rules_mod.OVERRIDDEN:
+            hit = self._collection_hit(p, t["duration"])
+            if hit:                                   # added to your folders since it was queued
+                self.db.update_track(tid, state=states.COLLECTED, file_path=hit["path"], last_error="")
+                self.note(f"{p.display} is already in your collection.")
+                return
         self.db.update_track(tid, state=states.SEARCHING, attempts=t["attempts"] + 1)
         ranked: list[Candidate] = []
         tried: list[dict] = []                 # {"query", "results"} for "Why not?"
@@ -880,6 +968,10 @@ class Engine:
             n += 1
         publish_file(src, dest)
         try:
+            library.index_file(self.db, dest, os.path.abspath(s.download_dir))   # known at once, before the next scan
+        except Exception:
+            log.debug("couldn't index %s", dest, exc_info=True)
+        try:
             os.rmdir(os.path.dirname(src))   # the track's staging folder, if now empty
         except OSError:
             pass
@@ -1049,8 +1141,11 @@ class Engine:
     # ------------------------------------------------------------------ user actions
     def retry_now(self, tid: int) -> None:
         t = self.db.track(tid)
-        if t and t["state"] in (states.WAITING, states.GAVE_UP, states.SKIPPED, states.WANTED):
-            fields = {"skip_rule": rules_mod.OVERRIDDEN} if t["skip_rule"] else {}   # the user wants it: rules leave it be
+        if t and t["state"] in (states.WAITING, states.GAVE_UP, states.SKIPPED, states.WANTED, states.COLLECTED):
+            # The user wants it: neither the rules nor the collection check take it away again.
+            fields = {"skip_rule": rules_mod.OVERRIDDEN} if t["skip_rule"] or t["state"] == states.COLLECTED else {}
+            if t["state"] == states.COLLECTED:
+                fields["file_path"] = ""
             self.db.update_track(tid, state=states.WANTED, next_attempt=0, last_error="", **fields)
             self._wake_search.set()
 
