@@ -11,6 +11,9 @@ For DJs and producers who don't want to check twenty label pages every day.
   New uploads are checked every hour (you can change this).
 - **Playlists:** paste a playlist link (`soundcloud.com/name/sets/…`, private `…/s-xxxx` links
   work too). Every track in it is searched and downloaded, and tracks added later are fetched too.
+- **Spotify playlists:** paste the link of a *public* Spotify playlist. SeekDrop reads title, artists and length
+  and looks for the tracks on Soulseek, just like a SoundCloud playlist. Only the first 100 tracks of a
+  playlist are shown by Spotify. Nothing is downloaded from Spotify.
 - Messy titles are cleaned up: `PREMIERE: Artist - Track (Someone Remix) [FREE DL]` becomes
   artist *Artist*, title *Track*, version *Someone Remix*. Label names and catalog numbers
   (`- Drumcode - DC360`) are dropped.
@@ -102,7 +105,7 @@ shared-with-you) SoundCloud pages and never downloads audio from SoundCloud itse
 
 ## Privacy
 
-Everything stays on your computer. The app talks to SoundCloud (to read channels and playlists),
+Everything stays on your computer. The app talks to SoundCloud and Spotify (to read channels and playlists),
 to Soulseek (directly or through Nicotine+), and twice a day to GitHub to see if there is a new
 version (you can turn that off in Settings). There is no tracking or analytics.
 
@@ -159,6 +162,8 @@ Local build: `pyinstaller packaging/seekdrop.spec --noconfirm`.
 | Part | File |
 |---|---|
 | Read SoundCloud profiles and playlists (via yt-dlp) | `src/seekdrop/soundcloud.py` |
+| Read public Spotify playlists | `src/seekdrop/spotify.py` |
+| Hand each link to SoundCloud or Spotify | `src/seekdrop/sources.py` |
 | Clean up titles, spot mixes, build search queries | `src/seekdrop/titles.py` |
 | Score Soulseek results | `src/seekdrop/matching.py` |
 | Soulseek client (via aioslsk) | `src/seekdrop/soulseek.py` |
@@ -173,10 +178,10 @@ Local build: `pyinstaller packaging/seekdrop.spec --noconfirm`.
 
 ### Wat is SeekDrop?
 
-SeekDrop volgt SoundCloud-kanalen en -playlists. Komt er een nieuwe track op, dan zoekt de app die op
+SeekDrop volgt SoundCloud-kanalen en -playlists en openbare Spotify-playlists. Komt er een nieuwe track op, dan zoekt de app die op
 Soulseek, kiest de beste kopie, controleert het bestand, zet er tags en een hoes in en legt het in je
 muziekmap. Optioneel maakt het ook een bestand waarmee je alles in Rekordbox kunt inlezen.
-De app downloadt zelf **nooit** audio van SoundCloud: SoundCloud wordt alleen gebruikt om te lezen welke
+De app downloadt zelf **nooit** audio van SoundCloud of Spotify: die worden alleen gebruikt om te lezen welke
 tracks er zijn (titel, artiest, lengte, hoes). De audio komt van Soulseek.
 
 ### Zo loopt een track door de app
@@ -208,7 +213,9 @@ tot 30 dagen (instelbaar).
 2. Accepteer de voorwaarden en kies hoe je met Soulseek verbindt: **via Nicotine+** (aanbevolen als je dat al
    gebruikt) of **met een eigen Soulseek-account**. Gebruik voor een eigen account een apart account, anders
    gooien twee programma's elkaar eruit.
-3. Plak links een SoundCloud-profiel of -playlist in het veld *Add a channel or playlist*.
+3. Plak links een SoundCloud-profiel of -playlist, of de link van een **openbare Spotify-playlist**, in het veld
+   *Add a channel or playlist*. Bij Spotify toont de app maximaal de eerste 100 tracks van een playlist, en een
+   privélijst of je eigen *Liked Songs* kan niet gelezen worden (de melding zegt dat dan).
    - Bij een **profiel** kies je hoeveel recente tracks je meteen wilt ("Also get the latest") en of
      reposts meetellen. Daarna komen alleen nieuwe uploads binnen.
    - Bij een **playlist** wordt elke track gezocht, in de volgorde van de playlist, ook tracks die later
@@ -333,14 +340,14 @@ Soulseek wordt door vrijwilligers gedragen. De app is daarom rustig:
 - **Je muziek:** de downloadmap (standaard in je Muziek-map: `SeekDrop/<kanaal>/Artiest - Titel (Versie).ext`).
 - **Instellingen, database, logs en tijdelijke mappen** (`staging`, `quarantine`, `trash`, `upgrades`):
   `~/Library/Application Support/SeekDrop` (macOS) of `%LOCALAPPDATA%\SeekDrop` (Windows).
-- Alles blijft op je computer. De app praat met SoundCloud (lezen), met Soulseek (direct of via Nicotine+) en
+- Alles blijft op je computer. De app praat met SoundCloud en Spotify (lezen), met Soulseek (direct of via Nicotine+) en
   twee keer per dag met GitHub om te zien of er een nieuwe versie is (uit te zetten).
 
 ### Wat de app nog niet kan
 
 - Serato-crates, M3U-playlists en Traktor; alleen Rekordbox is gekoppeld.
 - Een extra controle met AcoustID, meldingen (Telegram, Discord), automatische back-ups, en andere bronnen
-  dan SoundCloud (Spotify, Beatport, bestanden). Zie `ROADMAP.md` voor wat er gepland is.
+  dan SoundCloud en Spotify (Beatport, bestanden). Zie `ROADMAP.md` voor wat er gepland is.
 - Wat nog niet in de praktijk is bewezen (zie `ROADMAP.md` en `CLAUDE.md`): de eigen Soulseek-login
   (zonder Nicotine+) en het inlezen van het bestand in Rekordbox zelf.
 

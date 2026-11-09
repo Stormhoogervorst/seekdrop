@@ -189,7 +189,7 @@ function renderChannels(s) {
       <span class="ch-count${c.done_count ? "" : " zero"}" title="Downloaded">${c.done_count}</span>
       <span class="${cls}">${esc(meta)}</span></button>`;
   }
-  if (!s.channels.length) html += `<p class="ch-empty">No channels yet. Paste a SoundCloud profile or playlist link above.</p>`;
+  if (!s.channels.length) html += `<p class="ch-empty">No channels yet. Paste a SoundCloud profile or playlist link, or a Spotify playlist link, above.</p>`;
   if (nav.innerHTML !== html) nav.innerHTML = html;
 
   const bar = $("#channel-bar");
@@ -327,7 +327,7 @@ function renderTracks(s) {
   if (!rows.length) {
     let msg;
     if (!s.channels.length) {
-      msg = `<h2>Add your first channel</h2><p>Paste the link to a SoundCloud profile on the left, for example a label, artist or promo channel. New uploads show up here and get searched on Soulseek.</p>`;
+      msg = `<h2>Add your first channel</h2><p>Paste the link to a SoundCloud profile on the left, for example a label, artist or promo channel. New uploads show up here and get searched on Soulseek. A public Spotify playlist works too.</p>`;
     } else if (ui.filter === "all") {
       msg = `<h2>Nothing new yet</h2><p>SeekDrop checks your channels ${inTime(s.next_check_in) ? "again " + inTime(s.next_check_in) : "regularly"}. New uploads appear here.</p>`;
     } else {
@@ -437,11 +437,12 @@ $("#s-go").addEventListener("click", async () => {
 });
 
 /* ---------------- channels ---------------- */
-const isPlaylistUrl = (v) => /\/sets\/[^/?#]+/i.test(v);
+const isPlaylistUrl = (v) => /\/sets\/[^/?#]+/i.test(v) || /spotify\.com\/(?:[a-z-]+\/)*playlist\/|^spotify:playlist:/i.test(v.trim());
 $("#add-url").addEventListener("input", (e) => {
   const v = e.target.value.trim(), pl = isPlaylistUrl(v);
   $("#add-more").hidden = !v;
   $("#add-playlist-hint").hidden = !pl;
+  $("#add-spotify-hint").hidden = !/spotify/i.test(v);
   $("#add-backlog-field").hidden = pl;
   $("#add-reposts-field").hidden = pl;
   $("#add-btn").textContent = pl ? "Add playlist" : "Add channel";
@@ -758,7 +759,7 @@ async function openWhy(id) {
   ui.why = id;
   const t = d.track, last = d.searches[0];
   const v = t.version ? ` <span class="v">(${esc(t.version)})</span>` : "";
-  let html = `<p class="why-title"><b>${esc(t.title)}</b>${v}<br><span class="hint">${esc(t.artist || "")} · ${esc(mmss(t.duration))} on SoundCloud</span></p>`;
+  let html = `<p class="why-title"><b>${esc(t.title)}</b>${v}<br><span class="hint">${esc(t.artist || "")} · ${esc(mmss(t.duration))} on ${/spotify\.com/.test(t.url || "") ? "Spotify" : "SoundCloud"}</span></p>`;
   if (!last) {
     html += `<p class="hint">No search yet.</p>`;
   } else {

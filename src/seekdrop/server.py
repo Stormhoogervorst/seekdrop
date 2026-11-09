@@ -20,7 +20,7 @@ from .db import Database
 from .engine import Engine
 from .quality import PROFILES, TIER_LABELS, UPGRADE_DAYS
 from .nicotine import install_plugin, new_token, nicotine_plugins_dir, plugin_installed
-from .soundcloud import ChannelError, is_playlist_url, normalize_channel_url
+from .sources import ChannelError, is_playlist_url, normalize_channel_url
 
 log = logging.getLogger(__name__)
 UI_DIR = Path(__file__).parent / "ui"

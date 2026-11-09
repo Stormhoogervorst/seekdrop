@@ -13,7 +13,7 @@
 <main id="setup" class="setup" hidden>
   <div class="setup-inner">
     <h1 class="wordmark">SeekDrop</h1>
-    <p class="lede">Follow SoundCloud channels and playlists. When a track shows up, SeekDrop looks for it on Soulseek and downloads the best copy it can find.</p>
+    <p class="lede">Follow SoundCloud channels and playlists, and public Spotify playlists. When a track shows up, SeekDrop looks for it on Soulseek and downloads the best copy it can find.</p>
 
     <ol class="steps">
       <li class="step">
@@ -68,9 +68,10 @@
 
     <form class="add" id="add-form" autocomplete="off">
       <label for="add-url" class="add-label">Add a channel or playlist</label>
-      <div class="input-pill"><i data-icon="link"></i><input id="add-url" placeholder="soundcloud.com/name or …/sets/playlist" spellcheck="false"></div>
+      <div class="input-pill"><i data-icon="link"></i><input id="add-url" placeholder="soundcloud.com/name, …/sets/playlist or a Spotify playlist link" spellcheck="false"></div>
       <div class="add-more" id="add-more" hidden>
         <p class="small" id="add-playlist-hint" hidden>Every track in this playlist is searched on Soulseek and downloaded when found. Tracks added to the playlist later are fetched too.</p>
+        <p class="small" id="add-spotify-hint" hidden>Spotify: the playlist must be public, and Spotify only shows its first 100 tracks.</p>
         <label class="field compact" id="add-backlog-field"><span>Also get the latest</span>
           <select id="add-backlog">
             <option value="0">0 tracks, only new ones</option>

@@ -19,6 +19,7 @@ from .nicotine import NicotineBridge
 from .updates import UpdateChecker
 from .soulseek import SoulseekService
 from .soundcloud import SoundCloudClient
+from .sources import Sources
 
 log = logging.getLogger("seekdrop")
 
@@ -92,7 +93,7 @@ class Backend:
         home = data_dir()
         db = Database(home / DB_NAME)
         store = SettingsStore()
-        sc = self._sc or SoundCloudClient(cache_dir=str(home / "cache"))
+        sc = self._sc or Sources(SoundCloudClient(cache_dir=str(home / "cache")))
         def make_slsk(mode: str):
             if mode == "nicotine":
                 return NicotineBridge(incoming_dir=str(home / "incoming-nicotine"))

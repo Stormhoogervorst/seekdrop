@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Spotify playlists: paste the link of a public Spotify playlist and SeekDrop searches its tracks on Soulseek,
+  like a SoundCloud playlist. Spotify only shows the first 100 tracks of a playlist, and private playlists can't be read.
+
 ## 0.4.1
 
 - Fixed: the music folders you add under "Your music collection" were saved as single letters, so nothing was

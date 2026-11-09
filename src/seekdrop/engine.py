@@ -22,6 +22,8 @@ from .politeness import (BLOCK_DAYS, SearchThrottle, block_reason, low_disk_spac
                          sharing_warning)
 from .nicotine import migrate_legacy_plugin, update_plugin_if_outdated
 from .soundcloud import SoundCloudClient, TrackStub
+from .sources import source_name
+from .spotify import MAX_TRACKS as SPOTIFY_MAX
 from .quality import (TIER_LABELS, UPGRADE_DAYS, UPGRADE_EVERY, is_better, profile, tier_of,
                       wants_upgrade)
 from . import __version__, library, naming, rekordbox, tagging
@@ -362,7 +364,9 @@ class Engine:
                 wanted = new
                 revived = self._claim_skipped(cid, known_rows)
                 if not ch["initialized"]:
-                    self.note(f"{ch['name']}: getting {len(wanted) + revived} track(s) from this playlist.")
+                    cap = (f" Spotify shows only the first {SPOTIFY_MAX} tracks of a playlist."
+                           if source_name(ch["url"]) == "Spotify" and len(stubs) >= SPOTIFY_MAX else "")
+                    self.note(f"{ch['name']}: getting {len(wanted) + revived} track(s) from this playlist.{cap}")
                 elif wanted or revived:
                     self.note(f"{ch['name']}: {len(wanted) + revived} new track(s) in the playlist.")
             elif not ch["initialized"]:
@@ -394,7 +398,7 @@ class Engine:
             if skipped:
                 self.note(f"{ch['name']}: skipped {skipped} track(s) because of your rules.")
             if failed:
-                self.note(f"{ch['name']}: couldn't read {failed} track(s) from SoundCloud, trying again next check.", "warn")
+                self.note(f"{ch['name']}: couldn't read {failed} track(s) from {source_name(ch['url'])}, trying again next check.", "warn")
             self.db.update_channel(cid, last_checked=time.time(), last_error="", initialized=1)
             self._wake_search.set()
         except asyncio.CancelledError:
@@ -403,7 +407,7 @@ class Engine:
             log.exception("channel check failed")
             msg = str(e).replace("ERROR: ", "")[:200]
             self.db.update_channel(cid, last_checked=time.time(), last_error=msg)
-            self.note(f"{ch['name']}: couldn't check SoundCloud ({msg})", "warn")
+            self.note(f"{ch['name']}: couldn't check {source_name(ch['url'])} ({msg})", "warn")
         finally:
             self.checking.discard(cid)
 

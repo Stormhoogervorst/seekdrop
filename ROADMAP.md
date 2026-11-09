@@ -334,20 +334,19 @@ Klaar als:
 
 ### Stap 16: Spotify-playlists
 
-**Status: bestaat niet.**
+**Status: klaar (nov 2026), op één punt na.** `spotify.py` leest de openbare embed-pagina van een playlist (`open.spotify.com/embed/playlist/<id>`, het JSON-blok `__NEXT_DATA__`) en geeft per track titel, artiesten en lengte; geen login en geen eigen Spotify-app. Gekozen omdat de officiële Web API sinds feb 2026 alleen de inhoud van playlists toont die je zelf bezit of waaraan je meewerkt, en de app-eigenaar Premium nodig heeft (max. 5 gebruikers). Onofficieel: verandert Spotify de pagina, dan zegt de app dat in plaats van te falen. Spotify toont **maximaal 100 tracks** per playlist (gemeten op echte lijsten, de eerste controle meldt het). Links in elke schrijfwijze (`?si=`, `/intl-nl/`, `/embed/`, `spotify:playlist:`); album, track, artiest en korte `spotify.link` krijgen een duidelijke melding. Titel: `Artiest, Artiest - Titel (Versie)` (Spotify's " - Space 92 Remix" wordt een versie). `sources.py` (`Sources`) geeft elke link aan de juiste client; een Spotify-playlist is een kanaal van soort `playlist` met `tracks.sc_id = spotify:<id>`, dus zonder databasewijziging. Regels, collectiecontrole, zoeken en tags werken zoals voor SoundCloud; geen hoes en geen genre (de pagina heeft ze niet). Echt getest tegen openbare playlists (Techno Bunker: 100 tracks, versies en meerdere artiesten goed gelezen; een onbestaande playlist geeft de melding). **Nog niet getest:** een Spotify-track in de draaiende app helemaal via Soulseek binnenhalen. **Niet gedaan:** inloggen bij Spotify, privélijsten en *Liked Songs* (dat kan later via stap 15, een CSV-export).
 
 Doel: een DJ plakt een Spotify-playlistlink en de app haalt de tracks op via Soulseek.
 
 Bouwen:
 
-- Ophalen via de officiële Spotify Web API met een eigen app-registratie.
-- Controleer eerst de actuele API-voorwaarden. Voor zover bekend kunnen nieuwe apps sinds eind 2024 de eigen redactionele en algoritmische playlists van Spotify niet meer ophalen, wel playlists van gebruikers.
+- Ophalen via de openbare embed-pagina (de officiële API is te beperkt, zie hierboven).
 - Playlists opnieuw controleren op nieuwe tracks, net als een SoundCloud-kanaal.
 
 Klaar als:
 
-- [ ] Een openbare playlist van een gebruiker wordt ingelezen met artiest, titel, versie en lengte.
-- [ ] Een playlist die niet op te halen is, geeft een duidelijke melding met de reden.
+- [x] Een openbare playlist van een gebruiker wordt ingelezen met artiest, titel, versie en lengte.
+- [x] Een playlist die niet op te halen is, geeft een duidelijke melding met de reden.
 
 ### Stap 17: Beatport-charts
 

@@ -40,6 +40,10 @@ Repo: github.com/Stormhoogervorst/seekdrop (renamed from nicotinesync; GitHub re
 Feature work follows `ROADMAP.md` (one step per session, plan first, wait for approval).
 - **SoundCloud** (`soundcloud.py`): yt-dlp, metadata only. `latest()` lists a profile's uploads or
   every track of a playlist; `track()` gives title, uploader, duration, artwork. Never downloads audio.
+- **Spotify** (`spotify.py`, step 16): public playlists only, read from the embed page `open.spotify.com/embed/playlist/<id>`
+  (`__NEXT_DATA__` JSON: title, artists, length; max 100 tracks; unofficial, a changed page gives a clear error). The official
+  Web API only shows playlists you own since Feb 2026 and needs Premium. `sources.py` (`Sources`) routes each link to
+  SoundCloud or Spotify and is what `Engine.sc` is; a Spotify playlist is a `playlist` channel with `tracks.sc_id = spotify:<id>`.
 - **Titles** (`titles.py`): `parse_title()` → artist / title / version (drops promo text, label and
   catalog suffixes, quotes), `is_mix()`, `search_queries()`.
 - **Matching** (`matching.py`, all comparison rules; real-title tests in `tests/test_matching_real.py`):
