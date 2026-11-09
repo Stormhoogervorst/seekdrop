@@ -2,6 +2,9 @@
 
 ## 0.4.0
 
+- Rekordbox: an optional XML file (Settings) with every downloaded track and a playlist per channel or
+  playlist, kept up to date after each download, upgrade or removal. Import it in Rekordbox through
+  Preferences, Advanced, Database, rekordbox xml. SeekDrop never touches Rekordbox' own library.
 - Knows what you already have: add your music folders in Settings and a new track that is already there
   (also under a slightly different name or from another channel) is marked "Already in your collection"
   instead of being downloaded again. The first scan reads every file, later scans only what changed.

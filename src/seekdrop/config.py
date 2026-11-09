@@ -128,6 +128,8 @@ class Settings:
     suspect_quality: str = "label"          # suspect lossless / 320: "label" (let through) or "reject"
     search_spacing: int = 8                 # seconds between Soulseek searches (step 8; at least 4)
     search_max_per_5min: int = 20           # most searches in any 5 minutes (5 to 60)
+    rekordbox_export: bool = False          # step 12: keep a Rekordbox XML of the downloads up to date
+    rekordbox_xml_path: str = ""            # '' = "SeekDrop for Rekordbox.xml" in the download folder
     library_dirs: list[str] = field(default_factory=list)     # step 11: music folders you already have (the download folder is always included)
     block_keywords: list[str] = field(default_factory=list)   # step 9: words that skip an upload, every channel
     block_artists: list[str] = field(default_factory=list)    # step 9: artists that are never fetched
@@ -196,7 +198,7 @@ class SettingsStore:
                        "check_length_margin", "check_silence_seconds", "search_spacing", "search_max_per_5min",
                        "min_free_gb"):
                 value = int(value)
-            if key in ("accepted_terms", "share_downloads", "tag_files", "wav_to_aiff", "label_from_channel",
+            if key in ("accepted_terms", "share_downloads", "tag_files", "wav_to_aiff", "label_from_channel", "rekordbox_export",
                        "check_updates"):
                 value = bool(value)
             if key in ("share_dirs", "library_dirs"):
@@ -206,7 +208,7 @@ class SettingsStore:
                 value = clean_words(value)
             if key == "artist_aliases":
                 value = "\n".join(line.strip() for line in str(value or "").splitlines() if line.strip())[:5000]
-            if key in ("soulseek_username", "download_dir"):
+            if key in ("soulseek_username", "download_dir", "rekordbox_xml_path"):
                 value = str(value).strip()
             if key == "filename_template":
                 value = str(value or "").strip()

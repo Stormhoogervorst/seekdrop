@@ -31,6 +31,9 @@ For DJs and producers who don't want to check twenty label pages every day.
   one playlist are taken from the same user and folder when possible, and the app warns you when
   you share nothing (many users block that).
 - Not on Soulseek yet? It tries again after 1 h, 3 h, 6 h, 12 h, then daily, for up to 30 days.
+- Rekordbox: turn on "Keep a Rekordbox XML file up to date" in Settings. Every downloaded track becomes a track and
+  every channel or playlist a playlist in a folder called SeekDrop; import it through Rekordbox' Preferences, Advanced,
+  Database, rekordbox xml. SeekDrop only writes that one file and never touches Rekordbox' own library.
 - Already have it? Point SeekDrop at your music folders (Settings). A new track that is in there under a
   slightly different name is marked "Already in your collection" and not downloaded again; a Duplicates tab lists
   doubles in the download folder with the best copy marked. SeekDrop only reads your folders.

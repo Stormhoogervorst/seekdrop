@@ -24,7 +24,7 @@ from .nicotine import migrate_legacy_plugin, update_plugin_if_outdated
 from .soundcloud import SoundCloudClient, TrackStub
 from .quality import (TIER_LABELS, UPGRADE_DAYS, UPGRADE_EVERY, is_better, profile, tier_of,
                       wants_upgrade)
-from . import library, naming, tagging
+from . import __version__, library, naming, rekordbox, tagging
 from . import rules as rules_mod
 from .titles import parse_title, search_queries
 
@@ -38,6 +38,7 @@ SEARCH_WAIT = 12.0            # seconds to collect results per search
 TRASH_DAYS = 30               # replaced files stay in the app's trash this long
 
 
+REKORDBOX_DELAY = 30           # seconds to wait after a download before the Rekordbox XML is written again
 PART_SUFFIX = ".seekdrop-part"   # hidden temp name while a file is copied to another disk
 
 # A check gets the track row and the staged file and returns a reason to reject it, or None.
@@ -145,6 +146,11 @@ class Engine:
         self._share_rescan: Optional[asyncio.Task] = None
         self.throttle = SearchThrottle()       # step 8: spacing + maximum per 5 minutes
         self.paused_reason = ""                # step 8: set while the disk is too full to download
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._rb_task: Optional[asyncio.Task] = None
+        self._rb_lock = asyncio.Lock()
+        self._rb_cache: dict = {}
+        self.rekordbox_state = {"written_at": 0.0, "tracks": 0, "playlists": 0, "error": ""}
         self._scan_lock = asyncio.Lock()       # step 11: one scan of the music folders at a time
         self.library_state = {"scanning": False, "done": 0, "total": 0, "files": 0,
                               "scanned_at": 0.0, "missing": [], "error": ""}
@@ -159,6 +165,7 @@ class Engine:
         getattr(log, "warning" if level == "warn" else "info")(msg)
 
     async def start(self) -> None:
+        self._loop = asyncio.get_running_loop()
         # Transfers from the last session may still sit in Nicotine+'s queue; tidy them up once connected.
         self._stale = self.db.interrupted_transfers()
         self.db.reset_interrupted()
@@ -171,6 +178,7 @@ class Engine:
             asyncio.create_task(self._watchdog(), name="watchdog"),
             asyncio.create_task(self._status_watch(), name="status"),
             asyncio.create_task(self.scan_library(), name="library"),
+            asyncio.create_task(self.write_rekordbox(), name="rekordbox"),
         ]
 
     async def stop(self) -> None:
@@ -281,6 +289,8 @@ class Engine:
             for entry in list(self.active.values()):
                 entry["task"].cancel()
             await self._connect()
+        if changed & {"rekordbox_export", "rekordbox_xml_path", "label_from_channel"}:
+            asyncio.create_task(self.write_rekordbox())
         if changed & {"library_dirs", "download_dir"}:
             asyncio.create_task(self.scan_library())
         if changed & {"block_keywords", "block_artists"}:
@@ -473,6 +483,66 @@ class Engine:
         if info and info.released_at:
             meta["released_at"] = info.released_at
         return json.dumps(meta) if meta else ""
+
+    # ------------------------------------------------------------------ Rekordbox (step 12)
+    def rekordbox_path(self) -> str:
+        p = (self.settings.rekordbox_xml_path or "").strip()
+        p = os.path.abspath(os.path.expanduser(p)) if p else os.path.join(self.settings.download_dir, rekordbox.DEFAULT_NAME)
+        return os.path.join(p, rekordbox.DEFAULT_NAME) if os.path.isdir(p) else p
+
+    def schedule_rekordbox(self) -> None:
+        """Write the Rekordbox XML again soon (once for a burst of downloads). Safe to call from any thread."""
+        if not self.settings.rekordbox_export:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = self._loop
+        if loop is not None and not loop.is_closed():
+            loop.call_soon_threadsafe(self._start_rekordbox_timer)
+
+    def _start_rekordbox_timer(self) -> None:
+        if self._rb_task and not self._rb_task.done():
+            return
+
+        async def later():
+            await asyncio.sleep(REKORDBOX_DELAY)
+            await self.write_rekordbox()
+        self._rb_task = asyncio.get_running_loop().create_task(later())
+
+    async def write_rekordbox(self) -> None:
+        if not self.settings.rekordbox_export:
+            return
+        async with self._rb_lock:
+            try:
+                await asyncio.to_thread(self.write_rekordbox_sync)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                log.exception("Rekordbox XML failed")
+                self.rekordbox_state["error"] = (e.strerror if isinstance(e, OSError) and e.strerror else str(e))[:200]
+                self.note(f"Couldn't write the Rekordbox file ({self.rekordbox_state['error']}).", "warn")
+
+    def write_rekordbox_sync(self) -> dict:
+        """Collect every finished download that is still on disk and write the XML. Returns the new state."""
+        tracks: list[rekordbox.Track] = []
+        order: dict[int, list] = {}
+        for t in self.db.tracks_for_rekordbox():
+            path = t["file_path"]
+            if not os.path.isfile(path):
+                continue
+            meta = self._tag_meta(t)
+            facts = rekordbox.file_facts(path, self._rb_cache)
+            tracks.append(rekordbox.Track(track_id=t["id"], path=path, name=meta.title, artist=meta.artist,
+                                          genre=meta.genre, year=meta.year, label=meta.label, comment=meta.comment,
+                                          added=t["created_at"], **facts))
+            order.setdefault(t["channel_id"], [t["channel_name"], []])[1].append(t["id"])
+        names = rekordbox.unique_names([n for n, _ids in order.values()])
+        playlists = [rekordbox.Playlist(name, ids) for name, (_n, ids) in zip(names, order.values())]
+        path = self.rekordbox_path()
+        rekordbox.write(path, tracks, playlists, __version__)
+        self.rekordbox_state.update(written_at=time.time(), tracks=len(tracks), playlists=len(playlists), error="")
+        return dict(self.rekordbox_state)
 
     # ------------------------------------------------------------------ your own music folders (step 11)
     def library_roots(self) -> list[str]:
@@ -780,6 +850,7 @@ class Engine:
                                              **self._done_fields(t, c))
                         self.note(f"Downloaded {os.path.basename(path)}")
                         self._schedule_share_rescan()
+                        self.schedule_rekordbox()
                         return
                     t.pop("_meta", None)
                     info["fail_reason"] = why
@@ -1078,6 +1149,7 @@ class Engine:
                              quality=meta.get("quality", ""),
                              next_upgrade=time.time() + UPGRADE_EVERY if later else 0)
         self.note(f"Upgraded {os.path.basename(path)} ({TIER_LABELS.get(new_tier, new_tier)})")
+        self.schedule_rekordbox()
         return path
 
     def replace_upgrade(self, tid: int) -> Optional[str]:
@@ -1176,6 +1248,7 @@ class Engine:
         if entry:
             entry["task"].cancel()      # a new attempt for this track is no longer needed
         self.note(f"Approved {os.path.basename(path)} anyway")
+        self.schedule_rekordbox()
         return path
 
     def delete_reject(self, rid: int) -> None:
@@ -1196,3 +1269,4 @@ class Engine:
             if entry:
                 entry["task"].cancel()
         self.db.delete_channel(cid)
+        self.schedule_rekordbox()

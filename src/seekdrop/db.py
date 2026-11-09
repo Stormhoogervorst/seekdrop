@@ -380,6 +380,14 @@ class Database:
             SELECT t.*, c.name AS channel_name FROM tracks t JOIN channels c ON c.id=t.channel_id
             {where} ORDER BY COALESCE(t.uploaded_at, t.created_at) DESC, t.id DESC LIMIT ?""", (*args, limit))
 
+    def tracks_for_rekordbox(self) -> list[dict]:
+        """Finished downloads with their channel, grouped by channel name, in the order they came in."""
+        return self._q("""
+            SELECT t.*, c.name AS channel_name, c.kind AS channel_kind FROM tracks t
+            JOIN channels c ON c.id=t.channel_id
+            WHERE t.state='done' AND t.file_path!=''
+            ORDER BY c.name COLLATE NOCASE, c.id, t.id""")
+
     def tracks_for_collection(self) -> list[dict]:
         """Tracks that may be (or stop being) found in the DJ's own folders: waiting ones and collected ones."""
         return self._q("""SELECT * FROM tracks WHERE state IN ('wanted','waiting','gave_up','collected')

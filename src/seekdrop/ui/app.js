@@ -95,7 +95,7 @@ function render() {
   renderActivity(s);
   renderUpdate(s);
   renderNotices(s);
-  if (!$("#drawer").hidden) libraryStatus();
+  if (!$("#drawer").hidden) { libraryStatus(); rekordboxStatus(); }
 }
 
 function renderUpdate(s) {
@@ -567,6 +567,7 @@ function openSettings() {
     : "Off: ffmpeg isn't installed, so downloads aren't checked. Install ffmpeg (on a Mac: brew install ffmpeg) and restart SeekDrop.";
   profileHelp();
   libraryStatus();
+  rekordboxStatus();
   templatePreview();
   renderBlocked();
   settingsMode();
@@ -593,6 +594,34 @@ $("#set-nic-install").addEventListener("click", async () => {
     toast("Plugin added. Turn it on in Nicotine+");
     settingsMode();
   } catch (e) { showError($("#set-error"), e.message); }
+});
+
+/* ---------------- Rekordbox (roadmap step 12) ---------------- */
+function rekordboxStatus() {
+  const r = (ui.state || {}).rekordbox || {};
+  let msg;
+  if (!r.enabled) msg = "Off.";
+  else if (r.error) msg = `Couldn't write the file: ${r.error}`;
+  else if (r.written_at) msg = `${r.tracks} track(s) in ${r.playlists} playlist(s), written ${ago(r.written_at)}.`;
+  else msg = "Not written yet.";
+  $("#set-rb-status").textContent = msg;
+  $("#set-rb-status").title = r.path || "";
+  $("#set-rb-update").disabled = !$("#settings-form").elements.rekordbox_export.checked;   // what is on screen counts
+}
+$("#settings-form").elements.rekordbox_export.addEventListener("change", rekordboxStatus);
+$("#set-rb-update").addEventListener("click", async () => {
+  try {
+    // Save a changed on/off or path first, so "Update now" uses what is on screen.
+    await api("PUT", "/api/settings", { rekordbox_export: $("#settings-form").elements.rekordbox_export.checked,
+                                        rekordbox_xml_path: $("#settings-form").elements.rekordbox_xml_path.value });
+    const r = await api("POST", "/api/rekordbox/update");
+    toast(`Rekordbox file written: ${r.tracks} track(s)`);
+  } catch (e) { toast(e.message); }
+  await refresh();
+  rekordboxStatus();
+});
+$("#set-rb-show").addEventListener("click", async () => {
+  try { await api("POST", "/api/open", { rekordbox: true }); } catch (e) { toast(e.message); }
 });
 
 /* ---------------- your music folders (roadmap step 11) ---------------- */

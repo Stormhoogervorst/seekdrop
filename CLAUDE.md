@@ -66,6 +66,14 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   Done tracks below target (lossy only) get `next_upgrade`; the search loop runs `_upgrade_search` with a
   free slot, downloads with `record=False` (track row untouched), and either replaces (`auto`, old file
   to `trash/`) or parks the copy in `upgrades/` for Replace/Keep (`ask`, default).
+- **Rekordbox** (`rekordbox.py`, step 12): `Engine.write_rekordbox_sync` writes `settings.rekordbox_xml_path` (default
+  `SeekDrop for Rekordbox.xml` in the download folder) when `rekordbox_export` is on: every `done` track whose file exists
+  (`db.tracks_for_rekordbox`), name/artist/genre/year/label/comment from `_tag_meta`, size/length/bitrate/sample rate from
+  `rekordbox.file_facts` (cached per path+size+mtime), one playlist per channel in a folder "SeekDrop". Rewritten
+  `REKORDBOX_DELAY` (30 s) after a download/upgrade/approve/channel removal via `schedule_rekordbox` (thread-safe, one
+  pending write), atomic via a hidden `.seekdrop-part` file. `Location` uses Rekordbox's own safe characters
+  (`!#$()*+,:;=?@`). `rekordbox.read` parses any Rekordbox XML (also Rekordbox' own export). We never touch Rekordbox'
+  database. Not built: M3U, Serato, Traktor, "upgrade only if not in Rekordbox".
 - **Collection** (`library.py`, step 11): table `library` = one row per audio file in `library_dirs` plus the download
   folder (`Engine.library_roots`). `library.scan` reads only new/changed files (size + mtime + root), keeps rows of folders
   that are unreachable. `library.find(db, parsed, duration, aliases)` recognises a wanted track (title via `title_key`

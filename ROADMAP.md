@@ -259,7 +259,7 @@ Klaar als:
 
 ### Stap 12: koppeling met DJ-software
 
-**Status: bestaat niet.**
+**Status: deels (nov 2026): alleen Rekordbox gebouwd.** `rekordbox.py` schrijft een Rekordbox-XML (`DJ_PLAYLISTS`) met elke gedownloade track die nog op schijf staat en een playlist per kanaal of playlist, in een map "SeekDrop". Attributen en de codering van `Location` (`file://localhost/…` met de veilige tekenset van Rekordbox zelf) zijn gecontroleerd tegen de namen in de geïnstalleerde Rekordbox 7. Instellingen `rekordbox_export` (standaard uit) en `rekordbox_xml_path` (standaard `SeekDrop for Rekordbox.xml` in de downloadmap); het bestand wordt ~30 s na een download, upgrade, goedkeuring of verwijderd kanaal opnieuw geschreven (één keer voor een reeks), atomisch (tijdelijk bestand, dan hernoemen; bij een fout blijft het oude staan). Knoppen *Update now* en *Show file* en de stappen voor Rekordbox staan in Settings. Alleen eigen downloads, niet wat al in je collectie stond. Rekordbox' eigen database wordt nooit aangeraakt. **Niet gebouwd:** M3U, Serato-crates en Traktor (op verzoek overgeslagen), en "alleen upgraden als de track niet in Rekordbox staat" (nodig: een Rekordbox-export lezen; `rekordbox.read` kan dat al).
 
 Doel: nieuwe tracks staan zonder handwerk in de DJ-software, per kanaal of playlist gegroepeerd. Dit is het sterkste verkoopargument richting DJ's.
 
@@ -275,8 +275,8 @@ Bouwen, in deze volgorde:
 
 Klaar als:
 
-- [ ] M3U, Rekordbox-XML en een Serato-crate worden in tests geschreven en weer ingelezen met dezelfde inhoud.
-- [ ] De gebruiker heeft de koppeling handmatig getest in Rekordbox en Serato.
+- [ ] M3U, Rekordbox-XML en een Serato-crate worden in tests geschreven en weer ingelezen met dezelfde inhoud. (Rekordbox-XML: ja, 21 tests; M3U en Serato: niet gebouwd.)
+- [ ] De gebruiker heeft de koppeling handmatig getest in Rekordbox en Serato. (Nog niet: kan alleen de gebruiker.)
 
 ### Stap 13: meldingen
 

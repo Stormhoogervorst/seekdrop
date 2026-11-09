@@ -265,6 +265,15 @@
     </label>
     <p class="hint">Replacing an MP3 with a FLAC changes the file name, so Rekordbox or Serato lose the cue points of the old file. The old file goes to SeekDrop's trash for 30 days.</p>
 
+    <h3>Rekordbox</h3>
+    <label class="check"><input type="checkbox" name="rekordbox_export"> Keep a Rekordbox XML file of the downloaded tracks up to date</label>
+    <label class="field"><span>File (empty = in the download folder)</span>
+      <input name="rekordbox_xml_path" spellcheck="false" placeholder="SeekDrop for Rekordbox.xml"></label>
+    <div class="row-inline"><p class="hint" id="set-rb-status"></p>
+      <span class="row-btns"><button type="button" class="btn soft" id="set-rb-update">Update now</button>
+      <button type="button" class="btn soft" id="set-rb-show">Show file</button></span></div>
+    <p class="hint">Every finished download becomes a track, and each channel or playlist becomes a playlist inside a folder called SeekDrop. In Rekordbox: Preferences, Advanced, Database, tick <b>rekordbox xml</b> and choose this file. Then open <b>rekordbox xml</b> in the tree, right-click a playlist and choose <b>Import Playlist</b>. SeekDrop only writes this one file and never touches Rekordbox' own library. A track that is replaced by a better copy gets a new file name, so Rekordbox sees it as a new track.</p>
+
     <h3>Blocklist</h3>
     <p class="hint">Applies to every channel and playlist, and wins over their rules.</p>
     <label class="field"><span>Skip tracks with these words in the title, one per line</span>
