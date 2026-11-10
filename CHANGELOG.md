@@ -5,6 +5,14 @@
 A stability release for Windows. I couldn't try these on a Windows PC myself, so this version also keeps a
 better log: if something still freezes, the log shows where (see below).
 
+- New: **Install and restart now works on Windows too** (Settings, Updates). SeekSync downloads the installer
+  of the new version, checks its size and checksum, closes itself, runs the installer quietly over the old
+  version (no administrator rights needed) and starts again. Your channels and settings are kept. When SeekSync
+  can't change its own folder (for example when it was installed for all users), it says so and the release
+  page is still the way. This is the first version that can do this, so to get to 0.6.3 from an older version,
+  download the installer from the release page once, like before. If the update doesn't work for you, the log
+  (`%LOCALAPPDATA%\SeekSync\Logs\seeksync.log`) and `setup.log` in `%LOCALAPPDATA%\SeekSync\update` say what
+  happened.
 - Fixed: **freezes while a download comes in.** Moving a finished file into your music folder, putting it in
   quarantine and replacing a file with a better copy all happened on the thread that also runs the screen and the
   Soulseek connection. When the antivirus scanner or a slow disk took a few seconds, everything stood still. These

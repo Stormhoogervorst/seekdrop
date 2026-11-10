@@ -104,7 +104,7 @@ def test_a_newer_release_that_is_gone_clears_the_banner():
 
 def test_source_run_can_not_install_itself():
     assert updates.bundle_path() is None
-    assert "only work in the SeekSync app" in updates.install_problem()
+    assert "only work in the installed SeekSync app" in updates.install_problem()
     c = _Fake({"tag_name": "v9.0.0"})
     asyncio.run(c.check_now())
     with pytest.raises(RuntimeError):
@@ -231,3 +231,106 @@ def test_update_routes(setup):
     asyncio.run(scenario())
 
 from test_engine import setup  # noqa: E402,F401  (fixture)
+
+
+# --- installing on Windows ----------------------------------------------------------------------------------------------
+
+SETUP = {"name": "SeekSync-9.0.0-windows-setup.exe",
+         "browser_download_url": "https://github.com/x/y/releases/download/v9.0.0/SeekSync-9.0.0-windows-setup.exe",
+         "size": 99, "digest": "sha256:ABCDEF"}
+
+
+def test_pick_asset_for_windows():
+    a = updates.pick_asset([DMG, {"name": "notes.txt", "browser_download_url": "u"}, SETUP], "win32")
+    assert a == {"name": SETUP["name"], "url": SETUP["browser_download_url"], "size": 99, "sha256": "abcdef"}
+    assert updates.pick_asset([DMG], "win32") is None
+    assert updates.pick_asset([SETUP], "darwin") is None             # the Mac never picks the Windows installer
+    assert updates.pick_asset([SETUP], "linux") is None
+
+
+@pytest.fixture
+def windows_app(monkeypatch, tmp_path):
+    """This process pretends to be the installed SeekSync.exe on Windows."""
+    app = tmp_path / "Programs" / "SeekSync"
+    app.mkdir(parents=True)
+    exe = app / "SeekSync.exe"
+    exe.write_bytes(b"MZ")
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", str(exe))
+    return exe
+
+
+def test_windows_copy_that_is_installed_can_update(windows_app):
+    assert updates.install_problem() == ""
+
+
+def test_windows_source_run_can_not_update(monkeypatch):
+    monkeypatch.setattr(sys, "platform", "win32")
+    assert "only work in the installed SeekSync app" in updates.install_problem()
+
+
+def test_windows_folder_without_write_access_can_not_update(windows_app, monkeypatch):
+    monkeypatch.setattr(updates.os, "access", lambda p, mode: False)
+    assert "can't change" in updates.install_problem()
+
+
+def test_windows_install_downloads_checks_and_hands_over_to_a_script(windows_app, monkeypatch):
+    from aiohttp import web
+    from aiohttp.test_utils import TestServer
+
+    body = b"MZ" + os.urandom(50_000)
+    started = []
+    monkeypatch.setenv("SEEKSYNC_RELEASE_API", "http://127.0.0.1:1/x")          # allows a download from this computer
+
+    class FakeProc:
+        def __init__(self, args, **kw):
+            # read the files now: a later install attempt clears the update folder
+            started.append((args, kw, open(args[0], "rb").read().decode(), open(args[2], "rb").read()))
+    monkeypatch.setattr(updates.subprocess, "Popen", FakeProc)
+
+    async def scenario():
+        app = web.Application()
+        async def f(r): return web.Response(body=body)
+        app.router.add_get("/setup.exe", f)
+        async with TestServer(app) as srv:
+            c = UpdateChecker(_Store(), repo="x/y")
+            asset = {"name": SETUP["name"], "url": f"http://127.0.0.1:{srv.port}/setup.exe", "size": len(body),
+                     "sha256": hashlib.sha256(body).hexdigest()}
+            await c.install({"version": "9.0.0", "asset": asset})
+            for bad, word in ((dict(asset, sha256=""), "no checksum"), (dict(asset, name="SeekSync-8.0.0-windows-setup.exe"), "not version"),
+                              (dict(asset, sha256="0" * 64), "checksum")):
+                with pytest.raises(RuntimeError) as e:
+                    await c.install({"version": "9.0.0", "asset": bad})
+                assert word in str(e.value)
+            assert len(started) == 1                                              # a refused download starts nothing
+
+    asyncio.run(scenario())
+    args, kw, text, saved = started[0]
+    script, pid, setup, exe = args
+    assert pid == str(os.getpid()) and exe == str(windows_app)
+    assert saved == body and setup.endswith("SeekSync-9.0.0-windows-setup.exe")
+    assert text.startswith("@echo off") and "\r\n" in text and text.count("\n") == text.count("\r\n")
+    assert "/VERYSILENT" in text and "/NORESTART" in text and 'start "" "%APP%"' in text
+    assert kw["creationflags"] & 0x08000000                                       # no console window
+
+
+def test_windows_download_that_is_not_a_program_is_refused(windows_app, monkeypatch):
+    from aiohttp import web
+    from aiohttp.test_utils import TestServer
+
+    body = b"<html>not an installer</html>"
+    monkeypatch.setenv("SEEKSYNC_RELEASE_API", "http://127.0.0.1:1/x")
+    monkeypatch.setattr(updates.subprocess, "Popen", lambda *a, **k: pytest.fail("must not start"))
+
+    async def scenario():
+        app = web.Application()
+        async def f(r): return web.Response(body=body)
+        app.router.add_get("/s.exe", f)
+        async with TestServer(app) as srv:
+            asset = {"name": SETUP["name"], "url": f"http://127.0.0.1:{srv.port}/s.exe", "size": len(body),
+                     "sha256": hashlib.sha256(body).hexdigest()}
+            with pytest.raises(RuntimeError, match="not a Windows program"):
+                await UpdateChecker(_Store(), repo="x/y").install({"version": "9.0.0", "asset": asset})
+
+    asyncio.run(scenario())

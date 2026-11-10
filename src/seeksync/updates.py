@@ -1,9 +1,14 @@
-"""Find out whether a newer release is on GitHub, and (macOS app only) install it.
+"""Find out whether a newer release is on GitHub, and (packaged apps for Mac and Windows) install it.
 
-Installing: download the .dmg of the release, check size and checksum, copy the new SeekSync.app next to the
+Mac: download the .dmg of the release, check size and checksum, copy the new SeekSync.app next to the
 current one, then a small shell script waits until this app has quit, moves the old app to
-`previous-versions/` in the app data (a back-up) and puts the new one in its place. Nothing is installed
-without the user pressing the button."""
+`previous-versions/` in the app data (a back-up) and puts the new one in its place.
+
+Windows: download the installer (`SeekSync-x.y.z-windows-setup.exe`), check size and checksum (the checksum is
+required, because the file is run), then a small batch file waits until this app has quit, runs the installer
+quietly (it installs over the old version, no administrator rights needed) and starts the app again.
+
+Nothing is installed without the user pressing the button."""
 from __future__ import annotations
 
 import asyncio
@@ -56,6 +61,29 @@ exit 1
 """.replace("@KEEP@", str(KEEP_BACKUPS + 1))
 
 
+WINDOWS_SCRIPT = """@echo off
+rem SeekSync update: wait until the app has quit, run the installer quietly, start the app again.
+set "PID=%~1"
+set "SETUP=%~2"
+set "APP=%~3"
+set /a WAITED=0
+:wait
+tasklist /FI "PID eq %PID%" /NH 2>nul | find "%PID%" >nul
+if errorlevel 1 goto install
+set /a WAITED+=1
+if %WAITED% gtr 120 goto failed
+ping -n 2 127.0.0.1 >nul
+goto wait
+:install
+"%SETUP%" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /LOG="%~dp0setup.log"
+start "" "%APP%"
+exit /b 0
+:failed
+start "" "%APP%"
+exit /b 1
+"""
+
+
 def parse_version(v: str) -> tuple[int, ...]:
     """'v1.2.3' -> (1, 2, 3). Anything after the numbers (e.g. '-beta') is ignored."""
     m = re.match(r"^v?(\d+(?:\.\d+)*)", (v or "").strip())
@@ -72,11 +100,15 @@ def is_newer(latest: str, current: str = __version__) -> bool:
 
 def pick_asset(assets: list, platform: str = sys.platform) -> Optional[dict]:
     """The download for this computer from a release's asset list: {"name", "url", "size", "sha256"}."""
-    if platform != "darwin":
+    if platform == "darwin":
+        wanted = lambda n: n.endswith(".dmg") and "macos" in n
+    elif platform.startswith("win"):
+        wanted = lambda n: n.endswith("-windows-setup.exe")
+    else:
         return None
     for a in assets or []:
         name = str(a.get("name") or "")
-        if name.lower().endswith(".dmg") and "macos" in name.lower() and a.get("browser_download_url"):
+        if wanted(name.lower()) and a.get("browser_download_url"):
             digest = str(a.get("digest") or "")
             return {"name": name, "url": a["browser_download_url"], "size": int(a.get("size") or 0),
                     "sha256": digest.split(":", 1)[1].lower() if digest.startswith("sha256:") else ""}
@@ -91,11 +123,25 @@ def bundle_path() -> Optional[Path]:
     return p.parents[2] if len(p.parents) > 2 and p.parents[2].suffix == ".app" else None
 
 
+def windows_app_dir() -> Optional[Path]:
+    """The folder of the installed SeekSync.exe this process runs from, or None (source run, or not Windows)."""
+    if not sys.platform.startswith("win") or not getattr(sys, "frozen", False):
+        return None
+    return Path(sys.executable).resolve().parent
+
+
 def install_problem() -> str:
     """Why this copy can't update itself ('' = it can)."""
+    if sys.platform.startswith("win"):
+        folder = windows_app_dir()
+        if folder is None:
+            return "Automatic updates only work in the installed SeekSync app for Mac and Windows."
+        if not os.access(folder, os.W_OK):
+            return (f"SeekSync can't change {folder}. Download the installer from the release page and run it yourself.")
+        return ""
     app = bundle_path()
     if app is None:
-        return "Automatic updates only work in the SeekSync app for Mac."
+        return "Automatic updates only work in the installed SeekSync app for Mac and Windows."
     if not os.access(app.parent, os.W_OK) or not os.access(app, os.W_OK):
         return f"SeekSync can't change {app.parent}. Move the app to a folder you own (or drag it to Applications yourself)."
     return ""
@@ -210,11 +256,47 @@ class UpdateChecker:
         quit_app()
 
     async def install(self, release: dict) -> None:
+        problem = install_problem()
+        if problem:
+            raise RuntimeError(problem)
+        if sys.platform.startswith("win"):
+            await self._install_windows(release)
+        else:
+            await self._install_mac(release)
+
+    async def _install_windows(self, release: dict) -> None:
+        folder = windows_app_dir()
+        asset, version = release["asset"], release["version"]
+        if folder is None:
+            raise RuntimeError("Automatic updates only work in the installed SeekSync app for Mac and Windows.")
+        self._check_url(asset["url"])
+        if not asset.get("sha256"):      # this file is going to be run: without a checksum from GitHub it isn't
+            raise RuntimeError("GitHub gave no checksum for this download, so it was not installed. Use the release page instead.")
+        if f"-{version}-" not in asset["name"]:
+            raise RuntimeError(f"The download is not version {version}.")
+        work = data_dir() / "update"
+        shutil.rmtree(work, ignore_errors=True)
+        work.mkdir(parents=True, exist_ok=True)
+        setup = work / asset["name"]
+        await self.download(asset, setup)
+
+        self.progress["stage"] = "installing"
+        with open(setup, "rb") as f:
+            if f.read(2) != b"MZ":
+                raise RuntimeError("The download is not a Windows program.")
+        script = work / "update.bat"
+        script.write_text(WINDOWS_SCRIPT, "utf-8", newline="\r\n")
+        subprocess.Popen([str(script), str(os.getpid()), str(setup), str(folder / Path(sys.executable).name)],
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         close_fds=True,
+                         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+                         | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200))
+
+    async def _install_mac(self, release: dict) -> None:
         app = bundle_path()
         asset, version = release["asset"], release["version"]
-        problem = install_problem()
-        if problem or app is None:
-            raise RuntimeError(problem or "Automatic updates only work in the SeekSync app for Mac.")
+        if app is None:
+            raise RuntimeError("Automatic updates only work in the installed SeekSync app for Mac and Windows.")
         self._check_url(asset["url"])
         work = data_dir() / "update"
         shutil.rmtree(work, ignore_errors=True)

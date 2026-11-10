@@ -127,7 +127,7 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   shown in a pywebview window by `__main__.py`; `updates.py` checks GitHub releases (`/releases/latest`, so only published ones) and, in the macOS .app only, installs one:
   download the `*macos*.dmg` asset (size + SHA-256 from the API), `ditto` the app next to the current one, then a shell script
   (`SWAP_SCRIPT`) waits for the app to quit, moves the old app to `<data>/previous-versions/` (keeps 2) and `open`s the new one.
-  `Backend.on_quit` is how the route closes the app. Test it without GitHub: `SEEKSYNC_RELEASE_API=<url of a release JSON>`
+  `Backend.on_quit` is how the route closes the app. Windows (0.6.3, not run on a real PC): download `*-windows-setup.exe` (size + SHA-256 required, `MZ` check), then `update.bat` waits for the PID, runs the Inno installer `/VERYSILENT /NORESTART` (per-user, no admin) and starts the exe again; log in `<data>/update/setup.log`. Test it without GitHub: `SEEKSYNC_RELEASE_API=<url of a release JSON>`
   (download URLs may then be http://127.0.0.1) and `OPEN_CMD=<script>` instead of `open`. Verified end to end on a copy of the build.
 
 ## Website

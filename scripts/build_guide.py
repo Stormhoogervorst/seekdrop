@@ -476,8 +476,10 @@ sec("updating", "Updating", "Bijwerken",
     UL([
         ("<strong>On a Mac</strong> click <strong>Install and restart</strong>. SeekSync downloads the new version, checks it, replaces itself and starts again. The old app is kept in a folder called <code>previous-versions</code> in the app data (the last two).",
          "<strong>Op een Mac</strong> klik je op <strong>Install and restart</strong>. SeekSync downloadt de nieuwe versie, controleert hem, vervangt zichzelf en start opnieuw. De oude app blijft bewaard in een map <code>previous-versions</code> in de app-gegevens (de laatste twee)."),
-        ("<strong>On Windows</strong>, or when SeekSync can't change its own folder, use the release page: download the new installer and run it over the old one.",
-         "<strong>Op Windows</strong>, of als SeekSync zijn eigen map niet mag wijzigen, gebruik je de releasepagina: download het nieuwe installatieprogramma en start het over het oude heen."),
+        ("<strong>On Windows</strong> click <strong>Install and restart</strong> too. SeekSync downloads the installer, checks it, closes itself, runs the installer quietly over the old version and starts again.",
+         "<strong>Op Windows</strong> klik je ook op <strong>Install and restart</strong>. SeekSync downloadt het installatieprogramma, controleert het, sluit zichzelf, draait het stil over de oude versie heen en start opnieuw."),
+        ("When SeekSync can't change its own folder, use the release page: download the new installer and run it over the old one.",
+         "Mag SeekSync zijn eigen map niet wijzigen, gebruik dan de releasepagina: download het nieuwe installatieprogramma en start het over het oude heen."),
         ("Your channels and settings are kept either way. Switch the notice off with the box <em>Tell me when a new version is out</em>.",
          "Je kanalen en instellingen blijven in beide gevallen bewaard. Zet de melding uit met het vakje <em>Tell me when a new version is out</em>."),
     ]))

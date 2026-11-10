@@ -70,9 +70,11 @@ Windows may show a SmartScreen warning because the app isn't code-signed: click
 **More info**, then **Run anyway**. The installer can start the app when you log in.
 
 The app tells you when a new version is out (Settings → Updates), and **Check now** looks on GitHub straight away.
-On the Mac app, **Install and restart** downloads the new version, checks it, replaces the app and starts it again;
-the old app is kept in `previous-versions` in the app data (the last two). On Windows, or when SeekSync can't change
-its own folder, use the Releases page and install over the old one. Your channels and settings are kept either way.
+In the Mac app, **Install and restart** downloads the new version, checks it, replaces the app and starts it again;
+the old app is kept in `previous-versions` in the app data (the last two). In the Windows app it downloads the installer,
+checks it, closes SeekSync, runs the installer quietly over the old version (no administrator rights needed) and starts
+SeekSync again. When SeekSync can't change its own folder, use the Releases page and install over the old one.
+Your channels and settings are kept either way.
 
 ## Two ways to connect to Soulseek
 
@@ -350,8 +352,10 @@ Soulseek wordt door vrijwilligers gedragen. De app is daarom rustig:
   `~/Library/Application Support/SeekSync` (macOS) of `%LOCALAPPDATA%\SeekSync` (Windows).
 - Alles blijft op je computer. De app praat met SoundCloud en Spotify (lezen), met Soulseek (direct of via Nicotine+) en
   twee keer per dag met GitHub om te zien of er een nieuwe versie is (uit te zetten). In Settings staat ook een
-  knop **Check now** die direct kijkt. Op de Mac-app installeert **Install and restart** de nieuwe versie zelf
+  knop **Check now** die direct kijkt. In de Mac-app installeert **Install and restart** de nieuwe versie zelf
   (downloaden, controleren, de app vervangen en opnieuw starten); de oude blijft als back-up in `previous-versions`.
+  In de Windows-app downloadt het het installatieprogramma, controleert dat, sluit SeekSync, draait het stil over de
+  oude versie heen en start SeekSync weer.
   Alleen een *gepubliceerde* release telt: een concept op GitHub ziet de app niet.
 
 ### Wat de app nog niet kan
