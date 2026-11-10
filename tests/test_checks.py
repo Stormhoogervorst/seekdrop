@@ -187,3 +187,95 @@ def test_measured_tier_and_floor(spectra):
     assert track["_meta"]["tier"] == "mp3_320"            # suspect lossless counts as MP3 320
     S.quality_profile = "space"
     assert fc({"duration": 30}, str(spectra / "p128.mp3")) == "Below your quality minimum (MP3 under 192)"
+
+
+# --- Windows report (0.6.1): good files in quarantine ------------------------------------------------
+# 1. "Damaged file (Could not find codec parameters for stream 1 (Video: mjpeg…))": a broken cover picture
+#    in an otherwise fine file. 2. "Damaged file (Error initializing a simple filtergraph)" on every file:
+#    that ffmpeg couldn't set up the silencedetect filter. Neither says anything about the audio.
+
+def test_messages_about_cover_art_are_not_about_the_audio():
+    from seeksync.checks import _about_other_stream as other
+    assert other("[mp3 @ 0x5613] Could not find codec parameters for stream 1 (Video: mjpeg, none(bt470bg/unknown/unknown)): unspecified size")
+    assert other("[in#0/flac @ 0x55] Could not find codec parameters for stream 1 (Video: mjpeg, none): unspecified size")
+    assert other("[mjpeg @ 0x55c9] unable to decode APP fields: Invalid data found when processing input")
+    assert other("[vist#0:1/mjpeg @ 0x55] Error while decoding stream")
+    assert other("[dec:png @ 0x55] Invalid PNG signature")
+    assert not other("[mp3 @ 0x55] Could not find codec parameters for stream 0 (Audio: mp3 (mp3float), 0 channels, fltp): unspecified frame size")
+    assert not other("[flac @ 0x55] invalid residual")
+    assert not other("[aist#0:0/mp3 @ 0x55] Error submitting packet to decoder")
+
+
+@pytest.fixture(scope="module")
+def broken_covers(audio, tmp_path_factory):
+    from mutagen.flac import FLAC, Picture
+    from mutagen.id3 import APIC, ID3
+    d = tmp_path_factory.mktemp("covers")
+    ffmpeg("-i", str(audio / "good.flac"), "-b:a", "320k", str(d / "good.mp3"))
+    for name, data in (("zeros", b"\x00" * 5000), ("bad_jpeg", b"\xff\xd8\xff\xe0" + b"\x00" * 20)):
+        shutil.copy(d / "good.mp3", d / f"{name}.mp3")
+        tags = ID3()
+        tags.add(APIC(encoding=3, mime="image/jpeg", type=3, desc="", data=data))
+        tags.save(str(d / f"{name}.mp3"), v2_version=3)
+        shutil.copy(audio / "good.flac", d / f"{name}.flac")
+        f = FLAC(str(d / f"{name}.flac"))
+        pic = Picture()
+        pic.type, pic.mime, pic.data = 3, "image/jpeg", data
+        f.add_picture(pic)
+        f.save()
+    return d
+
+
+@needs_ffmpeg
+def test_broken_cover_art_does_not_make_a_file_damaged(broken_covers):
+    for name in ("zeros.mp3", "bad_jpeg.mp3", "zeros.flac", "bad_jpeg.flac"):
+        assert check(broken_covers / name, 40) is None, name
+
+
+@needs_ffmpeg
+def test_real_damage_still_counts(audio, tmp_path):
+    garbage = tmp_path / "garbage.mp3"
+    garbage.write_bytes(os.urandom(200_000))
+    assert check(garbage, 40) is not None
+    assert check(audio / "cut.flac", 40).startswith("File is cut off at 0:")
+
+
+@pytest.fixture
+def ffmpeg_without_silencedetect(tmp_path):
+    """An ffmpeg that fails to set up any -af filter, like the Windows build in the report."""
+    import sys
+    fake = tmp_path / "ffmpeg"
+    fake.write_text(
+        f"#!{sys.executable}\n"
+        "import os, sys\n"
+        "if '-af' in sys.argv:\n"
+        "    sys.stderr.write(\"[AVFilterGraph @ 0x1] No such filter: 'silencedetect'\\n\"\n"
+        "                     'Error initializing a simple filtergraph\\n')\n"
+        "    sys.exit(1)\n"
+        f"os.execv({TOOLS.ffmpeg!r}, [{TOOLS.ffmpeg!r}] + sys.argv[1:])\n")
+    fake.chmod(0o755)
+    return Tools(str(fake), TOOLS.ffprobe)
+
+
+@needs_ffmpeg
+@pytest.mark.skipif(os.name == "nt", reason="uses a script as a stand-in ffmpeg")
+def test_ffmpeg_that_cannot_run_the_silence_filter(audio, ffmpeg_without_silencedetect):
+    tools = ffmpeg_without_silencedetect
+
+    def run(path, expected):
+        return verdict(str(path), analyse(str(path), tools, 10), expected, 10, 10)
+
+    assert run(audio / "good.flac", 40) is None
+    assert tools.silence_filter is False                    # remembered: the next file skips the filter
+    a = analyse(str(audio / "silence.flac"), tools, 10)
+    assert a.decoded and not a.silence_checked
+    assert verdict(str(audio / "silence.flac"), a, 70, 10, 10) is None    # can't check silence: let it through
+    assert run(audio / "cut.flac", 40).startswith("File is cut off at 0:")
+    assert run(audio / "fake.flac", 40) == "Not really FLAC (it's MP3)"
+
+
+@needs_ffmpeg
+def test_normal_ffmpeg_keeps_the_silence_check(audio):
+    tools = Tools(TOOLS.ffmpeg, TOOLS.ffprobe)
+    a = analyse(str(audio / "silence.flac"), tools, 10)
+    assert a.silence_checked and tools.silence_filter is True

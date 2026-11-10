@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.2
+
+- Fixed: on Windows many good downloads went to quarantine as "Damaged file". Two causes, neither about the audio:
+  a broken or odd cover picture inside the file ("Could not find codec parameters for stream 1 (Video: mjpeg…)"),
+  and an ffmpeg that can't set up the silence check ("Error initializing a simple filtergraph"). Problems with the
+  cover art are now ignored (the tags step puts the SoundCloud artwork in anyway), and when your ffmpeg can't run
+  the silence check, that one check is skipped and Settings says so; the other checks still run.
+  Files already in quarantine for these reasons can be let through with *Approve anyway*.
+
 ## 0.6.1
 
 - Fixed: in the downloaded app, *Check now* said "Can't reach GitHub" although the internet worked. The app didn't

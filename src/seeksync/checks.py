@@ -51,6 +51,9 @@ def find_tool(name: str) -> Optional[str]:
 class Tools:
     ffmpeg: Optional[str] = None
     ffprobe: Optional[str] = None
+    # Whether this ffmpeg can run the silencedetect filter: None = not tried yet. Some (Windows)
+    # builds can't set up the filter at all; then the silence check is skipped, not the file blamed.
+    silence_filter: Optional[bool] = None
 
     @property
     def available(self) -> bool:
@@ -71,6 +74,8 @@ class Analysis:
     decoded_duration: Optional[float] = None
     errors: list[str] = field(default_factory=list)
     silences: list[tuple[float, Optional[float]]] = field(default_factory=list)   # (start, end)
+    silence_checked: bool = False       # False when this ffmpeg couldn't run silencedetect
+    decoded: bool = False               # False when ffmpeg couldn't start decoding at all
 
 
 def _fmt(sec: float) -> str:
@@ -78,12 +83,58 @@ def _fmt(sec: float) -> str:
     return f"{sec // 60}:{sec % 60:02d}"
 
 
+# Messages about the cover art (an MP3/FLAC/M4A picture shows up as a video stream) say nothing about
+# the audio: a broken or odd cover gives "Could not find codec parameters for stream 1 (Video: mjpeg…)".
+_IMAGE_CODECS = {"mjpeg", "jpeg", "png", "apng", "bmp", "gif", "webp", "tiff", "jpeg2000", "jpegls",
+                 "targa", "pgm", "ppm", "pam", "pbm", "qoi", "jpegxl", "libjxl", "libopenjpeg", "image2"}
+_LOG_CONTEXT = re.compile(r"^\[([^\]@]+?)\s*@")
+_OTHER_STREAM = re.compile(r"\((?:Video|Subtitle|Data|Attachment):")
+
+
+def _about_other_stream(line: str) -> bool:
+    """True for an ffmpeg message about a non-audio stream (cover art, subtitles)."""
+    if _OTHER_STREAM.search(line):
+        return True
+    m = _LOG_CONTEXT.match(line.strip())
+    if not m:
+        return False
+    ctx = m.group(1).strip()
+    if ctx.startswith(("vist", "vost", "sist", "sost", "dist", "dost")):   # ffmpeg 7+: video/sub/data stream
+        return True
+    if ctx.startswith("dec:"):
+        ctx = ctx[4:]
+    return ctx.split("/")[-1] in _IMAGE_CODECS
+
+
+def _run(cmd: list, timeout: float) -> subprocess.CompletedProcess:
+    # ffmpeg writes UTF-8 (file names!); Windows would otherwise decode it with its own code page.
+    return subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                          timeout=timeout)
+
+
+def _decode(tools: Tools, path: str, audio_filter: Optional[str], timeout: float) -> subprocess.CompletedProcess:
+    cmd = [tools.ffmpeg, "-hide_banner", "-nostats", "-v", "info", "-i", path, "-map", "0:a:0?"]
+    if audio_filter:
+        cmd += ["-af", audio_filter]
+    return _run(cmd + ["-f", "null", "-progress", "pipe:1", "-"], timeout)
+
+
+def _started(run: subprocess.CompletedProcess) -> bool:
+    """ffmpeg reports progress once it is decoding; without any, it failed while setting up."""
+    return "progress=" in (run.stdout or "")
+
+
+def _last_line(text: str, default: str = "ffmpeg failed") -> str:
+    lines = (text or "").strip().splitlines()
+    return lines[-1].strip() if lines else default
+
+
 def analyse(path: str, tools: Tools, silence_seconds: float, timeout: float = 120) -> Analysis:
     """One ffprobe call (container, codec, header length) and one full decode with silencedetect."""
     a = Analysis()
-    out = subprocess.run(
+    out = _run(
         [tools.ffprobe, "-v", "error", "-show_entries", "format=format_name,duration,bit_rate:stream=codec_type,codec_name,bit_rate,bits_per_raw_sample,bits_per_sample",
-         "-of", "json", path], capture_output=True, text=True, timeout=timeout)
+         "-of", "json", path], timeout)
     try:
         info = json.loads(out.stdout or "{}")
     except ValueError:
@@ -110,15 +161,29 @@ def analyse(path: str, tools: Tools, silence_seconds: float, timeout: float = 12
                     break
             except (KeyError, TypeError, ValueError):
                 pass
-    if out.returncode != 0 and out.stderr.strip():
-        a.errors.append(out.stderr.strip().splitlines()[-1])
+    if out.returncode != 0:
+        probe_errors = [ln for ln in (out.stderr or "").strip().splitlines() if not _about_other_stream(ln)]
+        if probe_errors:
+            a.errors.append(probe_errors[-1].strip())
 
-    run = subprocess.run(
-        [tools.ffmpeg, "-hide_banner", "-nostats", "-v", "info", "-i", path, "-map", "0:a:0?",
-         "-af", f"silencedetect=noise={SILENCE_NOISE_DB}dB:d={max(silence_seconds, 0.5)}",
-         "-f", "null", "-progress", "pipe:1", "-"],
-        capture_output=True, text=True, timeout=timeout)
-    times = re.findall(r"out_time_us=(\d+)", run.stdout)
+    silence = f"silencedetect=noise={SILENCE_NOISE_DB}dB:d={max(silence_seconds, 0.5)}"
+    use_filter = tools.silence_filter is not False
+    run = _decode(tools, path, silence if use_filter else None, timeout)
+    if use_filter and not _started(run):
+        # Setting up failed. If a plain decode does work, it was the filter, not the file.
+        plain = _decode(tools, path, None, timeout)
+        if _started(plain):
+            if tools.silence_filter is None:
+                log.warning("This ffmpeg can't run the silence check (%s); checking files without it",
+                            _last_line(run.stderr))
+            tools.silence_filter = False
+            run, use_filter = plain, False
+    elif use_filter:
+        tools.silence_filter = True
+    a.silence_checked = use_filter and _started(run)
+    a.decoded = _started(run)
+
+    times = re.findall(r"out_time_us=(\d+)", run.stdout or "")
     if times:
         a.decoded_duration = int(times[-1]) / 1_000_000
     start = None
@@ -133,15 +198,22 @@ def analyse(path: str, tools: Tools, silence_seconds: float, timeout: float = 12
             start = None
             continue
         low = line.lower()
-        if "silencedetect" in low:
+        if "silencedetect" in low or _about_other_stream(line):
             continue
         if any(k in low for k in ("error", "invalid data", "corrupt", "header missing", "decode_frame",
                                   "could not find codec", "truncat")):
             a.errors.append(line.strip())
     if start is not None:
         a.silences.append((start, None))   # silence runs to the end of the file
-    if run.returncode != 0 and not a.errors:
-        a.errors.append((run.stderr.strip().splitlines() or ["ffmpeg failed"])[-1])
+    if not a.decoded:
+        # ffmpeg never got as far as decoding. Only a problem with the audio stream itself says
+        # something about the file; anything else (a filter, a missing decoder) is about this ffmpeg.
+        a.errors = [e for e in a.errors if "(Audio:" in e]
+        if not a.errors and a.codec:
+            log.warning("ffmpeg couldn't decode %s, skipping the decode checks: %s",
+                        os.path.basename(path), _last_line(run.stderr))
+    elif run.returncode != 0 and not a.errors:
+        a.errors.append(_last_line(run.stderr))
     return a
 
 

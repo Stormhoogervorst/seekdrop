@@ -563,8 +563,10 @@ function openSettings() {
     else el.value = v ?? "";
   }
   $("#version").textContent = `SeekSync ${ui.state.version}`;
-  $("#set-checks-status").textContent = ui.state.checks && ui.state.checks.available
+  const checks = ui.state.checks || {};
+  $("#set-checks-status").textContent = checks.available
     ? "On. Every download is checked with ffmpeg before it goes to your music folder."
+      + (checks.silence === false ? " Your ffmpeg can't run the silence check, so that one is skipped; a full ffmpeg build turns it on." : "")
     : "Off: ffmpeg isn't installed, so downloads aren't checked. Install ffmpeg (on a Mac: brew install ffmpeg) and restart SeekSync.";
   profileHelp();
   libraryStatus();

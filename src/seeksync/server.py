@@ -145,7 +145,8 @@ class Api:
             "rekordbox": {**e.rekordbox_state, "enabled": e.settings.rekordbox_export, "path": e.rekordbox_path(),
                           "library": {**e.rekordbox_library, "set": bool(e.settings.rekordbox_library_xml.strip())}},
             "library": {**e.library_state, "dirs": e.library_roots(), "own": e.settings.download_dir},
-            "checks": {"available": bool(e.file_checker and e.file_checker.tools.available)},
+            "checks": {"available": bool(e.file_checker and e.file_checker.tools.available),
+                       "silence": not (e.file_checker and e.file_checker.tools.silence_filter is False)},
             "profiles": {k: {"label": v["label"], "help": v["help"], "ladder": [TIER_LABELS[x] for x in v["order"]]}
                          for k, v in PROFILES.items()},
             "tier_labels": TIER_LABELS,
