@@ -614,3 +614,133 @@ def test_published_files_follow_the_template(setup, monkeypatch):
     db.update_track(t["id"], state="downloading")
     asyncio.run(eng._download(db.track(t["id"]), [Candidate("peer", "@@a\\Fresh Artist - Brand New.flac")]))
     assert db.track(t["id"])["file_path"].endswith("Brand New (2).flac")
+
+
+# --- 0.6.2: covers that went missing -------------------------------------------------------------
+
+def test_spotify_images_may_be_downloaded_too():
+    url = "https://i.scdn.co/image/ab67616d0000b2730893a0c33fd4b8497b0ef2f6"
+    cdn = "https://image-cdn-fa.spotifycdn.com/image/ab67616d0000b2730893a0c33fd4b8497b0ef2f6"
+    op = Opener({url: jpeg_header(640, 640), cdn: jpeg_header(640, 640)})
+    assert tagging.image_info(tagging.fetch_cover(url, opener=op))[:2] == (640, 640)
+    assert tagging.fetch_cover(cdn, opener=op) is not None
+    assert tagging.fetch_cover("https://scdn.co.evil.example.com/a.jpg", opener=op) is None
+
+
+@pytest.mark.parametrize("ext", ["mp3", "flac", "aiff"])
+def test_cover_px_and_set_cover_change_only_the_picture(tmp_path, ext):
+    path = tmp_path / f"a.{ext}"
+    if ext == "mp3":
+        fake_mp3(path)
+    elif ext == "flac":
+        fake_flac(path)
+    else:
+        make_wav(tmp_path / "a.wav")
+        tagging.wav_to_aiff(str(tmp_path / "a.wav"), str(path))
+    tagging.tag_file(str(path), META, None)
+    assert tagging.cover_px(str(path)) == 0
+    tagging.set_cover(str(path), png(600, 600))
+    assert tagging.cover_px(str(path)) == 600
+    tagging.set_cover(str(path), png(500, 500))              # replaces, never two pictures
+    assert tagging.cover_px(str(path)) == 500
+    if ext == "flac":
+        from mutagen.flac import FLAC
+        f = FLAC(str(path))
+        assert len(f.pictures) == 1 and f["artist"] == [META.artist] and f["genre"] == [META.genre]
+    else:
+        from mutagen.id3 import ID3
+        tags = ID3(str(path)) if ext == "mp3" else __import__("mutagen.aiff", fromlist=["AIFF"]).AIFF(str(path)).tags
+        assert len(tags.getall("APIC")) == 1 and str(tags["TPE1"]) == META.artist and str(tags["TCON"]) == META.genre
+
+
+def test_a_broken_cover_counts_as_no_cover_and_is_replaced(tmp_path):
+    from mutagen.flac import FLAC, Picture
+    path = tmp_path / "a.flac"
+    fake_flac(path)
+    f = FLAC(str(path))
+    pic = Picture()
+    pic.type, pic.mime, pic.data, pic.width, pic.height = 3, "image/jpeg", b"\x00" * 3000, 1000, 1000   # claims 1000 px
+    f.add_picture(pic)
+    f.save()
+    assert tagging.cover_px(str(path)) == 0
+    tagging.tag_file(str(path), META, png(500, 500))
+    assert tagging.cover_px(str(path)) == 500
+
+
+def test_a_track_without_artwork_is_looked_up_again(setup, monkeypatch):
+    from mutagen.flac import FLAC
+    from seeksync.soundcloud import TrackInfo
+    eng, db, sc, slsk, tmp = setup
+    t = _ready(eng, db, sc, monkeypatch)
+    db.update_track(t["id"], artwork="", sc_meta="")                # its details failed when it was added
+    art = "https://i1.sndcdn.com/artworks-new-t300x300.jpg"
+    sc.track = lambda url: TrackInfo("x", url, "Fresh Artist - Brand New", artwork=art, genre="House")
+    asked = []
+    monkeypatch.setattr(tagging, "fetch_cover", lambda url, **kw: asked.append(url) or (png(500, 500) if url == art else None))
+    _download_as(slsk, fake_flac)
+    done = _run_download(eng, db, t)
+    assert asked == [art] and len(FLAC(done["file_path"]).pictures) == 1
+    assert db.track(t["id"])["artwork"] == art                     # stored, so the list shows it as well
+    assert json.loads(db.track(t["id"])["sc_meta"])["genre"] == "House"
+
+
+def test_a_failed_cover_download_is_tried_once_more(setup, monkeypatch):
+    eng, db, sc, slsk, tmp = setup
+    t = _ready(eng, db, sc, monkeypatch)
+    tries = []
+
+    def flaky(url, **kw):
+        tries.append(url)
+        return png(500, 500) if len(tries) == 2 else None
+    monkeypatch.setattr(tagging, "fetch_cover", flaky)
+    assert eng.cover_for(db.track(t["id"])) is not None and len(tries) == 2
+
+
+def test_fill_missing_covers_only_adds_pictures(setup, monkeypatch):
+    eng, db, sc, slsk, tmp = setup
+    out = tmp / "out" / "Label"
+    out.mkdir(parents=True)
+    cid = _fresh_track(eng, db, sc)["channel_id"]
+    rows = {}
+    for n, name in enumerate(("bare", "has_cover", "nothing_found")):
+        p = out / f"{name}.flac"
+        fake_flac(p)
+        tagging.tag_file(str(p), META, png(700, 700) if name == "has_cover" else None)
+        db.add_track(channel_id=cid, sc_id=f"c{n}", url=f"https://soundcloud.com/lbl/{name}", raw_title=name,
+                     state="done", file_path=str(p),
+                     artwork="" if name == "nothing_found" else f"https://i1.sndcdn.com/{name}-t300x300.jpg")
+        rows[name] = p
+    before = rows["has_cover"].read_bytes()
+    monkeypatch.setattr(tagging, "fetch_cover", lambda url, **kw: png(500, 500) if url else None)
+    sc.track = lambda url: (_ for _ in ()).throw(RuntimeError("SoundCloud hiccup"))
+    eng.fill_missing_covers()
+    st = eng.covers_state
+    assert (st["added"], st["missing"], st["failed"], st["done"], st["running"]) == (1, 1, 0, 3, False)
+    assert tagging.cover_px(str(rows["bare"])) == 500
+    assert rows["has_cover"].read_bytes() == before                  # a file with a cover isn't touched
+    assert tagging.cover_px(str(rows["nothing_found"])) == 0
+    assert any(a["msg"].startswith("Covers: added 1") for a in eng.activity)
+
+
+def test_fill_covers_through_the_api_starts_one_run(setup, monkeypatch):
+    from seeksync.server import Api
+    eng, db, sc, slsk, tmp = setup
+    runs = []
+
+    def slow_fill():
+        runs.append(1)
+        eng.covers_state.update(running=False, finished_at=1.0)
+    monkeypatch.setattr(eng, "fill_missing_covers", slow_fill)
+    api = Api(eng, db, token="t")
+
+    async def scenario():
+        await api.fill_covers(None)
+        await api.fill_covers(None)               # a second click while the first run is busy starts nothing
+        for _ in range(50):
+            if runs:
+                break
+            await asyncio.sleep(0.01)
+        state = json.loads((await api.state(type("Req", (), {"query": {}})())).text)
+        return state["covers"]
+    covers = asyncio.run(scenario())
+    assert runs == [1] and covers["running"] is False

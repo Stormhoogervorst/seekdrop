@@ -42,7 +42,9 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   every track of a playlist; `track()` gives title, uploader, duration, artwork. Never downloads audio.
 - **Spotify** (`spotify.py`, step 16): public playlists only, read from the embed page `open.spotify.com/embed/playlist/<id>`
   (`__NEXT_DATA__` JSON: title, artists, length; max 100 tracks; unofficial, a changed page gives a clear error). The official
-  Web API only shows playlists you own since Feb 2026 and needs Premium. `sources.py` (`Sources`) routes each link to
+  Web API only shows playlists you own since Feb 2026 and needs Premium. The playlist page has no images per track, so
+  `SpotifyClient.track()` also reads `embed/track/<id>` once per track (`parse_track_embed`: `visualIdentity.image`, 640 px
+  first, and `releaseDate`), 0.5 s apart; when that fails the playlist details still do. `sources.py` (`Sources`) routes each link to
   SoundCloud or Spotify and is what `Engine.sc` is; a Spotify playlist is a `playlist` channel with `tracks.sc_id = spotify:<id>`.
 - **Titles** (`titles.py`): `parse_title()` → artist / title / version (drops promo text, label and
   catalog suffixes, quotes), `is_mix()`, `search_queries()`.
@@ -94,7 +96,10 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   `_stage_and_check` (and for *Approve anyway*): optional WAV -> AIFF (`tagging.wav_to_aiff`, same PCM, pure Python),
   then `tagging.tag_file` (ID3v2.3 for MP3/AIFF/WAV, Vorbis + picture for FLAC, MP4 for M4A) with `TagMeta` built by
   `Engine._tag_meta`; our fields are always set or cleared, other tags (BPM, key) stay. Cover from `tracks.artwork`
-  (300 px link rewritten to t500x500, only sndcdn.com/soundcloud.com), an existing cover >= 500 px is kept. Genre and
+  (300 px link rewritten to t500x500; only sndcdn.com/soundcloud.com/scdn.co/spotifycdn.com), an existing cover >= 500 px is
+  kept (measured from the image itself, a broken one counts as none). `Engine.cover_for` looks the track up again when the
+  artwork link is empty or doesn't load, and retries a failed download once. `Engine.fill_missing_covers` (Settings button,
+  `/api/covers/fill`, `covers_state`) gives done files without a readable cover one via `tagging.set_cover` (picture only). Genre and
   release date come from SoundCloud into `tracks.sc_meta` (JSON) when a track is added. Failures never block a
   file. `settings.filename_template` (`naming.render`, tokens channel/artist/title/version/year/genre) replaced
   `organize_by_channel` (migrated in `SettingsStore._load`); `_finalize` uses it. Settings: `tag_files`,

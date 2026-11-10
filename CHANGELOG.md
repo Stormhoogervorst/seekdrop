@@ -8,6 +8,12 @@
   cover art are now ignored (the tags step puts the SoundCloud artwork in anyway), and when your ffmpeg can't run
   the silence check, that one check is skipped and Settings says so; the other checks still run.
   Files already in quarantine for these reasons can be let through with *Approve anyway*.
+- Covers: tracks from a Spotify playlist now get the album cover (640 px) and the year, read from each track's own
+  Spotify page. A track without an artwork link (its details failed when it was added) or with a link that no
+  longer works is looked up again when its file comes in, and a failed cover download is tried once more.
+- New in Settings, Names and tags: **Fill in missing covers**. Every downloaded file without a cover (or with a
+  broken one) gets one; only the picture is added. Useful for files from 0.6.0 and earlier, whose covers couldn't
+  be downloaded in the packaged app.
 
 ## 0.6.1
 

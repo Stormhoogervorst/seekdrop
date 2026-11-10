@@ -4,7 +4,9 @@ Spotify's official Web API only shows the contents of playlists you own or work 
 needs a Premium developer account, so SeekSync reads the page Spotify itself offers for embedding a playlist,
 open.spotify.com/embed/playlist/<id>. That page needs no login and lists title, artists and length of every
 track, but only the first 100 tracks of a playlist. It is not an official API: when Spotify changes the page,
-reading stops and SeekSync says so. Nothing is ever downloaded from Spotify."""
+reading stops and SeekSync says so. The playlist page has no pictures, so for the cover (and the release date)
+each new track's own embed page is read too, open.spotify.com/embed/track/<id>. No audio is ever downloaded
+from Spotify; only the album cover goes into the tags."""
 from __future__ import annotations
 
 import json
@@ -97,9 +99,14 @@ def display_title(artists: str, title: str) -> str:
 class SpotifyClient:
     """Same small interface as SoundCloudClient: channel_info, latest, track."""
 
-    def __init__(self, fetch=None):
+    TRACK_PAGE_SPACING = 0.5                           # seconds between two track pages: a polite reader
+
+    def __init__(self, fetch=None, sleep=time.sleep):
         self._fetch = fetch or _fetch
+        self._sleep = sleep
         self._info: dict[str, TrackInfo] = {}          # filled by latest(), read by track()
+        self._detailed: set[str] = set()               # track links whose own page was read (cover, date)
+        self._last_page = 0.0
 
     def _page(self, url: str) -> dict:
         pid = playlist_id(url)
@@ -132,11 +139,39 @@ class SpotifyClient:
         return out
 
     def track(self, url: str) -> TrackInfo:
-        """The details read by the last latest(). Spotify has nothing more to say about a track here."""
+        """The details read by the last latest(), plus the cover and release date from the track's own embed
+        page (the playlist page has no pictures per track). Without that page the playlist details still do."""
         info = self._info.get(url)
+        if url in self._detailed and info is not None:
+            return info
+        extra = self._track_page(url)
+        if extra is None:
+            if info is None:
+                raise ChannelError("No details for this Spotify track yet.")
+            return info
         if info is None:
-            raise ChannelError("No details for this Spotify track yet.")
+            info = extra
+        else:
+            info.artwork = extra.artwork or info.artwork
+            info.released_at = extra.released_at or info.released_at
+            info.duration = info.duration or extra.duration
+        self._info[url] = info
+        self._detailed.add(url)
         return info
+
+    def _track_page(self, url: str) -> Optional[TrackInfo]:
+        m = re.search(rf"/track/({_ID})", url or "")
+        if not m:
+            return None
+        wait = self._last_page + self.TRACK_PAGE_SPACING - time.monotonic()
+        if wait > 0:
+            self._sleep(wait)
+        self._last_page = time.monotonic()
+        try:
+            return parse_track_embed(self._fetch(f"https://open.spotify.com/embed/track/{m.group(1)}"), url)
+        except ChannelError as e:
+            log.info("no Spotify track details for %s: %s", url, e)
+            return None
 
 
 def parse_embed(html: str) -> dict:
@@ -162,6 +197,35 @@ def parse_embed(html: str) -> dict:
     if not isinstance(entity, dict) or entity.get("type") not in ("playlist", None) or "trackList" not in entity:
         raise ChannelError("Spotify shows no tracks for this link. Is it a public playlist?")
     return entity
+
+
+def parse_track_embed(html: str, url: str) -> TrackInfo:
+    """A track's embed page (open.spotify.com/embed/track/<id>): name, artists, length, release date and the
+    album cover, biggest size first (Spotify offers 640, 300 and 64 px)."""
+    m = _NEXT_DATA.search(html or "")
+    try:
+        e = json.loads(m.group(1))["props"]["pageProps"]["state"]["data"]["entity"] if m else None
+    except (ValueError, KeyError, TypeError):
+        e = None
+    if not isinstance(e, dict) or e.get("type") != "track":
+        raise ChannelError("Spotify's track page looks different than expected.")
+    images = [i for i in ((e.get("visualIdentity") or {}).get("image") or [])
+              if isinstance(i, dict) and str(i.get("url") or "").startswith("https://")]
+    images.sort(key=lambda i: (i.get("maxWidth") or 0), reverse=True)
+    released = None
+    iso = str((e.get("releaseDate") or {}).get("isoString") or "")
+    if iso:
+        try:
+            from datetime import datetime
+            released = datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            released = None
+    artists = ", ".join(str(a.get("name") or "").strip() for a in e.get("artists") or []
+                        if isinstance(a, dict) and a.get("name"))
+    tid = str(e.get("id") or "")
+    return TrackInfo(sc_id=PREFIX + tid if tid else "", url=url, title=display_title(artists, e.get("name") or e.get("title") or ""),
+                     uploader=artists, duration=((e.get("duration") or 0) / 1000) or None,
+                     artwork=images[0]["url"] if images else "", uploaded_at=time.time(), released_at=released)
 
 
 def _fetch(url: str) -> str:

@@ -95,7 +95,7 @@ function render() {
   renderActivity(s);
   renderUpdate(s);
   renderNotices(s);
-  if (!$("#drawer").hidden) { libraryStatus(); rekordboxStatus(); updateStatus(); }
+  if (!$("#drawer").hidden) { libraryStatus(); coversStatus(); rekordboxStatus(); updateStatus(); }
 }
 
 function renderUpdate(s) {
@@ -570,6 +570,7 @@ function openSettings() {
     : "Off: ffmpeg isn't installed, so downloads aren't checked. Install ffmpeg (on a Mac: brew install ffmpeg) and restart SeekSync.";
   profileHelp();
   libraryStatus();
+  coversStatus();
   rekordboxStatus();
   updateStatus();
   templatePreview();
@@ -685,6 +686,23 @@ function libraryStatus() {
   if (l.error) msg += ` ${l.error}`;
   $("#set-library-status").textContent = msg;
 }
+function coversStatus() {
+  const c = (ui.state || {}).covers || {};
+  let msg = "Downloaded files without a cover get one from SoundCloud or Spotify. Only the picture is added.";
+  if (c.running) msg = `Adding covers… ${c.done} of ${c.total || "?"}`;
+  else if (c.finished_at) {
+    msg = `Last run ${ago(c.finished_at)}: ${c.added} added`;
+    if (c.missing) msg += `, no cover to be found for ${c.missing}`;
+    if (c.failed) msg += `, ${c.failed} couldn't be written`;
+    msg += ".";
+  }
+  $("#set-covers-status").textContent = msg;
+  $("#set-covers").disabled = !!c.running;
+}
+$("#set-covers").addEventListener("click", async () => {
+  try { await api("POST", "/api/covers/fill"); toast("Adding missing covers"); } catch (e) { toast(e.message); }
+  setTimeout(refresh, 500);
+});
 $("#set-scan").addEventListener("click", async () => {
   try { await api("POST", "/api/library/scan"); toast("Scanning your music folders"); } catch (e) { toast(e.message); }
   setTimeout(refresh, 500);

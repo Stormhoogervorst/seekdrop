@@ -240,3 +240,93 @@ def test_adding_a_spotify_playlist_through_the_api(setup):
 
     asyncio.run(scenario())
     assert [t["sc_id"] for t in db.tracks()] == [f"spotify:{T1}"]
+
+
+# --- 0.6.2: the cover and release date come from each track's own embed page --------------------------
+# Built like the real page (checked in Nov 2026): entity.visualIdentity.image has 300, 64 and 640 px.
+
+def track_page(tid, name="Stop The Wedding!", artists=("Ashe",), iso="2026-08-07T00:00:00Z", images=True):
+    img = [{"maxHeight": 300, "maxWidth": 300, "url": f"https://image-cdn-fa.spotifycdn.com/image/ab67616d00001e02{tid}"},
+           {"maxHeight": 64, "maxWidth": 64, "url": f"https://image-cdn-fa.spotifycdn.com/image/ab67616d00004851{tid}"},
+           {"maxHeight": 640, "maxWidth": 640, "url": f"https://image-cdn-fa.spotifycdn.com/image/ab67616d0000b273{tid}"}]
+    entity = {"type": "track", "name": name, "title": name, "id": tid, "uri": f"spotify:track:{tid}", "duration": 198_840,
+              "artists": [{"name": a, "uri": "spotify:artist:x"} for a in artists], "releaseDate": {"isoString": iso},
+              "visualIdentity": {"image": img if images else []}}
+    data = {"props": {"pageProps": {"state": {"data": {"entity": entity}}}}}
+    return f'<html><script id="__NEXT_DATA__" type="application/json">{json.dumps(data)}</script></html>'
+
+
+def site(playlist_html, tracks=None):
+    """A fake Spotify: the playlist page plus the track pages given (others fail like a blocked request)."""
+    tracks, asked = tracks or {}, []
+
+    def fetch(url):
+        asked.append(url)
+        if "/embed/playlist/" in url:
+            return playlist_html
+        tid = url.rsplit("/", 1)[-1]
+        if tid in tracks:
+            return tracks[tid]
+        raise ChannelError("Spotify is blocking requests right now. Try again in a few minutes.")
+    return fetch, asked
+
+
+def test_track_page_gives_the_biggest_cover_and_the_release_date():
+    info = sp.parse_track_embed(track_page(T1), f"https://open.spotify.com/track/{T1}")
+    assert info.artwork.endswith(f"ab67616d0000b273{T1}")               # the 640 px one
+    assert info.released_at == 1786060800                               # 7 Aug 2026
+    assert (info.title, info.uploader, info.duration) == ("Ashe - Stop The Wedding!", "Ashe", 198.84)
+    with pytest.raises(ChannelError):
+        sp.parse_track_embed(page([]), "x")                             # a playlist page is not a track page
+
+
+def test_track_adds_cover_and_date_to_the_playlist_details_once():
+    fetch, asked = site(page([track(T1, "Domino - Space 92 Remix", "Oxia,\xa0Space 92", ms=392_000)]),
+                        {T1: track_page(T1, name="Domino - Space 92 Remix", artists=("Oxia", "Space 92"))})
+    c = sp.SpotifyClient(fetch=fetch)
+    link = f"https://open.spotify.com/track/{T1}"
+    c.latest(URL)
+    info = c.track(link)
+    assert info.title == "Oxia, Space 92 - Domino (Space 92 Remix)" and info.duration == 392
+    assert info.artwork.startswith("https://image-cdn-fa.spotifycdn.com/") and info.released_at
+    c.track(link)
+    assert sum("/embed/track/" in u for u in asked) == 1                # read once
+
+
+def test_without_the_track_page_the_playlist_details_still_do():
+    fetch, _ = site(page([track(T1, "Stop The Wedding!", "Ashe")]))
+    c = sp.SpotifyClient(fetch=fetch)
+    c.latest(URL)
+    info = c.track(f"https://open.spotify.com/track/{T1}")
+    assert info.title == "Ashe - Stop The Wedding!" and info.artwork == ""
+
+
+def test_a_track_from_an_earlier_run_is_read_from_its_own_page():
+    fetch, _ = site(page([]), {T2: track_page(T2)})
+    info = sp.SpotifyClient(fetch=fetch).track(f"https://open.spotify.com/track/{T2}")   # nothing from latest()
+    assert info.sc_id == f"spotify:{T2}" and info.artwork
+
+
+def test_track_pages_are_read_at_a_polite_pace(monkeypatch):
+    monkeypatch.setattr(sp.SpotifyClient, "TRACK_PAGE_SPACING", 0.5)
+    waited = []
+    fetch, _ = site(page([track(T1, "A", "X"), track(T2, "B", "Y")]), {T1: track_page(T1), T2: track_page(T2)})
+    c = sp.SpotifyClient(fetch=fetch, sleep=waited.append)
+    c.latest(URL)
+    c.track(f"https://open.spotify.com/track/{T1}")
+    c.track(f"https://open.spotify.com/track/{T2}")
+    assert len(waited) == 1 and 0 < waited[0] <= 0.5
+
+
+def test_spotify_tracks_get_their_cover_link_in_the_engine(setup):
+    eng, db, _sc, slsk, tmp = setup
+    fetch, _ = site(page([track(T1, "Stop The Wedding!", "Ashe")]), {T1: track_page(T1)})
+    eng.sc = Sources(_sc, sp.SpotifyClient(fetch=fetch))
+
+    async def scenario():
+        cid = db.add_channel(URL, "Late Night Techno", False, 0, kind="playlist")
+        await eng.check_channel(cid)
+    asyncio.run(scenario())
+    t = db.tracks()[0]
+    assert t["artwork"].endswith(f"ab67616d0000b273{T1}")
+    assert json.loads(t["sc_meta"])["released_at"] == 1786060800      # so the year goes into the tags

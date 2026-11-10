@@ -18,7 +18,8 @@ log = logging.getLogger(__name__)
 
 MIN_COVER_PX = 500
 MAX_COVER_BYTES = 8 * 1024 * 1024
-COVER_HOSTS = ("sndcdn.com", "soundcloud.com")      # artwork only comes from SoundCloud's own CDN
+# Artwork only comes from SoundCloud's and Spotify's own image servers.
+COVER_HOSTS = ("sndcdn.com", "soundcloud.com", "scdn.co", "spotifycdn.com")
 TAGGABLE = {"mp3", "flac", "aiff", "aif", "wav", "m4a", "mp4"}
 
 
@@ -131,25 +132,9 @@ def _write_id3(tags, meta: TagMeta, cover: Optional[bytes]) -> None:
 
 
 def _tag_id3_file(path: str, ext: str, meta: TagMeta, cover: Optional[bytes]) -> None:
-    from mutagen import id3
-    if ext == "mp3":
-        try:
-            tags = id3.ID3(path)
-        except id3.ID3NoHeaderError:
-            tags = id3.ID3()
-        _write_id3(tags, meta, cover)
-        tags.save(path, v2_version=3)
-        return
-    if ext in ("aiff", "aif"):
-        from mutagen.aiff import AIFF
-        f = AIFF(path)
-    else:
-        from mutagen.wave import WAVE
-        f = WAVE(path)
-    if f.tags is None:
-        f.add_tags()
-    _write_id3(f.tags, meta, cover)
-    f.save(v2_version=3)
+    tags, save = _open_id3(path, ext)
+    _write_id3(tags, meta, cover)
+    save()
 
 
 def _tag_flac(path: str, meta: TagMeta, cover: Optional[bytes]) -> None:
@@ -163,7 +148,8 @@ def _tag_flac(path: str, meta: TagMeta, cover: Optional[bytes]) -> None:
         if value:
             f[key] = value
     info = image_info(cover) if cover else None
-    have = max((min(p.width, p.height) for p in f.pictures), default=0)
+    # Measure the picture itself: the width/height a FLAC picture block claims can be 0 or wrong.
+    have = max((min(i[:2]) for i in (image_info(p.data) for p in f.pictures) if i), default=0)
     if info and (have < min(info[:2]) or not f.pictures):
         pic = Picture()
         pic.type, pic.mime, pic.desc, pic.data = 3, info[2], "Cover", cover
@@ -200,6 +186,77 @@ def _tag_mp4(path: str, meta: TagMeta, cover: Optional[bytes]) -> None:
         fmt = MP4Cover.FORMAT_PNG if info[2] == "image/png" else MP4Cover.FORMAT_JPEG
         t["covr"] = [MP4Cover(cover, imageformat=fmt)]
     f.save()
+
+
+def _open_id3(path: str, ext: str):
+    """(tags, save) for an MP3, AIFF or WAV file; tags is a mutagen ID3 object."""
+    from mutagen import id3
+    if ext == "mp3":
+        try:
+            tags = id3.ID3(path)
+        except id3.ID3NoHeaderError:
+            tags = id3.ID3()
+        return tags, lambda: tags.save(path, v2_version=3)
+    if ext in ("aiff", "aif"):
+        from mutagen.aiff import AIFF
+        f = AIFF(path)
+    else:
+        from mutagen.wave import WAVE
+        f = WAVE(path)
+    if f.tags is None:
+        f.add_tags()
+    return f.tags, lambda: f.save(v2_version=3)
+
+
+def cover_px(path: str) -> int:
+    """Shortest side of the best embedded cover we can read, 0 when there is none (or it's broken)."""
+    ext = os.path.splitext(path)[1].lower().lstrip(".")
+    if ext in ("mp3", "aiff", "aif", "wav"):
+        tags, _ = _open_id3(path, ext)
+        return _id3_cover_px(tags)
+    if ext == "flac":
+        from mutagen.flac import FLAC
+        infos = [image_info(p.data) for p in FLAC(path).pictures]
+    elif ext in ("m4a", "mp4"):
+        from mutagen.mp4 import MP4
+        f = MP4(path)
+        infos = [image_info(bytes(c)) for c in ((f.tags or {}).get("covr") or [])]
+    else:
+        return 0
+    return max((min(i[:2]) for i in infos if i), default=0)
+
+
+def set_cover(path: str, cover: bytes) -> None:
+    """Put this cover into the file in place of whatever picture is there; every other tag stays."""
+    info = image_info(cover)
+    if not info:
+        raise ValueError("not a JPEG or PNG image")
+    ext = os.path.splitext(path)[1].lower().lstrip(".")
+    if ext in ("mp3", "aiff", "aif", "wav"):
+        from mutagen import id3
+        tags, save = _open_id3(path, ext)
+        tags.delall("APIC")
+        tags.add(id3.APIC(encoding=1, mime=info[2], type=3, desc="Cover", data=cover))
+        save()
+    elif ext == "flac":
+        from mutagen.flac import FLAC, Picture
+        f = FLAC(path)
+        pic = Picture()
+        pic.type, pic.mime, pic.desc, pic.data = 3, info[2], "Cover", cover
+        pic.width, pic.height, pic.depth = info[0], info[1], 24
+        f.clear_pictures()
+        f.add_picture(pic)
+        f.save()
+    elif ext in ("m4a", "mp4"):
+        from mutagen.mp4 import MP4, MP4Cover
+        f = MP4(path)
+        if f.tags is None:
+            f.add_tags()
+        fmt = MP4Cover.FORMAT_PNG if info[2] == "image/png" else MP4Cover.FORMAT_JPEG
+        f.tags["covr"] = [MP4Cover(cover, imageformat=fmt)]
+        f.save()
+    else:
+        raise ValueError(f"can't put a cover into .{ext} files")
 
 
 def tag_file(path: str, meta: TagMeta, cover: Optional[bytes] = None) -> None:

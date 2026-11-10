@@ -159,6 +159,8 @@ class Engine:
         self._scan_lock = asyncio.Lock()       # step 11: one scan of the music folders at a time
         self.library_state = {"scanning": False, "done": 0, "total": 0, "files": 0,
                               "scanned_at": 0.0, "missing": [], "error": ""}
+        self.covers_state = {"running": False, "done": 0, "total": 0, "added": 0, "missing": 0, "failed": 0,
+                             "finished_at": 0.0}
 
     # ------------------------------------------------------------------ lifecycle
     @property
@@ -1000,7 +1002,7 @@ class Engine:
                 self.note(f"Couldn't convert {os.path.basename(path)} to AIFF ({e}); kept as WAV.", "warn")
         if s.tag_files and os.path.splitext(path)[1].lower().lstrip(".") in tagging.TAGGABLE:
             try:
-                cover = tagging.fetch_cover(t.get("artwork") or "")
+                cover = self.cover_for(t)
                 tagging.tag_file(path, self._tag_meta(t), cover)
                 if not cover and t.get("artwork"):
                     self.note(f"{os.path.basename(path)}: tagged, but the cover couldn't be downloaded.", "warn")
@@ -1008,6 +1010,80 @@ class Engine:
                 log.exception("tagging failed")
                 self.note(f"Couldn't write tags into {os.path.basename(path)} ({e}); it is published without.", "warn")
         return path
+
+    COVER_RETRY_WAIT = 2.0          # seconds before trying a failed cover download once more
+
+    def cover_for(self, t: dict) -> Optional[bytes]:
+        """The cover for a track's tags, or None. When the track has no artwork link (its details failed when
+        it was added, or it came from a Spotify playlist before 0.6.2) or the stored link no longer works, the
+        track is looked up again; a failed download of the same link is tried once more."""
+        url = t.get("artwork") or ""
+        cover = tagging.fetch_cover(url) if url else None
+        if cover:
+            return cover
+        fresh = self._fresh_artwork(t)
+        if fresh and fresh != url:
+            cover = tagging.fetch_cover(fresh)
+            if cover:
+                return cover
+        if url:
+            time.sleep(self.COVER_RETRY_WAIT)
+            cover = tagging.fetch_cover(url)
+        return cover
+
+    def _fresh_artwork(self, t: dict) -> str:
+        """Look the track up again at its source and store a new artwork link (and genre/date if missing)."""
+        link = t.get("url") or ""
+        if not link:
+            return ""
+        try:
+            info = self.sc.track(link)
+        except Exception:
+            log.debug("couldn't look up %s again for its cover", link, exc_info=True)
+            return ""
+        art = (info.artwork if info else "") or ""
+        if art and art != t.get("artwork") and t.get("id"):
+            fields = {"artwork": art}
+            if not t.get("sc_meta"):
+                meta = self._sc_meta(info)
+                if meta:
+                    fields["sc_meta"] = meta
+            self.db.update_track(t["id"], **fields)
+            t.update(fields)
+        return art
+
+    def fill_missing_covers(self) -> None:
+        """Settings, *Fill in missing covers*: every downloaded file that has no (readable) cover gets one.
+        Only the picture is written; the other tags and the audio stay as they are. Runs in a thread."""
+        st = self.covers_state
+        rows = [t for t in self.db.tracks_for_rekordbox()
+                if os.path.splitext(t["file_path"])[1].lower().lstrip(".") in tagging.TAGGABLE]
+        st.update(running=True, done=0, total=len(rows), added=0, missing=0, failed=0, finished_at=0.0)
+        try:
+            for t in rows:
+                path = t["file_path"]
+                try:
+                    if os.path.isfile(path) and tagging.cover_px(path) == 0:
+                        cover = self.cover_for(t)
+                        if cover:
+                            tagging.set_cover(path, cover)
+                            st["added"] += 1
+                        else:
+                            st["missing"] += 1
+                except Exception:
+                    log.warning("couldn't add a cover to %s", path, exc_info=True)
+                    st["failed"] += 1
+                st["done"] += 1
+        finally:
+            st.update(running=False, finished_at=time.time())
+        msg = f"Covers: added {st['added']}"
+        if st["missing"]:
+            msg += f", none to be found for {st['missing']}"
+        if st["failed"]:
+            msg += f", couldn't write {st['failed']}"
+        self.note(msg + ".")
+        if st["added"]:
+            self.schedule_rekordbox()
 
     def _tag_meta(self, t: dict) -> tagging.TagMeta:
         f = self._name_fields(t)

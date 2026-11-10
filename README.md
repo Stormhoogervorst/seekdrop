@@ -45,7 +45,8 @@ For DJs and producers who don't want to check twenty label pages every day.
   slightly different name is marked "Already in your collection" and not downloaded again; a Duplicates tab lists
   doubles in the download folder with the best copy marked. SeekSync only reads your folders.
 - Files get tags for DJ software: artist, title with the version in it, genre, year, the SoundCloud link,
-  and the SoundCloud artwork (500 px) embedded. MP3 gets ID3v2.3, FLAC Vorbis comments, AIFF ID3. Turn on
+  and the artwork (500 px from SoundCloud, 640 px album cover for Spotify tracks) embedded. MP3 gets ID3v2.3,
+  FLAC Vorbis comments, AIFF ID3. *Fill in missing covers* (Settings) adds a cover to older files that have none. Turn on
   "Convert WAV to AIFF" for lossless files that keep their tags in Rekordbox and Serato. Folders and file
   names follow a template (default `Music/SeekSync/<channel>/Artist - Title (Version).flac`).
 
@@ -292,6 +293,11 @@ kan optioneel de kanaalnaam worden.
 - **Folder and file name:** een sjabloon met `{channel}`, `{artist}`, `{title}`, `{version}`, `{year}` en
   `{genre}`, standaard `{channel}/{artist} - {title} ({version})`. Settings laat een voorbeeld zien. Lege
   haakjes en streepjes verdwijnen als een veld ontbreekt.
+
+Spotify-tracks krijgen de albumhoes (640 px) en het jaar van hun eigen Spotify-pagina; een genre geeft Spotify niet.
+Lukt het downloaden van een hoes niet, dan zoekt de app de track opnieuw op en probeert het nog een keer.
+Bestanden zonder hoes (bijvoorbeeld van vóór versie 0.6.2) krijgen er alsnog een met *Fill in missing covers* in
+Settings: alleen de afbeelding komt erbij, de rest van het bestand blijft hetzelfde.
 
 Staan de tags je niet aan? Zet *Write tags and cover art* uit in Settings.
 

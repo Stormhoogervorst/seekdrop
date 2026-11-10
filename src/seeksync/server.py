@@ -96,6 +96,7 @@ class Api:
         r.add_post("/api/update/check", self.check_update)
         r.add_post("/api/update/install", self.install_update)
         r.add_post("/api/library/scan", self.scan_library)
+        r.add_post("/api/covers/fill", self.fill_covers)
         r.add_get("/api/duplicates", self.duplicates)
         r.add_post("/api/open", self.open_path)
         r.add_post("/api/nicotine/install", self.install_nicotine)
@@ -145,6 +146,7 @@ class Api:
             "rekordbox": {**e.rekordbox_state, "enabled": e.settings.rekordbox_export, "path": e.rekordbox_path(),
                           "library": {**e.rekordbox_library, "set": bool(e.settings.rekordbox_library_xml.strip())}},
             "library": {**e.library_state, "dirs": e.library_roots(), "own": e.settings.download_dir},
+            "covers": dict(e.covers_state),
             "checks": {"available": bool(e.file_checker and e.file_checker.tools.available),
                        "silence": not (e.file_checker and e.file_checker.tools.silence_filter is False)},
             "profiles": {k: {"label": v["label"], "help": v["help"], "ladder": [TIER_LABELS[x] for x in v["order"]]}
@@ -350,6 +352,12 @@ class Api:
     async def scan_library(self, request: web.Request):
         if not self.engine.library_state["scanning"]:
             asyncio.create_task(self.engine.scan_library())
+        return web.json_response({"ok": True})
+
+    async def fill_covers(self, request: web.Request):
+        if not self.engine.covers_state["running"]:
+            self.engine.covers_state["running"] = True          # at once, so a second click starts nothing
+            asyncio.create_task(asyncio.to_thread(self.engine.fill_missing_covers))
         return web.json_response({"ok": True})
 
     async def duplicates(self, request: web.Request):
