@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Optional
 
 from platformdirs import user_data_dir, user_log_dir, user_music_dir
+from . import fsutil
 
 from .naming import DEFAULT_TEMPLATE, FLAT_TEMPLATE, template_error
 from .politeness import MAX_MAX_SEARCHES, MIN_MAX_SEARCHES, MIN_SEARCH_SPACING
@@ -185,7 +186,7 @@ class SettingsStore:
         with self._lock:
             tmp = self.path.with_suffix(".tmp")
             tmp.write_text(json.dumps(asdict(self.settings), indent=2), "utf-8")
-            os.replace(tmp, self.path)
+            fsutil.replace(tmp, self.path)
             try:
                 os.chmod(self.path, 0o600)
             except OSError:

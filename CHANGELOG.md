@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.6.3
+
+A stability release for Windows. I couldn't try these on a Windows PC myself, so this version also keeps a
+better log: if something still freezes, the log shows where (see below).
+
+- Fixed: **freezes while a download comes in.** Moving a finished file into your music folder, putting it in
+  quarantine and replacing a file with a better copy all happened on the thread that also runs the screen and the
+  Soulseek connection. When the antivirus scanner or a slow disk took a few seconds, everything stood still. These
+  steps now run in the background.
+- Fixed: **"access denied" and "used by another process"** while a file was moved or saved (the antivirus scanner
+  often still holds a file for a second). SeekSync now waits and tries again, up to about 8 seconds, for files,
+  the settings file, the Rekordbox file and tags. Before, the download counted as failed.
+- Fixed: **black windows flashing** during file checks, and checks that could hang. ffmpeg and ffprobe now run
+  without a console window and without waiting for keyboard input.
+- Fixed: **SeekSync kept running after you closed it** (and then said "already running" at the next start) when
+  a check or a connection was still busy. If quitting takes more than 12 seconds, the app now ends itself.
+- Fixed: on a Windows PC without the Microsoft Edge WebView2 runtime the screen was drawn by an old Internet
+  Explorer engine and half of it didn't work. SeekSync now opens its screen in your browser in that case.
+- Fixed: *Show file* opened Documents instead of the file in Explorer.
+- Fixed: very long titles in a deep folder could make the file name too long for Windows (260 characters), and
+  names like `CON` or `NUL` can't be created there. Names are now shortened or changed when needed.
+- ffmpeg is now also found when it was installed with winget, Scoop or Chocolatey.
+- The screen no longer says "SeekSync stopped" after one missed answer, only after a few in a row, and a
+  request that never gets an answer is given up after 30 seconds.
+- For problems: the log is `seeksync.log` in `%LOCALAPPDATA%\SeekSync\Logs`. It now notes when the app stops
+  answering for more than 10 seconds, with what every part was doing, and uncaught errors and crashes
+  (`crash.log`) are written there too.
+
 ## 0.6.2
 
 - Fixed: on Windows many good downloads went to quarantine as "Damaged file". Two causes, neither about the audio:

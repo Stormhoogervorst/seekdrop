@@ -67,6 +67,13 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   silence, and (numpy) fake lossless / fake 320 via `measure_cutoff` + `classify`; the result is put in
   `track["_meta"]` and stored as `tracks.cutoff_hz` / `tracks.quality` when the file is published.
   Rejects go to `quarantine/` + table `rejects` (also the per-track peer/file blocklist).
+- **Windows stability** (0.6.3, written without a Windows PC to test on): `fsutil.py` (rename/replace/remove/move wait and retry on
+  Windows while a scanner holds the file; use it instead of `os.replace` & co), file work in `Engine` runs in `asyncio.to_thread`
+  (never move/publish files on the event loop), ffmpeg runs with `_spawn_options()` (no console window, no stdin), `diag.py`
+  (uncaught errors to the log, `crash.log` via faulthandler, `LoopWatchdog` dumps all thread stacks when the loop is stuck > 10 s),
+  `__main__._force_exit_later` ends a quit that hangs (it would keep the instance lock), `webview_unavailable()` opens the UI in the
+  browser when WebView2 is missing (pywebview would otherwise fall back to IE's engine). Not verified on real Windows yet:
+  ask for `%LOCALAPPDATA%\SeekSync\Logs\seeksync.log` when something still freezes.
 - **Quality** (`quality.py`): ladder of tiers + profiles (club/balanced/space: accepted order + target).
   Matching scores by ladder position; `FileChecker` measures the real tier and enforces the floor.
   Done tracks below target (lossy only) get `next_upgrade`; the search loop runs `_upgrade_search` with a

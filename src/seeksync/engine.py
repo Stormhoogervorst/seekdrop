@@ -26,7 +26,7 @@ from .sources import source_name
 from .spotify import MAX_TRACKS as SPOTIFY_MAX
 from .quality import (TIER_LABELS, UPGRADE_DAYS, UPGRADE_EVERY, is_better, profile, tier_of,
                       wants_upgrade)
-from . import __version__, library, naming, rekordbox, tagging
+from . import __version__, fsutil, library, naming, rekordbox, tagging
 from . import rules as rules_mod
 from .titles import parse_title, search_queries
 
@@ -53,22 +53,25 @@ def publish_file(src: str, dest: str) -> None:
     Same disk: a rename. Other disk (e.g. music on an external drive): copy to a hidden temp file
     next to dest, then rename that; a half-copied file never carries the real name."""
     try:
-        os.rename(src, dest)
+        fsutil.rename(src, dest)        # on Windows this waits while the antivirus still holds the file
         return
     except OSError as e:
         if e.errno != errno.EXDEV:
             raise
     tmp = os.path.join(os.path.dirname(dest), "." + os.path.basename(dest) + PART_SUFFIX)
     try:
-        shutil.copy2(src, tmp)
-        os.replace(tmp, dest)
+        fsutil.retry(shutil.copy2, src, tmp)
+        fsutil.replace(tmp, dest)
     except BaseException:
         try:
             os.remove(tmp)
         except OSError:
             pass
         raise
-    os.remove(src)
+    try:
+        fsutil.remove(src)
+    except OSError:         # the file is published; a leftover in staging is tidied up at the next start
+        log.warning("published %s but couldn't remove the staged copy %s", dest, src)
 
 
 def _remove(path: str) -> None:
@@ -969,7 +972,7 @@ class Engine:
     async def _stage_and_check(self, t: dict, src: str, c: Candidate) -> tuple[Optional[str], str]:
         """incoming -> staging -> checks. Returns (staged path, "") or (None, reason); a rejected file
         is in quarantine and its peer + file are blocked for this track."""
-        staged = self._stage(t, src)
+        staged = await asyncio.to_thread(self._stage, t, src)    # a move can take seconds (antivirus, other disk)
         for check in self.checks:
             try:
                 why = await asyncio.to_thread(check, t, staged)   # ffmpeg can take a few seconds
@@ -979,7 +982,7 @@ class Engine:
             if why:
                 if (t.get("_meta") or {}).get("quality") == "fake":   # a converted MP3 sold as lossless / 320
                     self._record_peer(c.username, "fake")
-                self._quarantine(t, staged, c, why)
+                await asyncio.to_thread(self._quarantine, t, staged, c, why)
                 return None, why
         staged = await asyncio.to_thread(self.finish_file, t, staged)     # step 10: AIFF, tags, cover
         return staged, ""
@@ -1100,7 +1103,7 @@ class Engine:
         staged, why = await self._stage_and_check(t, src, c)
         if not staged:
             return None, why
-        return self._finalize(t, staged, c), ""
+        return await asyncio.to_thread(self._finalize, t, staged, c), ""
 
     def _quarantine(self, t: dict, staged: str, c: Candidate, why: str) -> None:
         folder = os.path.join(self.quarantine_dir, str(t["id"]))
@@ -1112,7 +1115,7 @@ class Engine:
             dest = os.path.join(folder, f"{root} ({n}){ext}")
             n += 1
         try:
-            shutil.move(staged, dest)
+            fsutil.move(staged, dest)
             try:
                 os.rmdir(os.path.dirname(staged))
             except OSError:
@@ -1126,7 +1129,7 @@ class Engine:
         folder = os.path.join(self.staging_dir, str(t["id"]))
         os.makedirs(folder, exist_ok=True)
         staged = os.path.join(folder, os.path.basename(src))
-        shutil.move(src, staged)    # incoming and staging are both in the app data: a rename
+        fsutil.move(src, staged)    # incoming and staging are both in the app data: a rename
         return staged
 
     def _name_fields(self, t: dict) -> dict:
@@ -1143,6 +1146,7 @@ class Engine:
         dest_dir = os.path.join(s.download_dir, *folders)
         os.makedirs(dest_dir, exist_ok=True)
         ext = os.path.splitext(src)[1].lower() or ("." + c.ext if c.ext else "")
+        base = naming.fit_name(dest_dir, base, ext)
         dest = os.path.join(dest_dir, base + ext)
         n = 2
         while os.path.exists(dest):
@@ -1230,13 +1234,13 @@ class Engine:
                         self.note("The better copy waits for your OK: SeekSync can't tell what is in Rekordbox "
                                   "(choose your Rekordbox export in Settings).", "warn")
                 if mode == "auto" or (mode == "auto_unless_dj" and known is False):
-                    self._replace(cur, staged, c, meta, new_tier)
+                    await asyncio.to_thread(self._replace, cur, staged, c, meta, new_tier)
                 else:
                     folder = os.path.join(self.upgrades_dir, str(tid))
                     _clear_dir(folder)
                     os.makedirs(folder, exist_ok=True)
                     pending = os.path.join(folder, os.path.basename(staged))
-                    shutil.move(staged, pending)
+                    await asyncio.to_thread(fsutil.move, staged, pending)
                     self.db.update_track(tid, upgrade_path=pending, upgrade_tier=new_tier, next_upgrade=0)
                     self.note(f"Better copy found for {cur['title']} ({TIER_LABELS.get(new_tier, new_tier)})")
                 return
@@ -1254,7 +1258,7 @@ class Engine:
         folder = os.path.join(self.trash_dir, f"{tid}-{int(time.time())}")
         os.makedirs(folder, exist_ok=True)
         dest = os.path.join(folder, os.path.basename(path))
-        shutil.move(path, dest)
+        fsutil.move(path, dest)
         os.utime(folder)          # the trash is emptied by age of this folder
         return dest
 

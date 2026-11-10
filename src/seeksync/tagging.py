@@ -14,6 +14,8 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Callable, Optional
 
+from . import fsutil
+
 log = logging.getLogger(__name__)
 
 MIN_COVER_PX = 500
@@ -356,7 +358,7 @@ def wav_to_aiff(src: str, dst: str) -> None:
                     out.write(np.frombuffer(chunk, dtype=f"<u{width}").byteswap().tobytes())
             if pad:
                 out.write(b"\x00")
-        os.replace(tmp, dst)
+        fsutil.replace(tmp, dst)
     except BaseException:
         try:
             os.remove(tmp)

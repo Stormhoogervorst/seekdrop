@@ -13,12 +13,26 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 
 const ui = { channel: null, filter: "all", state: null, settingsOpen: false, setupShown: false };
 
+// A request that never answers (the app is busy, or a virus scanner holds things up) must not leave the
+// screen waiting forever: after this long the request is given up and the next poll tries again.
+const API_TIMEOUT_MS = 30000;
+
 async function api(method, path, body) {
-  const res = await fetch(path, {
-    method,
-    headers: { "X-Token": token, "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), API_TIMEOUT_MS);
+  let res;
+  try {
+    res = await fetch(path, {
+      method,
+      headers: { "X-Token": token, "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: ctl.signal,
+    });
+  } catch (e) {
+    throw new Error(e && e.name === "AbortError" ? "SeekSync didn't answer in time. Try again in a moment." : (e && e.message) || "Request failed");
+  } finally {
+    clearTimeout(timer);
+  }
   let data = {};
   try { data = await res.json(); } catch (_) {}
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
@@ -62,17 +76,22 @@ function clock(ts) {
 
 /* ---------------- polling ---------------- */
 let polling = false;
+let failedPolls = 0;
 async function refresh() {
   if (polling) return;
   polling = true;
   try {
     const q = ui.channel ? `?channel=${ui.channel}` : "";
     ui.state = await api("GET", "/api/state" + q);
+    failedPolls = 0;
     render();
   } catch (e) {
-    $("#deck-title").textContent = "SeekSync stopped";
-    $("#deck-sub").textContent = "Restart the app.";
-    $("#ring").className = "ring err";
+    // One missed answer is normal while the app is busy with a file; only a few in a row mean it has stopped.
+    if (++failedPolls >= 3) {
+      $("#deck-title").textContent = "SeekSync stopped";
+      $("#deck-sub").textContent = "Restart the app.";
+      $("#ring").className = "ring err";
+    }
   } finally {
     polling = false;
   }

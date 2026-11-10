@@ -5,6 +5,7 @@ import asyncio
 import logging
 import os
 import socket
+import sys
 import threading
 from logging.handlers import RotatingFileHandler
 from typing import Callable, Optional
@@ -14,6 +15,7 @@ from aiohttp import web
 from .checks import FileChecker
 from .config import DB_NAME, SettingsStore, data_dir, log_dir
 from .db import Database
+from .diag import LoopWatchdog
 from .engine import Engine
 from .server import Api
 from .nicotine import NicotineBridge
@@ -35,9 +37,10 @@ def setup_logging(verbose: bool = False) -> None:
     fh = RotatingFileHandler(log_dir() / "seeksync.log", maxBytes=2_000_000, backupCount=3, encoding="utf-8")
     fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
     root.addHandler(fh)
-    sh = logging.StreamHandler()
-    sh.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
-    root.addHandler(sh)
+    if sys.stderr is not None:     # the windowed Windows app has no console: only the log file then
+        sh = logging.StreamHandler()
+        sh.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+        root.addHandler(sh)
     for noisy in ("aioslsk", "aiohttp.access", "async_upnp_client"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
@@ -92,6 +95,8 @@ class Backend:
     async def _main(self) -> None:
         self._loop = asyncio.get_running_loop()
         self._stop = asyncio.Event()
+        watchdog = LoopWatchdog(self._loop)        # logs what every thread is doing when the app freezes
+        watchdog.start()
         home = data_dir()
         db = Database(home / DB_NAME)
         store = SettingsStore()
@@ -125,6 +130,10 @@ class Backend:
         try:
             await self._stop.wait()
         finally:
+            watchdog.stop()
             await updates.stop()
-            await engine.stop()
+            try:
+                await asyncio.wait_for(engine.stop(), 25)    # a connection that won't close must not keep the app alive
+            except asyncio.TimeoutError:
+                log.warning("the engine didn't stop in time")
             await runner.cleanup()

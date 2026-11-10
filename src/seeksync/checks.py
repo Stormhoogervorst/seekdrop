@@ -11,13 +11,25 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from typing import Optional
 
 log = logging.getLogger(__name__)
 
 # GUI apps on macOS don't get the shell's PATH, so also look where Homebrew & co. install.
-_EXTRA_DIRS = ("/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/opt/local/bin")
+def _extra_dirs() -> tuple:
+    if sys.platform.startswith("win"):
+        home = os.path.expanduser("~")
+        local = os.environ.get("LOCALAPPDATA") or os.path.join(home, "AppData", "Local")
+        return (os.path.join(local, "Microsoft", "WinGet", "Links"),      # winget
+                os.path.join(home, "scoop", "shims"),                      # scoop
+                os.path.join(os.environ.get("ProgramData", r"C:\ProgramData"), "chocolatey", "bin"),
+                r"C:\ffmpeg\bin", r"C:\Program Files\ffmpeg\bin")
+    return ("/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/opt/local/bin")
+
+
+_EXTRA_DIRS = _extra_dirs()
 
 # What each extension must contain: (container names ffprobe may report, audio codecs).
 _EXPECTED = {
@@ -41,9 +53,10 @@ def find_tool(name: str) -> Optional[str]:
     if found:
         return found
     for d in _EXTRA_DIRS:
-        p = os.path.join(d, name)
-        if os.path.isfile(p) and os.access(p, os.X_OK):
-            return p
+        for candidate in ((name + ".exe", name) if sys.platform.startswith("win") else (name,)):
+            p = os.path.join(d, candidate)
+            if os.path.isfile(p) and os.access(p, os.X_OK):
+                return p
     return None
 
 
@@ -106,14 +119,23 @@ def _about_other_stream(line: str) -> bool:
     return ctx.split("/")[-1] in _IMAGE_CODECS
 
 
+def _spawn_options() -> dict:
+    """How to start ffmpeg/ffprobe from the windowed app. Windows would flash a black console window for every
+    call, and a child without a stdin of its own can wait for input that never comes."""
+    opts: dict = {"stdin": subprocess.DEVNULL}
+    if sys.platform.startswith("win"):
+        opts["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+    return opts
+
+
 def _run(cmd: list, timeout: float) -> subprocess.CompletedProcess:
     # ffmpeg writes UTF-8 (file names!); Windows would otherwise decode it with its own code page.
     return subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                          timeout=timeout)
+                          timeout=timeout, **_spawn_options())
 
 
 def _decode(tools: Tools, path: str, audio_filter: Optional[str], timeout: float) -> subprocess.CompletedProcess:
-    cmd = [tools.ffmpeg, "-hide_banner", "-nostats", "-v", "info", "-i", path, "-map", "0:a:0?"]
+    cmd = [tools.ffmpeg, "-hide_banner", "-nostdin", "-nostats", "-v", "info", "-i", path, "-map", "0:a:0?"]
     if audio_filter:
         cmd += ["-af", audio_filter]
     return _run(cmd + ["-f", "null", "-progress", "pipe:1", "-"], timeout)
@@ -286,9 +308,9 @@ def measure_cutoff(path: str, tools: Tools, duration: Optional[float], timeout: 
     for i in range(_SEGMENTS):
         off = max(0.0, (dur - _SEGMENT_SECONDS) * (i + 1) / (_SEGMENTS + 1)) if dur else 0.0
         raw = subprocess.run(
-            [tools.ffmpeg, "-v", "error", "-ss", f"{off:.2f}", "-t", str(_SEGMENT_SECONDS), "-i", path,
+            [tools.ffmpeg, "-nostdin", "-v", "error", "-ss", f"{off:.2f}", "-t", str(_SEGMENT_SECONDS), "-i", path,
              "-map", "0:a:0?", "-ac", "1", "-ar", str(_RATE), "-f", "f32le", "-"],
-            capture_output=True, timeout=timeout).stdout
+            capture_output=True, timeout=timeout, **_spawn_options()).stdout
         x = np.frombuffer(raw, dtype=np.float32)
         n = len(x) // _FFT
         if n == 0:

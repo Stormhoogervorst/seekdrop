@@ -34,10 +34,11 @@ def open_in_file_manager(path: str) -> None:
     if sys.platform == "darwin":
         args = ["open", "-R", path] if os.path.isfile(path) else ["open", target]
     elif sys.platform.startswith("win"):
-        args = ["explorer", "/select,", path] if os.path.isfile(path) else ["explorer", target]
+        # One argument, "/select,<path>", and backslashes: with the path as a separate argument Explorer just opens Documents.
+        args = ["explorer", "/select," + os.path.normpath(path)] if os.path.isfile(path) else ["explorer", os.path.normpath(target)]
     else:
         args = ["xdg-open", target]
-    subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 class Api:

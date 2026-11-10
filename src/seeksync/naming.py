@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 import re
+import sys
 
 TOKENS = ("channel", "artist", "title", "version", "year", "genre")
 DEFAULT_TEMPLATE = "{channel}/{artist} - {title} ({version})"
 FLAT_TEMPLATE = "{artist} - {title} ({version})"        # what "no folder per channel" used to mean
 SEGMENT_LIMIT = 150
+MAX_PATH_WINDOWS = 250          # Windows refuses longer paths (260 with the end mark) unless long paths are switched on
+_RESERVED = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
 SAMPLE = {"channel": "Nightshift Records", "artist": "Mira Kova & Delen", "title": "Night Signal",
           "version": "Extended Mix", "year": "2026", "genre": "Techno"}
 
@@ -46,7 +49,10 @@ def _tidy(segment: str) -> str:
         segment = re.sub(r"\s+", " ", segment)
         segment = re.sub(r"(?:\s[-–—]\s)(?:\s?[-–—]\s)+", " - ", segment)     # " -  - " after a lost field
         segment = _EDGE_JUNK.sub("", segment)
-    return segment[:SEGMENT_LIMIT].strip(" .")
+    segment = segment[:SEGMENT_LIMIT].strip(" .")
+    if segment.split(".")[0].strip().upper() in _RESERVED:      # Windows can't create a file or folder called CON, NUL, COM1...
+        segment = "_" + segment
+    return segment
 
 
 def render(template: str, fields: dict) -> list[str]:
@@ -62,6 +68,19 @@ def render(template: str, fields: dict) -> list[str]:
     name = parts.pop() if parts else ""
     folders = [p for p in parts if p]
     return folders + [name or values["title"] or "track"]
+
+
+def fit_name(folder: str, base: str, ext: str, limit: int | None = None) -> str:
+    """Shorten a file name (without extension) so that folder + name + extension stays under the path limit.
+    Only Windows has a limit that matters; elsewhere (limit 0) the name is returned as it is."""
+    if limit is None:
+        limit = MAX_PATH_WINDOWS if sys.platform.startswith("win") else 0
+    if not limit:
+        return base
+    room = limit - len(folder) - 1 - len(ext) - 5       # 5: room for " (99)" when a file with that name exists
+    if len(base) <= room:
+        return base
+    return base[:max(room, 12)].rstrip(" .") or "track"
 
 
 def example(template: str) -> str:

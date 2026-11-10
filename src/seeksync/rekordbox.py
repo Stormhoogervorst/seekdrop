@@ -10,6 +10,7 @@ import re
 import time
 import unicodedata
 import xml.etree.ElementTree as ET
+from . import fsutil
 from dataclasses import dataclass, field
 from typing import Optional
 from urllib.parse import quote, unquote
@@ -164,7 +165,7 @@ def write(path: str, tracks: list[Track], playlists: list[Playlist], version: st
         body = ET.tostring(build(tracks, playlists, version).getroot(), encoding="unicode")
         with open(tmp, "w", encoding="utf-8", newline="\n") as f:
             f.write('<?xml version="1.0" encoding="UTF-8"?>\n' + body + "\n")      # the declaration the way Rekordbox writes it
-        os.replace(tmp, path)
+        fsutil.replace(tmp, path)
     except BaseException:
         try:
             os.remove(tmp)
