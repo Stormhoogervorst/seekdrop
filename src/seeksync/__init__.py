@@ -1,5 +1,5 @@
 """SeekSync: watch SoundCloud channels, fetch new releases from Soulseek."""
-__version__ = "0.6.4"
+__version__ = "0.6.5"
 
 from .net import use_bundled_certificates as _use_bundled_certificates
 
