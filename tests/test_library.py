@@ -351,6 +351,7 @@ def test_api_state_scan_duplicates_and_open(setup, monkeypatch):
     async def go():
         await api.scan_library(Req())
         await eng.scan_library()                                     # let the scan that was started finish
+        await asyncio.gather(*eng._spawned)
         state = json.loads((await api.state(Req())).text)
         dups = json.loads((await api.duplicates(Req())).text)
         return state, dups

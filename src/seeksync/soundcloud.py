@@ -120,6 +120,7 @@ class SoundCloudClient:
                 info = ydl.extract_info(url if playlist else url + "/tracks", download=False)
             except Exception as e:  # yt-dlp raises DownloadError with useful text
                 raise ChannelError(_friendly_error(e, playlist)) from e
+        info = info or {}
         name = re.sub(r"\s*\((?:Tracks|All)\)\s*$", "", info.get("title") or "") or url.rsplit("/", 1)[-1]
         return ChannelInfo(url=url, name=name, kind="playlist" if playlist else "profile")
 
@@ -132,7 +133,7 @@ class SoundCloudClient:
         with self._ydl(extract_flat="in_playlist", playlist_items=f"1-{limit}") as ydl:
             info = ydl.extract_info(page, download=False)
         out = []
-        for e in info.get("entries") or []:
+        for e in (info or {}).get("entries") or []:
             if not e:
                 continue
             url = e.get("url") or ""
@@ -143,7 +144,7 @@ class SoundCloudClient:
 
     def track(self, url: str) -> TrackInfo:
         with self._ydl() as ydl:
-            info = ydl.extract_info(url, download=False, process=False)
+            info = ydl.extract_info(url, download=False, process=False) or {}
         artists = info.get("artists") or []
         genres = info.get("genres") or []
         return TrackInfo(

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "seeksync"
-version = "0.6.3"
+version = "0.6.4"
 description = "Follow SoundCloud channels and playlists and fetch the tracks from Soulseek, through Nicotine+ or its own login."
 readme = "README.md"
 license = "GPL-3.0-or-later"

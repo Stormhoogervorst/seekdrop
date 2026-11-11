@@ -311,7 +311,7 @@ def measure_cutoff(path: str, tools: Tools, duration: Optional[float], timeout: 
             [tools.ffmpeg, "-nostdin", "-v", "error", "-ss", f"{off:.2f}", "-t", str(_SEGMENT_SECONDS), "-i", path,
              "-map", "0:a:0?", "-ac", "1", "-ar", str(_RATE), "-f", "f32le", "-"],
             capture_output=True, timeout=timeout, **_spawn_options()).stdout
-        x = np.frombuffer(raw, dtype=np.float32)
+        x = np.frombuffer(raw[: len(raw) - len(raw) % 4], dtype=np.float32)     # whole samples only
         n = len(x) // _FFT
         if n == 0:
             continue
@@ -402,6 +402,21 @@ class FileChecker:
             a = analyse(path, self.tools, s.check_silence_seconds)
         except subprocess.TimeoutExpired:
             return "File check took too long (file may be damaged)"
+        except OSError as e:
+            # ffmpeg itself couldn't be started (removed or moved by an update): that says nothing about the
+            # file. Look for it again; when it is gone the checks are off, like on a computer without ffmpeg.
+            log.warning("couldn't run ffmpeg (%s), looking for it again", e)
+            self.tools = Tools.find()
+            if not self.tools.available:
+                log.warning("ffmpeg/ffprobe not found any more: file checks are off")
+                return None
+            try:
+                a = analyse(path, self.tools, s.check_silence_seconds)
+            except subprocess.TimeoutExpired:
+                return "File check took too long (file may be damaged)"
+            except OSError:
+                log.exception("ffmpeg still can't be run; this file goes through unchecked")
+                return None
         why = verdict(path, a, track.get("duration"), s.check_length_margin, s.check_silence_seconds)
         if why:
             return why
@@ -413,6 +428,9 @@ class FileChecker:
             try:
                 cutoff = measure_cutoff(path, self.tools, a.decoded_duration or a.header_duration)
             except subprocess.TimeoutExpired:
+                cutoff = None
+            except Exception:           # the measurement itself went wrong: "can't tell", not a bad file
+                log.warning("couldn't measure the spectrum of %s", os.path.basename(path), exc_info=True)
                 cutoff = None
             quality, reason = classify(ext, cutoff, a.bit_rate)
             if cutoff is not None:

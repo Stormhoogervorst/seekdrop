@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS tracks (
     updated_at REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS tracks_state ON tracks(state, next_attempt);
+CREATE INDEX IF NOT EXISTS tracks_channel ON tracks(channel_id, state);   -- the counts per channel, asked every 2 seconds
 -- Files that failed the file checks (roadmap step 2). A row also blocks that peer + file for the
 -- track, so it is never tried again. path is the file in quarantine ('' once approved or deleted).
 CREATE TABLE IF NOT EXISTS rejects (
@@ -134,9 +135,19 @@ ACTIVE_STATES = (WANTED, SEARCHING, DOWNLOADING, WAITING)
 class Database:
     def __init__(self, path: Path | str):
         self.conn = sqlite3.connect(str(path), check_same_thread=False, isolation_level=None)
+        try:
+            self._setup()
+        except BaseException:
+            self.conn.close()       # or the file stays in use (on Windows it then can't be renamed or removed)
+            raise
+
+    def _setup(self) -> None:
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.execute("PRAGMA journal_mode = WAL")
+        # With WAL this is safe against a damaged file; it only skips forcing every single change to disk at
+        # once (a download's progress alone is a change every 2 seconds), which is slow on Windows.
+        self.conn.execute("PRAGMA synchronous = NORMAL")
         self.lock = threading.RLock()
         with self.lock:
             self.conn.executescript(SCHEMA)
@@ -205,16 +216,15 @@ class Database:
 
     # Tracks -------------------------------------------------------------
     def tracks_by_sc_ids(self, ids: list[str]) -> list[dict]:
-        if not ids:
-            return []
-        marks = ",".join("?" * len(ids))
-        return self._q(f"SELECT * FROM tracks WHERE sc_id IN ({marks})", tuple(ids))
+        out: list[dict] = []
+        for i in range(0, len(ids), 500):       # SQLite takes a limited number of values per statement
+            chunk = ids[i:i + 500]
+            marks = ",".join("?" * len(chunk))
+            out += self._q(f"SELECT * FROM tracks WHERE sc_id IN ({marks})", tuple(chunk))
+        return out
 
     def known_sc_ids(self, ids: list[str]) -> set[str]:
-        if not ids:
-            return set()
-        marks = ",".join("?" * len(ids))
-        return {r["sc_id"] for r in self._q(f"SELECT sc_id FROM tracks WHERE sc_id IN ({marks})", tuple(ids))}
+        return {r["sc_id"] for r in self.tracks_by_sc_ids(ids)}
 
     def add_track(self, **fields: Any) -> int:
         now = time.time()
@@ -325,8 +335,11 @@ class Database:
         if usernames is not None:
             if not usernames:
                 return {}
-            marks = ",".join("?" * len(usernames))
-            rows = self._q(f"SELECT * FROM peer_stats WHERE username IN ({marks})", tuple(usernames))
+            rows = []
+            for i in range(0, len(usernames), 500):
+                chunk = usernames[i:i + 500]
+                marks = ",".join("?" * len(chunk))
+                rows += self._q(f"SELECT * FROM peer_stats WHERE username IN ({marks})", tuple(chunk))
         else:
             rows = self._q("SELECT * FROM peer_stats")
         return {r["username"]: r for r in rows}

@@ -216,7 +216,11 @@ class UpdateChecker:
         except Exception as e:
             log.debug("update check failed: %s", e)
             return {"status": "error", "message": "Can't reach GitHub. Check your internet connection."}
-        self._apply(data)
+        try:
+            self._apply(data)
+        except Exception as e:
+            log.debug("couldn't read GitHub's answer: %s", e)
+            return {"status": "error", "message": "GitHub's answer couldn't be read. Try again later."}
         self.checked_at = time.time()
         if data is None:
             return {"status": "current", "version": __version__,

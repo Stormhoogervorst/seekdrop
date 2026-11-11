@@ -9,12 +9,24 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    # The tests ran on Windows for the first time in 0.6.4. Until they are green there, a failure on Windows
+    # shows on the run (the annotation below) but doesn't stop the build. Remove this line once they pass.
+    continue-on-error: ${{ matrix.os == 'windows-latest' }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with: { python-version: "3.12" }
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg   # for the file-check tests
+      # ffmpeg is for the file-check tests; without it they are skipped.
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - if: runner.os == 'Windows'
+        continue-on-error: true
+        run: choco install ffmpeg -y --no-progress
       - run: pip install -e ".[dev]"
       - name: pytest
         shell: bash
@@ -24,7 +36,7 @@ jobs:
           if [ "$code" -ne 0 ]; then
             # The log needs a login to read; an annotation on the run does not.
             msg=$(tail -n 80 pytest.out | sed -e 's/%/%25/g' -e 's/\r//g' -e ':a;N;$!ba;s/\n/%0A/g')
-            echo "::error title=pytest failed::$msg"
+            echo "::error title=pytest failed on ${{ runner.os }}::$msg"
           fi
           exit $code
 

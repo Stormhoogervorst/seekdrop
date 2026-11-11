@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import secrets
+import sqlite3
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from aiohttp import web
@@ -48,6 +51,11 @@ class Api:
         self.updates = updates
         self.quit_app = quit_app or (lambda: None)
         self.token = token or secrets.token_urlsafe(24)
+        # The screen asks for the state every 2 seconds. Building it reads the database and looks at the music
+        # drive; on its own threads a slow disk or a busy database can never hold up the rest of the app, and
+        # it never has to wait behind file checks and other long jobs in the shared pool.
+        self._state_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="state")
+        self._rb_seen: tuple = (None, {})        # (the Rekordbox paths these answers belong to, {file: in Rekordbox?})
 
     # -- helpers
     @web.middleware
@@ -55,7 +63,25 @@ class Api:
         if request.path.startswith("/api/"):
             if not secrets.compare_digest(request.headers.get("X-Token", ""), self.token):
                 return web.json_response({"error": "unauthorized"}, status=401)
-        resp = await handler(request)
+        try:
+            resp = await handler(request)
+        except web.HTTPException:
+            raise
+        except asyncio.CancelledError:
+            raise
+        except ValueError as ex:
+            # A number that isn't one (a track or channel id, a field in the request).
+            if not request.path.startswith("/api/"):
+                raise
+            log.warning("bad request %s %s: %s", request.method, request.path, ex, exc_info=True)
+            return web.json_response({"error": "That request wasn't understood."}, status=400)
+        except Exception as ex:
+            # Anything a route didn't expect: the screen gets a message it can show, the log gets the details.
+            if not request.path.startswith("/api/"):
+                raise
+            log.exception("error in %s %s", request.method, request.path)
+            detail = (ex.strerror if isinstance(ex, OSError) and ex.strerror else str(ex)) or type(ex).__name__
+            return web.json_response({"error": f"Something went wrong: {detail[:200]}"}, status=500)
         if request.path.startswith("/ui/"):
             resp.headers["Cache-Control"] = "no-cache"
         return resp
@@ -110,28 +136,52 @@ class Api:
                             headers={"Cache-Control": "no-store"})
 
     async def state(self, request: web.Request):
-        e = self.engine
         channel_id = request.query.get("channel")
-        tracks = self.db.tracks(limit=400, channel_id=int(channel_id) if channel_id else None)
+        cid = int(channel_id) if channel_id else None
+        text = await asyncio.get_running_loop().run_in_executor(self._state_pool, self._state_json, cid)
+        return web.Response(text=text, content_type="application/json")
+
+    def _in_rekordbox(self, known: set, path: str) -> bool:
+        """rekordbox.has_file, remembered per file: it asks the disk, and the list is drawn every 2 seconds."""
+        if self._rb_seen[0] is not known:
+            self._rb_seen = (known, {})
+        seen = self._rb_seen[1]
+        if path not in seen:
+            seen[path] = rekordbox_has(known, path)
+        return seen[path]
+
+    def _state_json(self, cid) -> str:
+        """Everything the screen shows, as JSON. Runs in a worker thread (see __init__)."""
+        e = self.engine
+        tracks = self.db.tracks(limit=400, channel_id=cid)
         now = time.time()
         for t in tracks:
             entry = e.active.get(t["id"])
             if entry and entry.get("transfer") is not None:
-                info = e.slsk.transfer_info(entry["transfer"])
-                t["transfer_state"] = info["state"]
-                t["place_in_queue"] = info["place_in_queue"]
+                try:
+                    info = e.slsk.transfer_info(entry["transfer"])
+                    t["transfer_state"] = info["state"]
+                    t["place_in_queue"] = info["place_in_queue"]
+                except Exception:       # a transfer that is just being let go of: no details this time
+                    log.debug("no transfer details for track %s", t["id"], exc_info=True)
             t["retry_in"] = max(0, int(t["next_attempt"] - now)) if t["state"] == "waiting" else None
         known = e.rekordbox_known()                 # step 12: which tracks does the user's Rekordbox have?
         if known is not None:
             for t in tracks:
                 if t["state"] == "done" and t["file_path"]:
-                    t["in_rekordbox"] = rekordbox_has(known, t["file_path"])
+                    t["in_rekordbox"] = self._in_rekordbox(known, t["file_path"])
+        for _ in range(3):
+            try:
+                activity = list(e.activity)[:30]
+                break
+            except RuntimeError:        # a line was added while it was being copied
+                activity = []
         channels = self.db.channels()
         for c in channels:
             c["checking"] = c["id"] in e.checking
             c["rules"] = rules_mod.parse_rules(c["rules"])      # step 9
             c["rules_summary"] = rules_mod.summary(c["rules"])
-        return web.json_response({
+        return json.dumps({
             "version": __version__,
             "update": getattr(self.updates, "latest", None),
             "updating": self.update_view(),
@@ -156,7 +206,7 @@ class Api:
             "rule_defaults": rules_mod.DEFAULT_RULES,
             "upgrade_days": UPGRADE_DAYS,
             "stats": self.db.stats(),
-            "activity": list(e.activity)[:30],
+            "activity": activity,
             "next_check_in": max(0, int(e.next_poll_at - now)) if e.next_poll_at else 0,
         })
 
@@ -165,7 +215,7 @@ class Api:
         if "download_dir" in data and str(data["download_dir"]).strip():
             d = os.path.expanduser(str(data["download_dir"]).strip())
             try:
-                os.makedirs(d, exist_ok=True)
+                await asyncio.to_thread(os.makedirs, d, exist_ok=True)     # a network drive can take its time
             except OSError as ex:
                 return web.json_response({"error": f"Can't use that folder: {ex.strerror}"}, status=400)
             data["download_dir"] = os.path.abspath(d)
@@ -175,7 +225,7 @@ class Api:
                 return web.json_response({"error": problem}, status=400)
         _, changed = self.engine.store.update(data)
         if changed:
-            asyncio.create_task(self.engine.apply_settings(changed))
+            self.engine.spawn(self.engine.apply_settings(changed), "apply-settings")
         return web.json_response({"ok": True, "changed": sorted(changed)})
 
     async def template_preview(self, request: web.Request):
@@ -192,7 +242,7 @@ class Api:
             return web.json_response({"error": f"Couldn't install the plugin: {ex.strerror or ex}"}, status=500)
         _, changed = store.update({"nicotine_token": token, "soulseek_mode": "nicotine"})
         if changed and store.settings.configured:
-            asyncio.create_task(self.engine.apply_settings(changed))
+            self.engine.spawn(self.engine.apply_settings(changed), "apply-settings")
         self.engine.note("Installed the SeekSync Bridge plugin for Nicotine+.")
         return web.json_response({"ok": True, "path": str(path)})
 
@@ -209,11 +259,21 @@ class Api:
             info = await asyncio.to_thread(self.engine.sc.channel_info, url)
         except ChannelError as ex:
             return web.json_response({"error": str(ex)}, status=400)
-        backlog = max(0, min(int(data.get("backlog") or 0), 50))
+        except Exception as ex:             # the source answered with something unexpected
+            log.exception("couldn't look up %s", url)
+            return web.json_response({"error": f"Couldn't read that link ({str(ex)[:160] or type(ex).__name__})."}, status=400)
+        try:
+            backlog = max(0, min(int(float(data.get("backlog") or 0)), 50))
+        except (TypeError, ValueError, OverflowError):
+            backlog = 0
         reposts = bool(data.get("include_reposts")) and info.kind == "profile"
-        cid = self.db.add_channel(info.url, info.name, reposts, backlog, kind=info.kind)
+        try:
+            cid = self.db.add_channel(info.url, info.name, reposts, backlog, kind=info.kind)
+        except sqlite3.IntegrityError:      # added twice at the same moment (a double click)
+            what = "playlist" if info.kind == "playlist" else "channel"
+            return web.json_response({"error": f"You're already watching this {what}."}, status=400)
         self.engine.note(f"Added {'playlist' if info.kind == 'playlist' else 'channel'} {info.name}.")
-        asyncio.create_task(self.engine.check_channel(cid))
+        self.engine.spawn(self.engine.check_channel(cid), "check-channel")
         return web.json_response({"ok": True, "id": cid, "name": info.name, "kind": info.kind})
 
     async def patch_channel(self, request: web.Request):
@@ -240,7 +300,7 @@ class Api:
         return web.json_response({"ok": True})
 
     async def check_channel(self, request: web.Request):
-        asyncio.create_task(self.engine.check_channel(int(request.match_info["id"])))
+        self.engine.spawn(self.engine.check_channel(int(request.match_info["id"])), "check-channel")
         return web.json_response({"ok": True})
 
     async def check_now(self, request: web.Request):
@@ -352,13 +412,13 @@ class Api:
 
     async def scan_library(self, request: web.Request):
         if not self.engine.library_state["scanning"]:
-            asyncio.create_task(self.engine.scan_library())
+            self.engine.spawn(self.engine.scan_library(), "library")
         return web.json_response({"ok": True})
 
     async def fill_covers(self, request: web.Request):
         if not self.engine.covers_state["running"]:
             self.engine.covers_state["running"] = True          # at once, so a second click starts nothing
-            asyncio.create_task(asyncio.to_thread(self.engine.fill_missing_covers))
+            self.engine.spawn(asyncio.to_thread(self.engine.fill_missing_covers), "covers")
         return web.json_response({"ok": True})
 
     async def duplicates(self, request: web.Request):
@@ -366,6 +426,11 @@ class Api:
 
     async def open_path(self, request: web.Request):
         data = await self.body(request)
+        if data.get("track"):
+            data["track"] = int(data["track"])
+        return await asyncio.to_thread(self._open_path, data)       # looks at the music drive
+
+    def _open_path(self, data: dict):
         path = ""
         if data.get("path"):          # a file shown in the duplicates list: only inside the music folders
             want = os.path.abspath(str(data["path"]))
@@ -378,7 +443,10 @@ class Api:
             path = t["file_path"] if t else ""
         else:
             path = self.engine.settings.download_dir
-            os.makedirs(path, exist_ok=True)
+            try:
+                os.makedirs(path, exist_ok=True)
+            except OSError:
+                return web.json_response({"error": f"Can't reach {path}. Is the drive connected?"}, status=404)
         if path and os.path.exists(path):
             open_in_file_manager(path)
             return web.json_response({"ok": True})

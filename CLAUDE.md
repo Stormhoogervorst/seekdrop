@@ -13,6 +13,10 @@ Repo: github.com/Stormhoogervorst/seeksync (renamed from seekdrop and before tha
 - `python -m seeksync` (window) or `--browser` / `--headless`.
 - `pytest -q` (unit + engine tests with fakes). `tests/conftest.py` points XDG_DATA_HOME, APPDATA and
   SEEKSYNC_HOME at a temp dir, so no test can touch the real Nicotine+ plugins or app data.
+- CI (`.github/workflows/build.yml`): the `test` job runs pytest on Linux and, since 0.6.4, on Windows (with ffmpeg from
+  Chocolatey). The Windows leg has `continue-on-error` until it is green: a failure shows as an annotation on the run
+  ("pytest failed on Windows") but doesn't stop the build. Some tests assume POSIX paths (e.g. `rb.location("/a/...")`) and
+  will need a Windows variant; tell those apart from real Windows bugs. Remove `continue-on-error` once it passes.
 - UI dev server: `python scripts/demo.py` (launch.json `ui-demo`), open http://localhost:8765/#token=dev.
   Made-up data in a temp folder, no network; UI file edits show on refresh.
 - Throwaway data dir: `SEEKSYNC_HOME=/tmp/ns python -m seeksync --headless --port 47900`.
@@ -74,6 +78,25 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   `__main__._force_exit_later` ends a quit that hangs (it would keep the instance lock), `webview_unavailable()` opens the UI in the
   browser when WebView2 is missing (pywebview would otherwise fall back to IE's engine). Not verified on real Windows yet:
   ask for `%LOCALAPPDATA%\SeekSync\Logs\seeksync.log` when something still freezes.
+- **Stability pass** (0.6.4, no feature changes; tests in `tests/test_stability.py`). Keep these habits: start a one-off
+  background job with `Engine.spawn()` (never a bare `asyncio.create_task`: asyncio keeps only a weak reference and an error would
+  vanish); connect through `_connect_safely()`; stop downloads with `_stop_downloads()` before swapping or restarting the Soulseek
+  service; `_search_track` re-reads the track first (the due list is stale after a 12 s search); `skip()` leaves done/collected
+  tracks and a download that is being published (`entry["publishing"]`) alone; `_replace` / `approve_reject` put the old file back
+  with `_restore()` when placing the new one fails; `_check_disk` also pauses while the music folder can't be made (drive gone);
+  a check that can't run (ffmpeg gone, spectrum error) is never a reject reason; `library.scan` keeps rows under a folder that
+  couldn't be listed; `server.Api.auth` turns any unexpected error in an `/api/` route into JSON `{"error"}` (ValueError -> 400);
+  `config._coerce` / `_clamp` clean what is loaded from settings.json; `app.open_database` sets a damaged database aside;
+  `migrate_legacy_data` ignores `Logs` / `crash.log` when deciding whether SeekSync already has data (Windows keeps logs in the data folder).
+- **Keeping the app responsive** (0.6.4, after Windows reports of "not responding"; not reproduced, causes found by reading):
+  nothing on the event loop may touch the music drive or wait for a thread pool another job can fill. `Api.state` builds its JSON in
+  `Api._state_pool` (2 own threads; `_state_json` is sync and runs there, so keep it free of `await` and of loop-only objects);
+  `Engine._check_disk` / `_tidy_incoming` run in `asyncio.to_thread`; aioslsk gets `executor_factory=soulseek._SharesPool` (without
+  it, it queues one job per shared file in asyncio's default pool at every start, `scan_on_start`, and our `to_thread` work and
+  aioslsk's own aiofiles writes wait behind them; its `shutdown` never waits); `Backend._main` sets a 32-thread default executor;
+  `Engine.start` connects in the background (`_connect_lock`, `_connecting`), so the window never waits for the login; SQLite runs
+  with `synchronous=NORMAL`. Still on the loop inside aioslsk (can't be changed from here): reading/writing its shares cache
+  (shelve) and building its search index, which grow with the number of shared files.
 - **Quality** (`quality.py`): ladder of tiers + profiles (club/balanced/space: accepted order + target).
   Matching scores by ladder position; `FileChecker` measures the real tier and enforces the floor.
   Done tracks below target (lossy only) get `next_upgrade`; the search loop runs `_upgrade_search` with a

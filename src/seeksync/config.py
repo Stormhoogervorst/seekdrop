@@ -39,13 +39,21 @@ def migrate_legacy_data(new: Optional[Path] = None, legacy: Optional[list[Path]]
     if legacy is None:
         legacy = [Path(user_data_dir(n, appauthor=False)) for n in LEGACY_APP_NAMES]
     moved = None
-    if not (new.exists() and any(new.iterdir())):
+    if not _has_data(new):
         for old in legacy:
-            if old.is_dir() and any(old.iterdir()):
-                if new.exists():
-                    new.rmdir()   # empty
-                new.parent.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(old), str(new))
+            if _has_data(old):
+                if new.exists() and any(new.iterdir()):
+                    # Only the log folder is there (on Windows it lives inside the data folder and exists
+                    # before this runs): take over what the old folder holds, item by item.
+                    for entry in list(old.iterdir()):
+                        if not (new / entry.name).exists():
+                            shutil.move(str(entry), str(new / entry.name))
+                    shutil.rmtree(old, ignore_errors=True)      # what is left is the old log folder
+                else:
+                    if new.exists():
+                        new.rmdir()   # empty
+                    new.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(old), str(new))
                 moved = old
                 log.info("Moved data from %s to %s", old, new)
                 break
@@ -60,6 +68,17 @@ def migrate_legacy_data(new: Optional[Path] = None, legacy: Optional[list[Path]]
                         src.rename(new / (DB_NAME + suffix))
                 break
     return moved
+
+
+_NOT_DATA = {"logs", "crash.log"}      # what logging puts in the data folder on Windows before anything else
+
+
+def _has_data(folder: Path) -> bool:
+    """Does this app data folder hold anything besides logs?"""
+    try:
+        return folder.is_dir() and any(e.name.lower() not in _NOT_DATA for e in folder.iterdir())
+    except OSError:
+        return False
 
 
 def _retarget_default_download_dir(settings_file: Path, music: Optional[Path] = None) -> None:
@@ -154,6 +173,57 @@ class Settings:
         return d
 
 
+_INT_FIELDS = ("check_interval_minutes", "max_parallel_downloads", "give_up_days", "listen_port", "nicotine_port",
+               "check_length_margin", "check_silence_seconds", "search_spacing", "search_max_per_5min", "min_free_gb")
+
+
+def _clamp(s: Settings) -> Settings:
+    """Keep the numbers inside what the app can work with."""
+    s.check_interval_minutes = max(15, s.check_interval_minutes)
+    s.max_parallel_downloads = min(max(1, s.max_parallel_downloads), 10)
+    s.give_up_days = min(max(1, s.give_up_days), 365)
+    s.search_spacing = min(max(int(MIN_SEARCH_SPACING), s.search_spacing), 120)
+    s.search_max_per_5min = min(max(MIN_MAX_SEARCHES, s.search_max_per_5min), MAX_MAX_SEARCHES)
+    s.min_free_gb = min(max(0, s.min_free_gb), 1000)
+    s.listen_port = min(max(1024, s.listen_port), 65534)        # the port after it is used too
+    s.nicotine_port = min(max(1024, s.nicotine_port), 65535)
+    s.check_length_margin = min(max(0, s.check_length_margin), 3600)
+    s.check_silence_seconds = min(max(0, s.check_silence_seconds), 3600)
+    return s
+
+
+def _coerce(s: Settings) -> Settings:
+    """A settings file that was edited by hand or written by an older version can hold the wrong kind of
+    value (a text where a number belongs, null for a list). Such a field falls back to its default."""
+    default = Settings()
+    for f in fields(Settings):
+        want, v = getattr(default, f.name), getattr(s, f.name)
+        if isinstance(want, bool):
+            ok = isinstance(v, bool) or v in (0, 1)
+            v = bool(v) if ok else want
+        elif isinstance(want, int):
+            try:
+                v = int(float(v)) if not isinstance(v, bool) else want
+            except (TypeError, ValueError, OverflowError):
+                v = want
+        elif isinstance(want, str):
+            v = v if isinstance(v, str) else want
+        elif isinstance(want, list):
+            v = [str(x) for x in v if isinstance(x, (str, int, float))] if isinstance(v, list) else want
+        setattr(s, f.name, v)
+    if s.quality_profile not in ("club", "balanced", "space"):
+        s.quality_profile = default.quality_profile
+    if s.upgrade_mode not in ("ask", "auto", "auto_unless_dj", "off"):
+        s.upgrade_mode = default.upgrade_mode
+    if s.soulseek_mode not in ("builtin", "nicotine"):
+        s.soulseek_mode = default.soulseek_mode
+    if s.suspect_quality not in ("label", "reject"):
+        s.suspect_quality = default.suspect_quality
+    if template_error(s.filename_template):
+        s.filename_template = default.filename_template
+    return s
+
+
 class SettingsStore:
     def __init__(self, path: Path | None = None):
         self.path = path or data_dir() / "settings.json"
@@ -177,9 +247,14 @@ class SettingsStore:
                     elif isinstance(v, list) and len(v) > 1 and all(isinstance(x, str) and len(x) == 1 for x in v):
                         raw[key] = []                # one letter per entry: an earlier version split a path into characters
                 known = {f.name for f in fields(Settings)}
-                return Settings(**{k: v for k, v in raw.items() if k in known})
+                return _clamp(_coerce(Settings(**{k: v for k, v in raw.items() if k in known})))
             except Exception:
-                pass
+                # Starting with the defaults would overwrite this file at the first change: keep a copy.
+                log.exception("couldn't read %s, starting with the default settings", self.path)
+                try:
+                    shutil.copyfile(self.path, self.path.with_name(self.path.name + ".unreadable"))
+                except OSError:
+                    pass
         return Settings()
 
     def save(self) -> None:
@@ -202,10 +277,11 @@ class SettingsStore:
                 continue
             if key == "soulseek_password" and not value:
                 continue  # empty means "keep current"
-            if key in ("check_interval_minutes", "max_parallel_downloads", "give_up_days", "listen_port", "nicotine_port",
-                       "check_length_margin", "check_silence_seconds", "search_spacing", "search_max_per_5min",
-                       "min_free_gb"):
-                value = int(value)
+            if key in _INT_FIELDS:
+                try:
+                    value = int(float(value))
+                except (TypeError, ValueError, OverflowError):
+                    continue                       # an emptied number box: keep what it was
             if key in ("accepted_terms", "share_downloads", "tag_files", "wav_to_aiff", "label_from_channel", "rekordbox_export",
                        "check_updates"):
                 value = bool(value)
@@ -235,12 +311,7 @@ class SettingsStore:
             if getattr(s, key) != value:
                 setattr(s, key, value)
                 changed.add(key)
-        s.check_interval_minutes = max(15, s.check_interval_minutes)
-        s.max_parallel_downloads = min(max(1, s.max_parallel_downloads), 10)
-        s.give_up_days = min(max(1, s.give_up_days), 365)
-        s.search_spacing = min(max(int(MIN_SEARCH_SPACING), s.search_spacing), 120)
-        s.search_max_per_5min = min(max(MIN_MAX_SEARCHES, s.search_max_per_5min), MAX_MAX_SEARCHES)
-        s.min_free_gb = min(max(0, s.min_free_gb), 1000)
+        _clamp(s)
         if changed:
             self.save()
         return s, changed
