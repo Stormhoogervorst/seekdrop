@@ -28,6 +28,17 @@ from .updates import install_problem
 
 log = logging.getLogger(__name__)
 UI_DIR = Path(__file__).parent / "ui"
+TRACK_LIMIT = 400           # rows the list shows at once (newest first); the counts above it are always complete
+# The filters above the track list (app.js GROUPS): which states each one shows. "all" hides skipped tracks.
+FILTERS = {"active": ("wanted", "searching", "downloading"), "done": ("done",), "waiting": ("waiting", "gave_up"),
+           "skipped": ("skipped",), "collected": ("collected",)}
+
+
+def _filter_counts(per_state: dict) -> dict:
+    """How many tracks each filter holds (for the numbers on the filter buttons)."""
+    out = {name: sum(per_state.get(s, 0) for s in states) for name, states in FILTERS.items()}
+    out["all"] = sum(n for s, n in per_state.items() if s != "skipped")
+    return out
 
 
 def open_in_file_manager(path: str) -> None:
@@ -138,7 +149,8 @@ class Api:
     async def state(self, request: web.Request):
         channel_id = request.query.get("channel")
         cid = int(channel_id) if channel_id else None
-        text = await asyncio.get_running_loop().run_in_executor(self._state_pool, self._state_json, cid)
+        flt = request.query.get("filter") or "all"
+        text = await asyncio.get_running_loop().run_in_executor(self._state_pool, self._state_json, cid, flt)
         return web.Response(text=text, content_type="application/json")
 
     def _in_rekordbox(self, known: set, path: str) -> bool:
@@ -150,10 +162,15 @@ class Api:
             seen[path] = rekordbox_has(known, path)
         return seen[path]
 
-    def _state_json(self, cid) -> str:
-        """Everything the screen shows, as JSON. Runs in a worker thread (see __init__)."""
+    def _state_json(self, cid, flt: str = "all") -> str:
+        """Everything the screen shows, as JSON. Runs in a worker thread (see __init__).
+        The list holds the newest TRACK_LIMIT tracks of the chosen filter; `counts` counts all of them."""
         e = self.engine
-        tracks = self.db.tracks(limit=400, channel_id=cid)
+        if flt in FILTERS:
+            tracks = self.db.tracks(limit=TRACK_LIMIT, channel_id=cid, states=FILTERS[flt])
+        else:
+            tracks = self.db.tracks(limit=TRACK_LIMIT, channel_id=cid, exclude_states=("skipped",))
+        per_state = self.db.stats(cid) if cid else None
         now = time.time()
         for t in tracks:
             entry = e.active.get(t["id"])
@@ -206,6 +223,8 @@ class Api:
             "rule_defaults": rules_mod.DEFAULT_RULES,
             "upgrade_days": UPGRADE_DAYS,
             "stats": self.db.stats(),
+            "counts": _filter_counts(per_state if per_state is not None else self.db.stats()),
+            "track_limit": TRACK_LIMIT,
             "activity": activity,
             "next_check_in": max(0, int(e.next_poll_at - now)) if e.next_poll_at else 0,
         })
@@ -438,6 +457,10 @@ class Api:
                 path = want
         elif data.get("rekordbox"):
             path = self.engine.rekordbox_path()
+        elif data.get("log"):                   # Settings, "Show log": what to send along with a problem report
+            from .config import log_dir
+            folder = log_dir()
+            path = str(folder / "seeksync.log") if (folder / "seeksync.log").exists() else str(folder)
         elif data.get("track"):
             t = self.db.track(int(data["track"]))
             path = t["file_path"] if t else ""

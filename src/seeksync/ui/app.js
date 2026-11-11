@@ -81,8 +81,14 @@ async function refresh() {
   if (polling) return;
   polling = true;
   try {
-    const q = ui.channel ? `?channel=${ui.channel}` : "";
-    ui.state = await api("GET", "/api/state" + q);
+    const params = new URLSearchParams();
+    if (ui.channel) params.set("channel", ui.channel);
+    if (GROUPS[ui.filter]) params.set("filter", ui.filter);       // the list holds only this filter's tracks
+    const asked = ui.filter;
+    const q = params.toString() ? `?${params}` : "";
+    const st = await api("GET", "/api/state" + q);
+    if (asked !== ui.filter && (GROUPS[asked] || GROUPS[ui.filter])) return;   // the filter changed meanwhile: a fresh poll follows
+    ui.state = st;
     failedPolls = 0;
     try { render(); } catch (e) { console.error("couldn't draw the screen", e); }
   } catch (e) {
@@ -238,12 +244,9 @@ const GROUPS = {
 };
 
 function renderFilters(s) {
-  const counts = { all: 0, active: 0, done: 0, waiting: 0, skipped: 0, collected: 0, quarantine: (s.rejects || []).length,
-    duplicates: ui.dups ? ui.dups.length : "" };
-  for (const t of s.tracks) {
-    if (t.state !== "skipped") counts.all++;
-    for (const [g, list] of Object.entries(GROUPS)) if (list.includes(t.state)) counts[g]++;
-  }
+  // The server counts every track, not just the newest ones in the list.
+  const counts = { all: 0, active: 0, done: 0, waiting: 0, skipped: 0, collected: 0, ...(s.counts || {}),
+    quarantine: (s.rejects || []).length, duplicates: ui.dups ? ui.dups.length : "" };
   for (const b of document.querySelectorAll("#filters button")) {
     const f = b.dataset.f;
     const label = b.dataset.label || (b.dataset.label = b.textContent);
@@ -363,6 +366,9 @@ function renderTracks(s) {
     return;
   }
 
+  const total = (s.counts || {})[ui.filter] || 0;
+  const more = total > rows.length
+    ? `<p class="list-more">Showing the newest ${rows.length.toLocaleString()} of ${total.toLocaleString()} tracks. Pick a channel or a filter to see the others.</p>` : "";
   const html = rows.map((t) => {
     const st = statusOf(t);
     const art = t.artwork
@@ -381,7 +387,7 @@ function renderTracks(s) {
       ${statusHtml(t, st)}
       <div class="acts">${actionsOf(t)}</div>
     </div>`;
-  }).join("");
+  }).join("") + more;
   if (list.dataset.k !== html) { list.innerHTML = html; list.dataset.k = html; }
 }
 
@@ -548,7 +554,9 @@ function pickFilter(e) {
   const b = e.target.closest("button[data-f]");
   if (!b) return;
   ui.filter = b.dataset.f;
+  $("#list").dataset.k = "";
   render();
+  refresh();
 }
 $("#filters").addEventListener("click", pickFilter);
 
@@ -666,6 +674,9 @@ $("#set-rb-update").addEventListener("click", async () => {
   } catch (e) { toast(e.message); }
   await refresh();
   rekordboxStatus();
+});
+$("#set-log").addEventListener("click", async () => {
+  try { await api("POST", "/api/open", { log: true }); } catch (e) { toast(e.message); }
 });
 $("#set-rb-show").addEventListener("click", async () => {
   try { await api("POST", "/api/open", { rekordbox: true }); } catch (e) { toast(e.message); }

@@ -57,7 +57,7 @@ class SoulseekService:
             return
 
         from aioslsk.client import SoulSeekClient
-        from aioslsk.events import KickedEvent, SessionDestroyedEvent, SessionInitializedEvent
+        from aioslsk.events import KickedEvent, ScanCompleteEvent, SessionDestroyedEvent, SessionInitializedEvent
         from aioslsk.exceptions import AuthenticationError
         from aioslsk.settings import CredentialsSettings, SharedDirectorySettingEntry
         from aioslsk.settings import Settings as SlskSettings
@@ -94,6 +94,16 @@ class SoulseekService:
             self.error = ("Soulseek logged you out because this account was used somewhere else. "
                           "Use a separate account for SeekSync.")
 
+        async def on_scan_done(_):
+            # aioslsk only saves its index of the shared files when it closes normally. After a crash or a forced
+            # quit it reads every shared file again at the next start, which takes long with a big music folder.
+            # Saving it after each scan avoids that. In a thread: writing it can take a moment.
+            try:
+                await asyncio.to_thread(client.shares.write_cache)
+            except Exception:
+                log.debug("couldn't save the index of shared files", exc_info=True)
+
+        client.events.register(ScanCompleteEvent, on_scan_done)
         client.events.register(SessionInitializedEvent, on_login)
         client.events.register(SessionDestroyedEvent, on_logout)
         client.events.register(KickedEvent, on_kicked)

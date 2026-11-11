@@ -33,11 +33,15 @@ from .titles import parse_title, search_queries
 log = logging.getLogger(__name__)
 
 RETRY_DELAYS = [3600, 3 * 3600, 6 * 3600, 12 * 3600, 24 * 3600]
-QUEUE_TIMEOUT = 45 * 60       # give up on a peer whose queue doesn't move
+QUEUE_TIMEOUT = 45 * 60       # give up on a peer whose queue doesn't move (the last candidate)
+QUEUE_TIMEOUT_NEXT = 15 * 60  # the same while another candidate is still waiting to be tried
 STALL_TIMEOUT = 5 * 60        # no bytes received for this long while downloading
 MAX_CANDIDATES = 3            # peers to try per search round
 SEARCH_WAIT = 12.0            # seconds to collect results per search
 TRASH_DAYS = 30               # replaced files stay in the app's trash this long
+QUARANTINE_DAYS = 30          # a rejected file nobody looked at is deleted after this long (the block stays)
+LATEST_COUNT = 25             # uploads of a profile looked at in a normal check
+CATCH_UP_COUNT = 200          # looked at when none of those 25 is known (the app was off a long time)
 
 
 REKORDBOX_DELAY = 30           # seconds to wait after a download before the Rekordbox XML is written again
@@ -261,6 +265,7 @@ class Engine:
         """Leftovers of a crash or forced quit: anything in staging, and hidden half-copied files in
         the music folder. Incoming is cleaned later, once leftover transfers have been dealt with."""
         n = _clear_dir(self.staging_dir)
+        self._tidy_quarantine()
         if os.path.isdir(self.trash_dir):
             cutoff = time.time() - TRASH_DAYS * 86400
             for name in _listdir(self.trash_dir):
@@ -283,6 +288,32 @@ class Engine:
                             pass
         if n:
             log.info("Removed %d leftover file(s) from an earlier session", n)
+
+    def _tidy_quarantine(self) -> int:
+        """Delete files that have been in quarantine for QUARANTINE_DAYS without a decision. The reject itself is
+        kept, so that peer + file is still never tried again for that track. Returns how many were deleted."""
+        n = 0
+        try:
+            for r in self.db.old_quarantined(time.time() - QUARANTINE_DAYS * 86400):
+                if r["path"]:
+                    try:
+                        fsutil.remove(r["path"])
+                    except FileNotFoundError:
+                        pass
+                    except OSError:
+                        log.debug("couldn't delete %s from quarantine", r["path"], exc_info=True)
+                        continue                    # try again next time
+                    try:
+                        os.rmdir(os.path.dirname(r["path"]))
+                    except OSError:
+                        pass
+                self.db.update_reject(r["id"], status="deleted", path="")
+                n += 1
+        except Exception:
+            log.exception("couldn't tidy up the quarantine")
+        if n:
+            log.info("Deleted %d file(s) that were in quarantine for more than %d days", n, QUARANTINE_DAYS)
+        return n
 
     def _tidy_incoming(self) -> None:
         if self.active:            # never while downloads are running
@@ -415,7 +446,11 @@ class Engine:
 
     # ------------------------------------------------------------------ SoundCloud
     async def _poll_loop(self) -> None:
+        tidied = time.time()
         while True:
+            if time.time() - tidied > 86400:       # the app can run for weeks: the start-up tidy-up, once a day
+                tidied = time.time()
+                await asyncio.to_thread(self._tidy_quarantine)
             try:
                 if self.settings.configured and time.time() >= self.next_poll_at:
                     self.next_poll_at = time.time() + self.settings.check_interval_minutes * 60
@@ -442,6 +477,13 @@ class Engine:
             stubs: list[TrackStub] = await asyncio.to_thread(self.sc.latest, ch["url"], bool(ch["include_reposts"]))
             playlist = ch.get("kind") == "playlist"
             known_rows = self.db.tracks_by_sc_ids([s.sc_id for s in stubs])
+            if not playlist and ch["initialized"] and stubs and not known_rows and len(stubs) >= LATEST_COUNT:
+                # Not one of the newest uploads is known: more came out than one check looks at (the app was off,
+                # or a label uploaded a whole catalogue). Look further back so none is missed.
+                more = await asyncio.to_thread(self.sc.latest, ch["url"], bool(ch["include_reposts"]), CATCH_UP_COUNT)
+                if len(more) > len(stubs):
+                    stubs = more
+                    known_rows = self.db.tracks_by_sc_ids([s.sc_id for s in stubs])
             known = {r["sc_id"] for r in known_rows}
             new = [s for s in stubs if s.sc_id not in known]
             if playlist:
@@ -876,7 +918,9 @@ class Engine:
             raise
         except Exception as e:
             log.warning("search failed for %s: %s", p.display, e)
-            self.db.update_track(tid, state=states.WANTED, next_attempt=time.time() + 300,
+            # Our search didn't happen (connection gone, Nicotine+ busy): that's not a try, so the wait before the
+            # next real one doesn't grow because of it.
+            self.db.update_track(tid, state=states.WANTED, next_attempt=time.time() + 300, attempts=t["attempts"],
                                  last_error="Search failed, retrying in 5 minutes")
             return
 
@@ -978,8 +1022,8 @@ class Engine:
         tid = t["id"]
         reason = "Download failed"
         try:
-            for c in candidates:
-                ok, info = await self._try_candidate(t, c)
+            for i, c in enumerate(candidates):
+                ok, info = await self._try_candidate(t, c, queue_timeout=self._queue_timeout(i, candidates))
                 if ok:
                     entry = self.active.get(tid)
                     if entry is not None:
@@ -1018,7 +1062,13 @@ class Engine:
             self.active.pop(tid, None)
             self._wake_search.set()
 
-    async def _try_candidate(self, t: dict, c: Candidate, record: bool = True) -> tuple[bool, dict]:
+    @staticmethod
+    def _queue_timeout(i: int, candidates: list) -> float:
+        """How long to wait in a peer's queue: shorter while another peer is still left to try."""
+        return QUEUE_TIMEOUT_NEXT if i < len(candidates) - 1 else QUEUE_TIMEOUT
+
+    async def _try_candidate(self, t: dict, c: Candidate, record: bool = True,
+                             queue_timeout: float = QUEUE_TIMEOUT) -> tuple[bool, dict]:
         """Download one candidate. record=False (upgrades) leaves the track row alone: it describes
         the file the user already has."""
         tid = t["id"]
@@ -1059,9 +1109,9 @@ class Engine:
                     self._record_peer(c.username, "failed")
                     await self.slsk.abort(transfer)
                     return False, info
-                if st != "DOWNLOADING" and now - started > QUEUE_TIMEOUT:
+                if st != "DOWNLOADING" and now - started > queue_timeout:
                     info["fail_reason"] = "peer queue too long"
-                    self._record_peer(c.username, "failed")
+                    # A long queue means a busy peer, not a bad one: it doesn't count towards a block.
                     await self.slsk.abort(transfer)
                     return False, info
         except asyncio.CancelledError:
@@ -1292,7 +1342,7 @@ class Engine:
         p = self._parsed(t)
         better: list[Candidate] = []
         try:
-            for q in search_queries(p):
+            for q in self._queries(t, p):           # the user's own term and the artist's aliases, like a normal search
                 await self._throttle()
                 results = await self.slsk.search(q, wait=SEARCH_WAIT)
                 blocked = self.db.blocked(tid)
@@ -1315,8 +1365,8 @@ class Engine:
         tid = t["id"]
         prof = profile(self.settings.quality_profile)
         try:
-            for c in candidates:
-                ok, info = await self._try_candidate(t, c, record=False)
+            for i, c in enumerate(candidates):
+                ok, info = await self._try_candidate(t, c, record=False, queue_timeout=self._queue_timeout(i, candidates))
                 if not ok:
                     continue
                 try:
@@ -1447,7 +1497,7 @@ class Engine:
     def _schedule_retry(self, t: Optional[dict], reason: str) -> None:
         if not t:
             return
-        age = time.time() - t["created_at"]
+        age = time.time() - max(t["created_at"], t.get("revived_at") or 0)
         if age > self.settings.give_up_days * 86400:
             self.db.update_track(t["id"], state=states.GAVE_UP, last_error=reason, progress=0)
             return
@@ -1474,6 +1524,11 @@ class Engine:
             fields = {"skip_rule": rules_mod.OVERRIDDEN} if t["skip_rule"] or t["state"] == states.COLLECTED else {}
             if t["state"] == states.COLLECTED:
                 fields["file_path"] = ""
+            # The user wants it now: it gets a full give_up_days again (counted from creation, an old track
+            # stopped again after one try), and after it had stopped, the waits start short again (1 h, 3 h, ...).
+            fields["revived_at"] = time.time()
+            if t["state"] == states.GAVE_UP:
+                fields["attempts"] = 0
             self.db.update_track(tid, state=states.WANTED, next_attempt=0, last_error="", **fields)
             self._wake_search.set()
 
