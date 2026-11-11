@@ -15,8 +15,9 @@ Repo: github.com/Stormhoogervorst/seeksync (renamed from seekdrop and before tha
   SEEKSYNC_HOME at a temp dir, so no test can touch the real Nicotine+ plugins or app data.
 - CI (`.github/workflows/build.yml`): the `test` job runs pytest on Linux and, since 0.6.4, on Windows (with ffmpeg from
   Chocolatey). The Windows leg has `continue-on-error` until it is green: a failure shows as an annotation on the run
-  ("pytest failed on Windows") but doesn't stop the build. Some tests assume POSIX paths (e.g. `rb.location("/a/...")`) and
-  will need a Windows variant; tell those apart from real Windows bugs. Remove `continue-on-error` once it passes.
+  ("pytest failed on Windows") but doesn't stop the build. First run: 371 of 379 passed, ffmpeg checks included; the 8
+  failures were all tests that assumed POSIX paths (fixed). Write new tests with `os.path` / `tmp_path`, not literal "/a/b"
+  paths, and set `APPDATA` next to `XDG_DATA_HOME`. Remove `continue-on-error` once the Windows leg is green.
 - UI dev server: `python scripts/demo.py` (launch.json `ui-demo`), open http://localhost:8765/#token=dev.
   Made-up data in a temp folder, no network; UI file edits show on refresh.
 - Throwaway data dir: `SEEKSYNC_HOME=/tmp/ns python -m seeksync --headless --port 47900`.
