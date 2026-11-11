@@ -2,8 +2,9 @@
 
 ## 0.6.4
 
-A stability release: the whole app was read through for weak spots. No new features and nothing works
-differently; these are things that could go wrong and now don't.
+A stability release: the whole app was read through for weak spots, especially the ones behind the
+"not responding" reports on Windows. Most of this is things that could go wrong and now don't; the few things that
+work differently on purpose are marked *Changed*.
 
 - Fixed: **when SeekSync couldn't start, it just closed** (on Windows nobody could see why). It now shows a
   window with the reason and where the log file is. New in Settings, under Updates: **Show log file**, to send

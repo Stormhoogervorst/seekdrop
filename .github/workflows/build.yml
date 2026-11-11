@@ -21,10 +21,14 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with: { python-version: "3.12" }
-      # ffmpeg is for the file-check tests; without it they are skipped.
+      # ffmpeg is for the file-check tests; without it they are skipped. Installing it has hung for an hour on
+      # GitHub's Linux machines (Nov 2026), so it gets a time limit and may fail: the tests run either way.
       - if: runner.os == 'Linux'
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+        timeout-minutes: 5
+        continue-on-error: true
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg
       - if: runner.os == 'Windows'
+        timeout-minutes: 10
         continue-on-error: true
         run: choco install ffmpeg -y --no-progress
       - run: pip install -e ".[dev]"
