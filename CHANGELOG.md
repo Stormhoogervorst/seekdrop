@@ -1,5 +1,67 @@
 # Changelog
 
+## 0.6.4
+
+A stability release: the whole app was read through for weak spots. No new features and nothing works
+differently; these are things that could go wrong and now don't.
+
+- Changed: ***Why not?* is easier to find.** For a track that wasn't found, the reason in the list ("3 results,
+  none matched…") is now itself a button with a small arrow, and *Why not?* is a filled button at the front of
+  the row instead of grey text between the others. Both open the same panel as before.
+- Fixed: **the app stopped responding, mostly on Windows.** Not reproduced on a Windows PC, but these causes
+  were found in the code and are gone:
+  - With the built-in Soulseek login, every start reads all the folders you share, one small job per file. Those
+    jobs went into the same queue as SeekSync's own file work (since 0.6.3: moving, checking and tagging a
+    download, and writing a running download to disk). With a big music folder that queue held thousands of jobs
+    and everything else waited behind them: downloads stood still and buttons did nothing. The shared folders are
+    now read on threads of their own.
+  - The screen asks the app for its state every 2 seconds, and answering looked at your music drive and read the
+    database on the thread that also runs the Soulseek connection. A drive that was asleep, a network share that
+    was away or a disk busy copying a download made everything wait. The state is now put together on its own
+    threads, and the disk space check no longer runs on the main thread either.
+  - On a computer with few processor cores, a library scan plus a few file checks could use up all worker
+    threads, so a running download couldn't be written. There are more of them now.
+  - The database forced every small change to disk at once (a download's progress is one every 2 seconds), which
+    is slow on Windows. It now does that the usual, still safe way.
+- Fixed: **the window only opened after Soulseek had logged in**, and when that took more than 30 seconds the
+  app closed again without a word. The window now opens at once and shows "Connecting".
+- Fixed: **a track you skipped could be searched anyway** when you pressed Skip while another track was being
+  searched. The same for a track whose channel you had just removed.
+- Fixed: pressing **Skip at the moment a download finished** marked the track as skipped although the file was
+  already in your music folder.
+- Fixed: **saving Settings failed** ("Request failed (500)") when a number box was empty. An empty or invalid
+  number now keeps the old value. Ports and margins that can't work are brought back into range.
+- Fixed: a **settings file with a wrong kind of value** in it (edited by hand, or from an older version) could
+  make the app misbehave later. Such a field now falls back to its default, the rest is kept. A settings file that
+  can't be read at all is kept as `settings.json.unreadable` instead of being silently overwritten.
+- Fixed: **the app didn't start** when a folder in your music folder couldn't be read (for example when macOS
+  hadn't given permission yet), or when the database file was damaged. A damaged database is set aside under
+  another name (never deleted) and the app starts with a new one.
+- Fixed: on **Windows, your channels and settings from SeekDrop were not taken over** on the first start as
+  SeekSync, because the log folder was made first and the app then thought it already had data. If this happened
+  to you, your old data is still in `%LOCALAPPDATA%\SeekDrop`.
+- Fixed: a **music folder that couldn't be read for a moment** (a network share that dropped, a missing
+  permission) counted as "the files are gone", after which tracks you already have were wanted again.
+- Fixed: **downloads into nothing** while the drive with your music folder is not connected. Downloads now wait
+  ("Downloads paused") until the folder is back, instead of downloading, failing to save and trying again later.
+- Fixed: when **replacing a file with a better copy** (or *Approve anyway* for a track you already have) failed
+  half-way, for example on a full disk, the old file stayed in SeekSync's trash. It is now put back.
+- Fixed: **good files could go to quarantine** when ffmpeg had been removed or moved while the app was running, or
+  when the spectrum measurement itself failed. A check that can't run is not a bad file.
+- Fixed: one **Soulseek peer that couldn't be asked** for a file ended the whole attempt; the next candidate is
+  now tried. One search result with odd data could make a whole search fail.
+- Fixed: after **switching between the built-in login and Nicotine+**, downloads that were still running could
+  make the screen stop updating for a while. They are now stopped properly before the switch.
+- Fixed: background jobs (the connection check, reconnecting, a scan or check started from the screen) could
+  **stop without a trace** after an unexpected error. They now keep running, and the error is in the log.
+- Fixed: a file chosen as your **Rekordbox export** that isn't one counted as "nothing is in Rekordbox", so with
+  *Replace by itself, unless it is in Rekordbox* files could be replaced without asking. Now SeekSync asks.
+  Exports with track numbers that aren't plain numbers are read too.
+- Fixed: reading a big Rekordbox export, and looking into shared folders, no longer hold up the screen.
+- Fixed: the screen showed nothing useful when the app ran into an unexpected error; it now shows what went wrong.
+  Small things: *Remove playlist* kept its label, *Check now* and the folder button show an error instead of
+  doing nothing, and a channel removed in another window no longer leaves an empty list.
+
 ## 0.6.3
 
 A stability release for Windows. I couldn't try these on a Windows PC myself, so this version also keeps a

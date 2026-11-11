@@ -211,8 +211,11 @@ def normalize_path(path: str) -> str:
 def collection_paths(xml_path: str) -> set[str]:
     """The file paths in a Rekordbox collection export (Rekordbox: File, Export Collection in xml format),
     normalised for comparison. Only reads the file."""
+    coll = ET.parse(xml_path).getroot().find("COLLECTION")
+    if coll is None:
+        raise ValueError("no COLLECTION in this file")
     return {normalize_path(path_from_location(t.get("Location", "")))
-            for t in read(xml_path)["tracks"].values() if t.get("Location")}
+            for t in coll.iter("TRACK") if t.get("Location")}
 
 
 def has_file(known: set[str], path: str) -> bool:

@@ -172,7 +172,13 @@ class NicotineBridge:
     async def _watch(self) -> None:
         while True:
             await asyncio.sleep(5)
-            await self._check()
+            try:
+                await self._check()
+            except asyncio.CancelledError:
+                raise
+            except Exception:           # the watcher must survive anything, or the status never changes again
+                log.debug("Nicotine+ status check failed", exc_info=True)
+                self.status, self.error = "error", MSG_UNREACHABLE
 
     async def _check(self) -> None:
         try:
@@ -207,7 +213,14 @@ class NicotineBridge:
     async def _json(r: aiohttp.ClientResponse) -> dict:
         if r.status == 401:
             raise PermissionError("bad key")
-        data = await r.json(content_type=None)
+        try:
+            data = await r.json(content_type=None)
+        except ValueError:
+            data = None
+        if not isinstance(data, dict):      # not the plugin answering (another program on this port?)
+            if r.status >= 400:
+                raise RuntimeError(f"HTTP {r.status}")
+            raise RuntimeError("unexpected answer from Nicotine+")
         if r.status >= 400:
             raise RuntimeError(data.get("error") or f"HTTP {r.status}")
         return data
@@ -221,7 +234,9 @@ class NicotineBridge:
             raise RuntimeError("not connected")
         data = await self._post("/search", {"query": query, "wait": wait}, timeout=wait + 30)
         out = []
-        for r in data.get("results", []):
+        for r in data.get("results") or []:
+            if not isinstance(r, dict) or not r.get("username") or not r.get("path"):
+                continue
             out.append(Candidate(
                 username=r["username"], filename=r["path"], size=int(r.get("size") or 0),
                 ext=(r.get("ext") or file_ext(r["path"])).lower(), bitrate=r.get("bitrate"),

@@ -86,7 +86,12 @@ def _clear_dir(path: str) -> int:
     n = 0
     if not path or not os.path.isdir(path):
         return 0
-    for name in os.listdir(path):
+    try:
+        names = os.listdir(path)
+    except OSError:
+        log.debug("couldn't list %s", path, exc_info=True)
+        return 0
+    for name in names:
         full = os.path.join(path, name)
         try:
             if os.path.isdir(full) and not os.path.islink(full):
@@ -97,6 +102,15 @@ def _clear_dir(path: str) -> int:
         except OSError:
             log.debug("couldn't remove %s", full, exc_info=True)
     return n
+
+
+def _listdir(path: str) -> list[str]:
+    """os.listdir that gives nothing for a folder that can't be read (no permission, drive gone)."""
+    try:
+        return os.listdir(path)
+    except OSError:
+        log.debug("couldn't list %s", path, exc_info=True)
+        return []
 
 
 def _load_meta(t: dict) -> dict:
@@ -164,6 +178,11 @@ class Engine:
                               "scanned_at": 0.0, "missing": [], "error": ""}
         self.covers_state = {"running": False, "done": 0, "total": 0, "added": 0, "missing": 0, "failed": 0,
                              "finished_at": 0.0}
+        self._connect_lock = asyncio.Lock()    # one connection attempt at a time
+        self._connecting = False
+        self._watch_skip = False               # the status watch must not report what _connect already did
+        self._spawned: set[asyncio.Task] = set()   # one-off background jobs; kept so they aren't dropped half-way
+        self._share_warning: tuple = (0.0, None, "")     # (when it was worked out, for which folders, the message)
 
     # ------------------------------------------------------------------ lifecycle
     @property
@@ -174,14 +193,33 @@ class Engine:
         self.activity.appendleft({"t": time.time(), "msg": msg, "level": level})
         getattr(log, "warning" if level == "warn" else "info")(msg)
 
+    def spawn(self, coro, name: str = "") -> asyncio.Task:
+        """Run a one-off job in the background. asyncio only keeps a weak reference to a task, so one nobody
+        holds can vanish before it is done; this keeps it until it finishes and logs an error it ends with."""
+        task = asyncio.get_running_loop().create_task(coro, name=name or None)
+        self._spawned.add(task)
+
+        def done(t: asyncio.Task) -> None:
+            self._spawned.discard(t)
+            if not t.cancelled() and t.exception() is not None:
+                log.error("background job %s failed", t.get_name(), exc_info=t.exception())
+        task.add_done_callback(done)
+        return task
+
     async def start(self) -> None:
         self._loop = asyncio.get_running_loop()
         # Transfers from the last session may still sit in Nicotine+'s queue; tidy them up once connected.
         self._stale = self.db.interrupted_transfers()
         self.db.reset_interrupted()
-        self._tidy_files()
+        try:
+            self._tidy_files()
+        except Exception:           # a folder that can't be read must not keep the app from starting
+            log.exception("couldn't tidy up leftover files")
         if self.settings.configured:
-            await self._connect()
+            # In the background: logging in can take a minute on a slow network, and the window only opens
+            # once this method is done.
+            self._connecting = True
+            self.spawn(self._connect_safely(), "connect")
         self._tasks = [
             asyncio.create_task(self._poll_loop(), name="poll"),
             asyncio.create_task(self._search_loop(), name="search"),
@@ -192,17 +230,32 @@ class Engine:
         ]
 
     async def stop(self) -> None:
-        for t in self._tasks:
+        extra = [t for t in (self._rb_task, self._share_rescan, *self._spawned) if t and not t.done()]
+        for t in (*self._tasks, *extra):
             t.cancel()
         downloads = [entry["task"] for entry in self.active.values()]
         for t in downloads:
             t.cancel()
         # Let cancelled downloads abort their transfers before the connection goes away.
         try:
-            await asyncio.wait_for(asyncio.gather(*self._tasks, *downloads, return_exceptions=True), 10)
+            await asyncio.wait_for(asyncio.gather(*self._tasks, *downloads, *extra, return_exceptions=True), 10)
         except asyncio.TimeoutError:
             log.warning("some downloads didn't stop in time")
-        await self.slsk.stop()
+        try:
+            await self.slsk.stop()
+        except Exception:
+            log.exception("couldn't close the Soulseek connection cleanly")
+
+    async def _stop_downloads(self) -> None:
+        """Cancel every running download and wait until each has let go of its transfer."""
+        tasks = [entry["task"] for entry in list(self.active.values())]
+        for t in tasks:
+            t.cancel()
+        if tasks:
+            try:
+                await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), 10)
+            except asyncio.TimeoutError:
+                log.warning("some downloads didn't stop in time")
 
     def _tidy_files(self) -> None:
         """Leftovers of a crash or forced quit: anything in staging, and hidden half-copied files in
@@ -210,7 +263,7 @@ class Engine:
         n = _clear_dir(self.staging_dir)
         if os.path.isdir(self.trash_dir):
             cutoff = time.time() - TRASH_DAYS * 86400
-            for name in os.listdir(self.trash_dir):
+            for name in _listdir(self.trash_dir):
                 full = os.path.join(self.trash_dir, name)
                 try:
                     if os.path.getmtime(full) < cutoff:
@@ -219,9 +272,9 @@ class Engine:
                     pass
         root = self.settings.download_dir
         if root and os.path.isdir(root):
-            dirs = [root] + [os.path.join(root, d) for d in os.listdir(root) if os.path.isdir(os.path.join(root, d))]
+            dirs = [root] + [os.path.join(root, d) for d in _listdir(root) if os.path.isdir(os.path.join(root, d))]
             for d in dirs:
-                for name in os.listdir(d):
+                for name in _listdir(d):
                     if name.startswith(".") and name.endswith((PART_SUFFIX, *OLD_PART_SUFFIXES)):
                         try:
                             os.remove(os.path.join(d, name))
@@ -286,23 +339,42 @@ class Engine:
         elif self.slsk.error:
             self.note(self.slsk.error, "warn")
 
+    async def _connect_safely(self) -> None:
+        """_connect, but an unexpected error ends up in the log and the activity list instead of stopping
+        whoever asked for the connection (the start of the app, the watchdog, a settings change)."""
+        async with self._connect_lock:
+            self._connecting = True
+            try:
+                await self._connect()
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                log.exception("connecting failed")
+                self.note(f"Couldn't connect ({e or type(e).__name__}).", "warn")
+            finally:
+                self._connecting = False
+                self._watch_skip = True
+            self.wake()
+
     async def apply_settings(self, changed: set[str]) -> None:
         reconnect = {"soulseek_username", "soulseek_password", "listen_port", "share_dirs",
                      "share_downloads", "download_dir", "accepted_terms",
                      "soulseek_mode", "nicotine_port", "nicotine_token"}
         if self.slsk_factory and getattr(self.slsk, "mode", None) != self.settings.soulseek_mode:
-            for entry in list(self.active.values()):
-                entry["task"].cancel()
-            await self.slsk.stop()
+            # The downloads must be gone before the service is swapped: their transfers belong to the old one.
+            await self._stop_downloads()
+            try:
+                await self.slsk.stop()
+            except Exception:
+                log.exception("couldn't close the Soulseek connection cleanly")
             self.slsk = self.slsk_factory(self.settings.soulseek_mode)
         if changed & reconnect and self.settings.configured:
-            for entry in list(self.active.values()):
-                entry["task"].cancel()
-            await self._connect()
+            await self._stop_downloads()
+            await self._connect_safely()
         if changed & {"rekordbox_export", "rekordbox_xml_path", "label_from_channel"}:
-            asyncio.create_task(self.write_rekordbox())
+            self.spawn(self.write_rekordbox(), "rekordbox")
         if changed & {"library_dirs", "download_dir"}:
-            asyncio.create_task(self.scan_library())
+            self.spawn(self.scan_library(), "library")
         if changed & {"block_keywords", "block_artists"}:
             self.reapply_rules()
         if changed & {"check_interval_minutes"}:
@@ -320,19 +392,26 @@ class Engine:
         was = self.slsk.connected
         while True:
             await asyncio.sleep(3)
-            now = self.slsk.connected
-            if now and not was:
-                self.note("Connected through Nicotine+." if getattr(self.slsk, "mode", "") == "nicotine"
-                          else "Connected to Soulseek.")
-            elif was and not now and self.slsk.error:
-                self.note(self.slsk.error, "warn")
-            was = now
+            try:
+                now = self.slsk.connected
+                if self._connecting or self._watch_skip:      # _connect says it itself
+                    self._watch_skip = False
+                    was = now
+                    continue
+                if now and not was:
+                    self.note("Connected through Nicotine+." if getattr(self.slsk, "mode", "") == "nicotine"
+                              else "Connected to Soulseek.")
+                elif was and not now and self.slsk.error:
+                    self.note(self.slsk.error, "warn")
+                was = now
+            except Exception:
+                log.exception("status watch error")
 
     async def _watchdog(self) -> None:
         while True:
             await asyncio.sleep(120)
             if self.settings.configured and self.slsk.status == "error" and self.slsk.retryable:
-                await self._connect()
+                await self._connect_safely()
 
     # ------------------------------------------------------------------ SoundCloud
     async def _poll_loop(self) -> None:
@@ -661,8 +740,9 @@ class Engine:
                     if self._stale:
                         await self._recover_stale()
                     if self._clean_incoming and not self._stale:
-                        self._tidy_incoming()
-                    paused = self._check_disk() or self.library_state["scanning"]   # not while the library is being read
+                        await asyncio.to_thread(self._tidy_incoming)
+                    # Asking a drive that is asleep or a network share that is away can take long: not on this thread.
+                    paused = await asyncio.to_thread(self._check_disk) or self.library_state["scanning"]   # not while the library is being read
                     for t in ([] if paused else self.db.due_tracks(time.time())):
                         if len(self.active) >= self.settings.max_parallel_downloads:
                             break
@@ -693,8 +773,14 @@ class Engine:
 
     def _check_disk(self) -> str:
         """Pause new downloads while the disk is too full; note it once and resume by itself."""
-        why = low_disk_space([os.path.dirname(self.staging_dir), self.settings.download_dir],
-                             self.settings.min_free_gb) or ""
+        why = ""
+        folder = self.settings.download_dir
+        try:        # the music folder is made when it isn't there; that fails when its drive is not connected
+            os.makedirs(folder, exist_ok=True)
+        except OSError:
+            why = (f"Can't reach your music folder {folder} (is the drive connected?). Downloads are paused "
+                   "until it is back.")
+        why = why or low_disk_space([os.path.dirname(self.staging_dir), folder], self.settings.min_free_gb) or ""
         if why and not self.paused_reason:
             self.note(why, "warn")
         elif self.paused_reason and not why:
@@ -709,7 +795,16 @@ class Engine:
             return sharing_warning(None, folders=getattr(slsk, "shared_folders", None),
                                    files=getattr(slsk, "shared_files", None))
         from .soulseek import _share_dirs
-        return sharing_warning(_share_dirs(self.settings))
+        dirs = _share_dirs(self.settings)
+        # The screen asks every 2 seconds and this looks into folders on disk: once a minute is enough.
+        at, key, msg = self._share_warning
+        if key != tuple(dirs) or time.time() - at > 60:
+            try:
+                msg = sharing_warning(dirs)
+            except OSError:
+                msg = ""
+            self._share_warning = (time.time(), tuple(dirs), msg)
+        return msg
 
     def _prefs(self, t: Optional[dict] = None, candidates: Optional[list] = None) -> MatchPrefs:
         """Matching preferences, with what we know about peers (step 8): reputation, blocks, and where
@@ -746,6 +841,12 @@ class Engine:
 
     async def _search_track(self, t: dict) -> None:
         tid = t["id"]
+        # The list of due tracks was read before the previous search (which takes a while): the user may have
+        # skipped this one meanwhile, or removed its channel.
+        fresh = self.db.track(tid)
+        if not fresh or fresh["state"] not in (states.WANTED, states.WAITING) or tid in self.active:
+            return
+        t = {**t, **fresh}
         p = self._parsed(t)
         if t["skip_rule"] != rules_mod.OVERRIDDEN:
             hit = self._collection_hit(p, t["duration"])
@@ -880,9 +981,14 @@ class Engine:
             for c in candidates:
                 ok, info = await self._try_candidate(t, c)
                 if ok:
+                    entry = self.active.get(tid)
+                    if entry is not None:
+                        entry["publishing"] = True      # from here the file is ours: a skip no longer stops it
                     try:
                         path, why = await self._stage_and_publish(t, info["local_path"], c)
                     finally:
+                        if entry is not None:
+                            entry["publishing"] = False
                         await self.slsk.forget(info["transfer"])
                     if path:
                         self._record_peer(c.username, "ok")
@@ -896,7 +1002,8 @@ class Engine:
                     info["fail_reason"] = why
                     self.note(f"Rejected a file from {c.username}: {why}", "warn")
                 reason = info.get("fail_reason") or reason
-                if self.db.track(tid)["state"] != states.DOWNLOADING:   # skipped by user
+                now = self.db.track(tid)
+                if not now or now["state"] != states.DOWNLOADING:   # skipped by user, or its channel was removed
                     return
             self._schedule_retry(self.db.track(tid), f"Peers didn't deliver ({reason})")
         except asyncio.CancelledError:
@@ -915,7 +1022,13 @@ class Engine:
         """Download one candidate. record=False (upgrades) leaves the track row alone: it describes
         the file the user already has."""
         tid = t["id"]
-        transfer = await self.slsk.download(c.username, c.filename)
+        try:
+            transfer = await self.slsk.download(c.username, c.filename)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:          # couldn't even ask this peer: try the next candidate
+            log.info("couldn't start the download from %s: %s", c.username, e)
+            return False, {"fail_reason": str(e) or type(e).__name__}
         entry = self.active.get(tid)
         if entry is not None:
             entry["transfer"], entry["candidate"] = transfer, c
@@ -996,7 +1109,10 @@ class Engine:
             dst = os.path.splitext(path)[0] + ".aiff"
             try:
                 tagging.wav_to_aiff(path, dst)
-                os.remove(path)
+                try:
+                    fsutil.remove(path)
+                except OSError:             # the AIFF is complete; a WAV left in staging is tidied up at the next start
+                    log.warning("couldn't remove %s after converting it", path)
                 path = dst
             except tagging.NotConvertible as e:
                 self.note(f"Kept {os.path.basename(path)} as WAV ({e}).")
@@ -1059,10 +1175,11 @@ class Engine:
         """Settings, *Fill in missing covers*: every downloaded file that has no (readable) cover gets one.
         Only the picture is written; the other tags and the audio stay as they are. Runs in a thread."""
         st = self.covers_state
-        rows = [t for t in self.db.tracks_for_rekordbox()
-                if os.path.splitext(t["file_path"])[1].lower().lstrip(".") in tagging.TAGGABLE]
-        st.update(running=True, done=0, total=len(rows), added=0, missing=0, failed=0, finished_at=0.0)
+        st.update(running=True, done=0, total=0, added=0, missing=0, failed=0, finished_at=0.0)
         try:
+            rows = [t for t in self.db.tracks_for_rekordbox()
+                    if os.path.splitext(t["file_path"])[1].lower().lstrip(".") in tagging.TAGGABLE]
+            st["total"] = len(rows)
             for t in rows:
                 path = t["file_path"]
                 try:
@@ -1262,11 +1379,25 @@ class Engine:
         os.utime(folder)          # the trash is emptied by age of this folder
         return dest
 
+    def _restore(self, trashed: Optional[str], original: str) -> None:
+        """Replacing a file went wrong after the old one was moved to the trash: put it back where it was."""
+        if not trashed or os.path.exists(original):
+            return
+        try:
+            fsutil.move(trashed, original)
+            os.rmdir(os.path.dirname(trashed))
+        except OSError:
+            log.exception("couldn't put %s back; it is in %s", original, trashed)
+
     def _replace(self, t: dict, new_file: str, c: Candidate, meta: dict, new_tier: str) -> str:
         """Put a better copy in place of the current file; the old file goes to the app's trash."""
         old = t["file_path"]
-        self._to_trash(old, t["id"])
-        path = self._finalize(t, new_file, c)
+        trashed = self._to_trash(old, t["id"])
+        try:
+            path = self._finalize(t, new_file, c)
+        except BaseException:
+            self._restore(trashed, old)
+            raise
         prof = profile(self.settings.quality_profile)
         later = wants_upgrade(prof, new_tier) and self.settings.upgrade_mode != "off"
         self.db.update_track(t["id"], file_path=path, tier=new_tier, peer=c.username, remote_file=c.filename,
@@ -1347,9 +1478,12 @@ class Engine:
             self._wake_search.set()
 
     def skip(self, tid: int) -> None:
+        t = self.db.track(tid)
+        if not t or t["state"] in (states.DONE, states.COLLECTED):
+            return          # it finished between the screen's last update and the click: the file is there
         entry = self.active.get(tid)
         self.db.update_track(tid, state=states.SKIPPED, progress=0, last_error="")
-        if entry:
+        if entry and not entry.get("publishing"):
             entry["task"].cancel()
 
     def approve_reject(self, rid: int) -> Optional[str]:
@@ -1361,20 +1495,39 @@ class Engine:
         t = self.db.track(r["track_id"])
         if not t:
             return None
+        trashed = None
         if t["state"] == states.DONE:     # it was a candidate for a better copy: replace, keep the old in trash
-            self._to_trash(t["file_path"], t["id"])
-        ready = self.finish_file(t, r["path"])            # it never got its tags: it was held back
-        path = self._finalize(t, ready, Candidate(r["peer"], r["remote_file"]))
+            trashed = self._to_trash(t["file_path"], t["id"])
+        try:
+            ready = self.finish_file(t, r["path"])            # it never got its tags: it was held back
+            path = self._finalize(t, ready, Candidate(r["peer"], r["remote_file"]))
+        except BaseException:
+            self._restore(trashed, t["file_path"])
+            raise
         self.db.update_track(t["id"], state=states.DONE, file_path=path, progress=1.0, last_error="",
                              peer=r["peer"], remote_file=r["remote_file"],
                              tier=tier_of(os.path.splitext(path)[1]) or "", next_upgrade=0)
         self.db.update_reject(rid, status="approved", path="")
         entry = self.active.get(t["id"])
         if entry:
-            entry["task"].cancel()      # a new attempt for this track is no longer needed
+            self._cancel_threadsafe(entry["task"])      # a new attempt for this track is no longer needed
         self.note(f"Approved {os.path.basename(path)} anyway")
         self.schedule_rekordbox()
         return path
+
+    def _cancel_threadsafe(self, task: asyncio.Task) -> None:
+        """Cancel a task from any thread (approve runs in a worker thread; a task may only be touched on its loop)."""
+        loop = self._loop
+        try:
+            if asyncio.get_running_loop() is loop or loop is None:
+                task.cancel()
+                return
+        except RuntimeError:
+            pass
+        if loop is not None and not loop.is_closed():
+            loop.call_soon_threadsafe(task.cancel)
+        else:
+            task.cancel()
 
     def delete_reject(self, rid: int) -> None:
         r = self.db.reject(rid)

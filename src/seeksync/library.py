@@ -109,14 +109,17 @@ def clean_roots(dirs: Iterable[str]) -> list[str]:
     return [d for d in out if not any(o != d and (d + os.sep).startswith(o + os.sep) for o in out)]
 
 
-def _walk(root: str):
-    """(path, entry) of every audio file below root; hidden files and folders are skipped."""
+def _walk(root: str, unreadable: Optional[list] = None):
+    """(path, entry) of every audio file below root; hidden files and folders are skipped.
+    Folders that couldn't be listed (no permission, a network share that dropped) are added to `unreadable`."""
     stack = [root]
     while stack:
         folder = stack.pop()
         try:
             it = os.scandir(folder)
         except OSError:
+            if unreadable is not None:
+                unreadable.append(folder)
             continue
         with it:
             for e in it:
@@ -146,7 +149,8 @@ def scan(db, dirs: Iterable[str], progress: Optional[Callable[[int, int], None]]
             res.missing.append(root)
             seen.update(p for p, r in db.library_paths_of(root))      # keep what we knew about it
             continue
-        for path, e in _walk(root):
+        unreadable: list[str] = []
+        for path, e in _walk(root, unreadable):
             seen.add(path)
             try:
                 st = e.stat()
@@ -154,6 +158,11 @@ def scan(db, dirs: Iterable[str], progress: Optional[Callable[[int, int], None]]
                 continue
             if known.get(path) != (st.st_size, st.st_mtime_ns, root):
                 todo.append((path, root, e))
+        for folder in unreadable:
+            # Not the same as "the files are gone": keep what we knew, or tracks would be fetched again.
+            prefix = folder.rstrip("/\\") + os.sep
+            seen.update(p for p in known if p.startswith(prefix))
+            log.warning("couldn't read the folder %s; what was known about it is kept", folder)
         if should_stop and should_stop():
             return res
     batch: list[dict] = []

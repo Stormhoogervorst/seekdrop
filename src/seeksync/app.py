@@ -5,13 +5,17 @@ import asyncio
 import logging
 import os
 import socket
+import sqlite3
 import sys
 import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from logging.handlers import RotatingFileHandler
 from typing import Callable, Optional
 
 from aiohttp import web
 
+from . import fsutil
 from .checks import FileChecker
 from .config import DB_NAME, SettingsStore, data_dir, log_dir
 from .db import Database
@@ -56,6 +60,24 @@ def acquire_instance_lock() -> Optional[socket.socket]:
         return None
 
 
+def open_database(path) -> Database:
+    """Open the database. A file that is damaged beyond reading (a crash or a full disk at the wrong moment)
+    would keep the app from ever starting again: it is set aside under another name, never deleted, and the
+    app starts with a new one."""
+    try:
+        return Database(path)
+    except sqlite3.DatabaseError as e:
+        msg = str(e).lower()
+        if "malformed" not in msg and "not a database" not in msg:
+            raise                       # locked, read-only folder, ...: not a damaged file
+        aside = f"{path}.damaged-{time.strftime('%Y%m%d-%H%M%S')}"
+        log.error("the database %s can't be read (%s); it is kept as %s and a new one is started", path, e, aside)
+        for suffix in ("", "-wal", "-shm"):
+            if os.path.exists(str(path) + suffix):
+                fsutil.replace(str(path) + suffix, aside + suffix)
+        return Database(path)
+
+
 class Backend:
     def __init__(self, port: int = 0, slsk=None, sc=None, token: Optional[str] = None, updates=None):
         self.port = port
@@ -95,10 +117,14 @@ class Backend:
     async def _main(self) -> None:
         self._loop = asyncio.get_running_loop()
         self._stop = asyncio.Event()
+        # The standard pool has (processors + 4) threads: 6 on a small laptop. A library scan, a few file checks
+        # and a channel check fill that up, and then a running download can't write to disk (aioslsk writes
+        # through the same pool). These jobs mostly wait for the disk or the network, so more threads cost nothing.
+        self._loop.set_default_executor(ThreadPoolExecutor(max_workers=32, thread_name_prefix="work"))
         watchdog = LoopWatchdog(self._loop)        # logs what every thread is doing when the app freezes
         watchdog.start()
         home = data_dir()
-        db = Database(home / DB_NAME)
+        db = open_database(home / DB_NAME)
         store = SettingsStore()
         sc = self._sc or Sources(SoundCloudClient(cache_dir=str(home / "cache")))
         def make_slsk(mode: str):
@@ -131,9 +157,14 @@ class Backend:
             await self._stop.wait()
         finally:
             watchdog.stop()
-            await updates.stop()
+            try:
+                await updates.stop()
+            except Exception:
+                log.exception("couldn't stop the update check")
             try:
                 await asyncio.wait_for(engine.stop(), 25)    # a connection that won't close must not keep the app alive
             except asyncio.TimeoutError:
                 log.warning("the engine didn't stop in time")
+            except Exception:
+                log.exception("the engine didn't stop cleanly")
             await runner.cleanup()

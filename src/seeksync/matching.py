@@ -360,7 +360,12 @@ def rank(target: ParsedTitle, target_duration: Optional[float], candidates: list
         if key in seen:
             continue
         seen.add(key)
-        if score_candidate(target, target_duration, c, prefs) is not None:
+        try:
+            ok = score_candidate(target, target_duration, c, prefs) is not None
+        except Exception:               # a result with odd data (a peer can send anything)
+            _reject(c, STAGE_FILE, "Couldn't judge this file")
+            ok = False
+        if ok:
             scored.append(c)
     scored.sort(key=lambda c: c.score, reverse=True)
     return scored

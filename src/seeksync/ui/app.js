@@ -84,7 +84,7 @@ async function refresh() {
     const q = ui.channel ? `?channel=${ui.channel}` : "";
     ui.state = await api("GET", "/api/state" + q);
     failedPolls = 0;
-    render();
+    try { render(); } catch (e) { console.error("couldn't draw the screen", e); }
   } catch (e) {
     // One missed answer is normal while the app is busy with a file; only a few in a row mean it has stopped.
     if (++failedPolls >= 3) {
@@ -107,6 +107,8 @@ function render() {
   }
   $("#setup").hidden = true;
   $("#app").hidden = false;
+  // The channel on screen was removed (in another window, or the removal just went through): back to all channels.
+  if (ui.channel && !s.channels.some((c) => c.id === ui.channel)) { ui.channel = null; $("#list").dataset.k = ""; setTimeout(refresh, 0); }
   renderDeck(s);
   renderChannels(s);
   renderFilters(s);
@@ -293,8 +295,13 @@ function statusOf(t) {
   }
 }
 
+// "Why not?" has something to show once a track was searched and still has no file.
+function canWhy(t) { return t.attempts > 0 && ["wanted", "waiting", "gave_up", "skipped"].includes(t.state); }
+const WHY_HINT = "See what was searched, why nothing matched, and correct it";
+
 function actionsOf(t) {
   const a = [];
+  if (canWhy(t)) a.push(`<button class="rowbtn key" data-act="why" data-id="${t.id}" title="${WHY_HINT}">Why not?</button>`);
   if (t.state === "done" && t.upgrade_path) {
     a.push(`<button class="rowbtn" data-act="replace" data-id="${t.id}">Replace</button>`);
     a.push(`<button class="rowbtn" data-act="keep" data-id="${t.id}">Keep</button>`);
@@ -302,7 +309,6 @@ function actionsOf(t) {
   if (t.state === "done" || t.state === "collected") a.push(`<button class="rowbtn" data-act="show" data-id="${t.id}">Show file</button>`);
   if (t.state === "collected") a.push(`<button class="rowbtn" data-act="retry" data-id="${t.id}">Get it anyway</button>`);
   if (["waiting", "gave_up", "skipped"].includes(t.state)) a.push(`<button class="rowbtn" data-act="retry" data-id="${t.id}">${t.state === "skipped" ? "Get it" : "Search now"}</button>`);
-  if (t.attempts > 0 && ["wanted", "waiting", "gave_up", "skipped"].includes(t.state)) a.push(`<button class="rowbtn" data-act="why" data-id="${t.id}">Why not?</button>`);
   if (["wanted", "searching", "downloading", "waiting", "gave_up"].includes(t.state)) a.push(`<button class="rowbtn" data-act="skip" data-id="${t.id}">Skip</button>`);
   return a.join("");
 }
@@ -372,11 +378,20 @@ function renderTracks(s) {
         <div class="t-artist"><a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.artist || "Unknown artist")}</a>${chan}</div>
         ${bar}
       </div>
-      <div class="st ${st.cls}"><span class="st-line">${st.ic ? icon(st.ic, st.cls.includes("spinning") ? "spin" : "") : ""}<span class="lbl">${esc(st.lbl)}</span></span>${st.sub ? `<span class="sub">${esc(st.sub)}</span>` : ""}</div>
+      ${statusHtml(t, st)}
       <div class="acts">${actionsOf(t)}</div>
     </div>`;
   }).join("");
   if (list.dataset.k !== html) { list.innerHTML = html; list.dataset.k = html; }
+}
+
+// The status of a track. For a track that wasn't found it is a button: the reason itself opens "Why not?".
+function statusHtml(t, st) {
+  const why = canWhy(t);
+  const inner = `<span class="st-line">${st.ic ? icon(st.ic, st.cls.includes("spinning") ? "spin" : "") : ""}<span class="lbl">${esc(st.lbl)}</span>${why ? icon("chevron-right", "go") : ""}</span>${st.sub ? `<span class="sub">${esc(st.sub)}</span>` : ""}`;
+  return why
+    ? `<button type="button" class="st open ${st.cls}" data-act="why" data-id="${t.id}" title="${esc(st.lbl)}. ${WHY_HINT}.">${inner}</button>`
+    : `<div class="st ${st.cls}">${inner}</div>`;
 }
 
 function renderActivity(s) {
@@ -502,6 +517,7 @@ $("#channel-bar").addEventListener("click", async (e) => {
   const b = e.target.closest("[data-chact]");
   if (!b || !ui.channel) return;
   const ch = ui.state.channels.find((c) => c.id === ui.channel);
+  if (!ch) return;
   const act = b.dataset.chact;
   try {
     if (act === "check") { await api("POST", `/api/channels/${ch.id}/check`); toast("Checking channel"); }
@@ -520,9 +536,10 @@ $("#channel-bar").addEventListener("click", async (e) => {
 // Two-click confirm (no blocking browser dialogs inside the app window).
 function confirmRemove(btn, name) {
   if (btn.dataset.armed) return true;
+  const label = btn.textContent;
   btn.dataset.armed = "1";
   btn.textContent = `Click again to stop watching ${name}. Downloaded files stay.`;
-  setTimeout(() => { delete btn.dataset.armed; btn.textContent = "Remove channel"; }, 4000);
+  setTimeout(() => { delete btn.dataset.armed; btn.textContent = label; }, 4000);
   return false;
 }
 
@@ -558,7 +575,10 @@ $("#list").addEventListener("click", async (e) => {
   refresh();
 });
 
-$("#check-now").addEventListener("click", async () => { await api("POST", "/api/check-now"); toast("Checking all channels"); refresh(); });
+$("#check-now").addEventListener("click", async () => {
+  try { await api("POST", "/api/check-now"); toast("Checking all channels"); } catch (e) { toast(e.message); }
+  refresh();
+});
 $("#open-folder").addEventListener("click", () => api("POST", "/api/open", {}).catch((e) => toast(e.message)));
 
 /* ---------------- settings ---------------- */
@@ -933,8 +953,10 @@ function enablePickers() {
     b.hidden = false;
     b.onclick = async () => {
       const input = document.getElementById(b.dataset.pick);
-      const path = await window.pywebview.api.pick_folder(input.value);
-      if (path) input.value = path;
+      try {
+        const path = await window.pywebview.api.pick_folder(input.value);
+        if (path) input.value = path;
+      } catch (e) { toast("Couldn't open the folder window. Type or paste the folder instead."); }
     };
   }
 }
@@ -944,7 +966,9 @@ function enableAddFolder() {
     b.hidden = false;
     b.onclick = async () => {
       const box = document.getElementById(b.dataset.addTo);
-      const path = await window.pywebview.api.pick_folder("");
+      let path;
+      try { path = await window.pywebview.api.pick_folder(""); }
+      catch (e) { return toast("Couldn't open the folder window. Type or paste the folder instead."); }
       if (!path) return;
       const lines = box.value.split("\n").map((l) => l.trim()).filter(Boolean);
       if (!lines.includes(path)) lines.push(path);

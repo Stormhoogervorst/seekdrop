@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 from .matching import Candidate, file_ext
@@ -16,6 +17,19 @@ LOGIN_REASONS = {
     "SVRFULL": "The Soulseek server is full. SeekSync will keep trying.",
     "SVRPRIVATE": "The Soulseek server is not accepting new accounts right now.",
 }
+
+
+class _SharesPool(ThreadPoolExecutor):
+    """The threads aioslsk reads the shared folders with. Without a pool of its own it uses asyncio's shared
+    one, and at every start it queues one job per shared file there: with a big music folder, thousands. All
+    of SeekSync's own file work (moving, checking and tagging a download, writing a running download to disk)
+    then waits at the back of that queue and the app seems to hang. Closing never waits for a scan either."""
+
+    def __init__(self):
+        super().__init__(max_workers=2, thread_name_prefix="slsk-shares")
+
+    def shutdown(self, wait=True, *, cancel_futures=False):
+        super().shutdown(wait=False, cancel_futures=True)
 
 
 class SoulseekService:
@@ -65,7 +79,7 @@ class SoulseekService:
         s.rooms.auto_join = False
         s.transfers.limits.upload_slots = 2
 
-        client = SoulSeekClient(s, shares_cache=SharesShelveCache(self.cache_dir))
+        client = SoulSeekClient(s, shares_cache=SharesShelveCache(self.cache_dir), executor_factory=_SharesPool)
 
         async def on_login(_):
             self.status, self.error = "connected", ""

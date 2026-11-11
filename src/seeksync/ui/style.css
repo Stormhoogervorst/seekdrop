@@ -117,6 +117,9 @@ h3 { font-size: 16px; line-height: 22px; font-weight: 600; letter-spacing: -0.01
   color: var(--text-muted); font-size: 14px; font-weight: 500; cursor: pointer; white-space: nowrap;
 }
 .rowbtn:hover, .rowbtn:focus-visible { color: var(--text-primary); background: var(--surface-muted); }
+/* The one row action that explains and fixes a track that wasn't found: a filled pill, so it reads as a button. */
+.rowbtn.key { color: var(--text-primary); background: var(--surface-muted); }
+.rowbtn.key:hover, .rowbtn.key:focus-visible { background: var(--border); }
 .btn.big { height: 46px; padding: 0 26px; }
 .btn:disabled { opacity: .5; cursor: default; }
 .icon-btn {
@@ -308,6 +311,15 @@ h3 { font-size: 16px; line-height: 22px; font-weight: 600; letter-spacing: -0.01
 .st .sub { color: var(--text-muted); font-size: 13px; line-height: 16px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 24px; }
 .st.live .st-line .ic { color: var(--accent); stroke-width: 2.5; }
 .st.err .st-line, .st.err .lbl { color: var(--negative); }
+/* A status you can click (a track that wasn't found): the reason opens "Why not?". */
+button.st.open {
+  border: 0; background: none; font: inherit; text-align: left; cursor: pointer; max-width: 100%;
+  padding: 6px 10px; margin: -6px -10px; border-radius: 12px;
+}
+button.st.open:hover, button.st.open:focus-visible { background: var(--surface-muted); }
+button.st.open .lbl { text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
+button.st.open:hover .lbl { text-decoration-color: currentColor; }
+.st-line .ic.go { flex: none; margin-left: -4px; color: var(--text-muted); }
 .ic.spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
