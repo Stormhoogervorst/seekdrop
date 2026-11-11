@@ -457,3 +457,208 @@ def test_share_scans_get_their_own_threads():
     assert time.time() - t0 < 1
     release.set()
     assert sum(f.cancelled() for f in futures) >= 40
+
+
+# --- follow-ups from the review: things that didn't work as you'd expect ------------------------
+
+def test_a_failed_start_says_why_and_where_the_log_is():
+    from seeksync.__main__ import start_failed_page
+    page = start_failed_page(PermissionError(13, "Permission denied"), "C:\\Users\\dj\\<log>.log")
+    assert "Permission denied" in page and "&lt;log&gt;" in page and "<log>" not in page
+
+
+def test_show_log_opens_the_log_file(setup, monkeypatch):
+    from seeksync import server
+    eng, db, sc, slsk, tmp = setup
+    opened = []
+    monkeypatch.setattr(server, "open_in_file_manager", opened.append)
+    status, _ = _call(Api(eng, db, token="t"), "POST", "/api/open", {"log": True})
+    assert status == 200 and opened and "log" in opened[0].lower()
+
+
+def test_list_and_counts_go_beyond_the_newest_400(setup):
+    from seeksync import server
+    eng, db, sc, slsk, tmp = setup
+    cid = db.add_channel("https://soundcloud.com/a", "A", False, 0)
+    now = time.time()
+    for i in range(450):
+        db.add_track(channel_id=cid, sc_id=f"d{i}", state="done", uploaded_at=now - i)
+    db.add_track(channel_id=cid, sc_id="old-waiting", state="waiting", uploaded_at=now - 10_000)
+    db.add_track(channel_id=cid, sc_id="skip", state="skipped", uploaded_at=now)
+    api = Api(eng, db, token="t")
+    _, everything = _call(api, "GET", "/api/state")
+    assert everything["counts"]["done"] == 450 and everything["counts"]["all"] == 451
+    assert len(everything["tracks"]) == server.TRACK_LIMIT
+    assert all(t["state"] != "skipped" for t in everything["tracks"])
+    _, waiting = _call(api, "GET", "/api/state?filter=waiting")           # the old one used to be out of sight
+    assert [t["sc_id"] for t in waiting["tracks"]] == ["old-waiting"]
+    _, one = _call(api, "GET", f"/api/state?channel={cid}&filter=skipped")
+    assert [t["sc_id"] for t in one["tracks"]] == ["skip"] and one["counts"]["skipped"] == 1
+
+
+def test_uploads_missed_while_the_app_was_off_are_found(setup):
+    from seeksync import engine as engine_mod
+    eng, db, sc, slsk, tmp = setup
+    cid = db.add_channel("https://soundcloud.com/lbl", "Label", False, backlog=1)
+    asyncio.run(eng.check_channel(cid))                     # the 3 tracks of FakeSC are known now
+    asked = []
+    everything = [TrackStub(str(100 + i), f"https://soundcloud.com/lbl/n{i}", f"New {i} - Track {i}")
+                  for i in range(40)] + list(sc.tracks)
+
+    def latest(url, include_reposts=False, limit=25):
+        asked.append(limit)
+        return everything[:limit]
+    sc.latest = latest
+    sc.track = lambda url: None                              # details don't matter here
+    asyncio.run(eng.check_channel(cid))
+    assert asked == [25, engine_mod.CATCH_UP_COUNT]
+    new_ids = {s.sc_id for s in everything[:40]}
+    assert len([t for t in db.tracks(limit=1000) if t["sc_id"] in new_ids]) == 40
+
+
+def test_search_now_gives_an_old_track_a_fresh_start(setup):
+    eng, db, sc, slsk, tmp = setup
+    t = _wanted(eng, db, sc, title="Nobody Knows - Unfindable")
+    long_ago = time.time() - 90 * 86400
+    db.update_track(t["id"], state="gave_up", created_at=long_ago, attempts=9)
+    eng.retry_now(t["id"])
+    t2 = db.track(t["id"])
+    assert t2["state"] == "wanted" and t2["attempts"] == 0
+    asyncio.run(eng._search_track(t2))                       # FakeSlsk finds nothing for this title
+    t3 = db.track(t["id"])
+    assert t3["state"] == "waiting", t3["state"]             # it used to stop again straight away
+    assert t3["next_attempt"] - time.time() < 3700            # and the wait starts at 1 hour again
+
+
+def test_a_search_that_did_not_happen_is_not_a_try(setup):
+    eng, db, sc, slsk, tmp = setup
+    t = _wanted(eng, db, sc)
+
+    async def broken(q, wait=0):
+        raise RuntimeError("not connected")
+    slsk.search = broken
+    asyncio.run(eng._search_track(t))
+    assert db.track(t["id"])["attempts"] == t["attempts"]
+
+
+def test_better_copies_are_searched_with_your_own_term(setup):
+    from test_engine import _done_mp3, _run_upgrade
+    eng, db, sc, slsk, tmp = setup
+    t, _ = _done_mp3(eng, db, sc, tmp)
+    db.update_track(t["id"], custom_query="my own words")
+    _run_upgrade(eng, db, t["id"])
+    assert slsk.searches[0] == "my own words"
+
+
+def test_a_busy_peer_is_not_waited_on_for_long_when_others_are_left(setup):
+    from seeksync import engine as engine_mod
+    eng, db, sc, slsk, tmp = setup
+    cands = [Candidate("a", "x.flac"), Candidate("b", "y.flac"), Candidate("c", "z.flac")]
+    waits = [eng._queue_timeout(i, cands) for i in range(3)]
+    assert waits == [engine_mod.QUEUE_TIMEOUT_NEXT, engine_mod.QUEUE_TIMEOUT_NEXT, engine_mod.QUEUE_TIMEOUT]
+    assert engine_mod.QUEUE_TIMEOUT_NEXT < engine_mod.QUEUE_TIMEOUT
+
+
+def test_a_long_queue_does_not_count_against_the_peer(setup, monkeypatch):
+    from seeksync import engine as engine_mod
+    eng, db, sc, slsk, tmp = setup
+    t = _wanted(eng, db, sc)
+    slsk.transfer_info = lambda tr: {"state": "QUEUED", "bytes": 0, "size": 0, "local_path": None,
+                                     "place_in_queue": 40, "fail_reason": ""}
+    clock = iter(range(0, 10**7, 600))                       # ten minutes pass at every look
+    monkeypatch.setattr(engine_mod.time, "time", lambda: float(next(clock)))
+    ok, info = asyncio.run(eng._try_candidate(db.track(t["id"]), Candidate("busy", "a\\Fresh Artist - Brand New.flac"),
+                                              queue_timeout=1800))
+    assert not ok and info["fail_reason"] == "peer queue too long"
+    assert db.peer_stats(["busy"]) == {}                     # no "failed" towards a 30-day block
+
+
+def test_old_quarantine_files_are_deleted_but_stay_blocked(setup):
+    from seeksync import engine as engine_mod
+    eng, db, sc, slsk, tmp = setup
+    t = _wanted(eng, db, sc)
+    q = tmp / "q" / "a.flac"
+    q.parent.mkdir()
+    q.write_bytes(b"x")
+    fresh = tmp / "q" / "b.flac"
+    fresh.write_bytes(b"x")
+    old_id = db.add_reject(t["id"], "peer", "a.flac", "Fake lossless", str(q))
+    db.add_reject(t["id"], "peer", "b.flac", "Fake lossless", str(fresh))
+    with db.lock:
+        db.conn.execute("UPDATE rejects SET created_at=? WHERE id=?",
+                        (time.time() - (engine_mod.QUARANTINE_DAYS + 1) * 86400, old_id))
+    assert eng._tidy_quarantine() == 1
+    assert not q.exists() and fresh.exists()
+    assert db.reject(old_id)["status"] == "deleted"
+    assert ("peer", "a.flac") in db.blocked(t["id"])          # never tried again
+
+
+# --- secrets in settings.json --------------------------------------------------------------------
+
+def test_secrets_are_stored_through_protect(tmp_path, monkeypatch):
+    from seeksync import secret
+    monkeypatch.setattr(secret, "protect", lambda v: "dpapi:" + v[::-1] if v else v)
+    monkeypatch.setattr(secret, "unprotect", lambda v: v[6:][::-1] if v.startswith("dpapi:") else v)
+    store = SettingsStore(tmp_path / "s.json")
+    store.update({"soulseek_password": "hunter2", "nicotine_token": "key", "soulseek_username": "dj"})
+    raw = json.loads((tmp_path / "s.json").read_text())
+    assert raw["soulseek_password"] == "dpapi:2retnuh" and raw["nicotine_token"] == "dpapi:yek"
+    assert raw["soulseek_username"] == "dj"
+    again = SettingsStore(tmp_path / "s.json").settings
+    assert again.soulseek_password == "hunter2" and again.nicotine_token == "key"
+
+
+def test_plain_secrets_from_older_versions_still_work(tmp_path):
+    from seeksync import secret
+    assert secret.unprotect("hunter2") == "hunter2"
+    if not secret.IS_WINDOWS:
+        assert secret.protect("hunter2") == "hunter2"          # macOS/Linux: the file itself is private (chmod 600)
+        assert secret.unprotect("dpapi:AAAA") == ""             # made on Windows: enter it again
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows Data Protection API")
+def test_windows_encrypts_the_password(tmp_path):
+    from seeksync import secret
+    stored = secret.protect("pässwörd 🎧")
+    assert stored.startswith("dpapi:") and "pässwörd" not in stored
+    assert secret.unprotect(stored) == "pässwörd 🎧"
+    assert secret.unprotect("dpapi:bm90IGVuY3J5cHRlZA==") == ""   # garbage: entered again, no crash
+    store = SettingsStore(tmp_path / "s.json")
+    store.update({"soulseek_password": "hunter2"})
+    assert "hunter2" not in (tmp_path / "s.json").read_text()
+    assert SettingsStore(tmp_path / "s.json").settings.soulseek_password == "hunter2"
+
+
+# --- SeekDrop data that wasn't taken over on Windows ----------------------------------------------
+
+def _db_with_channels(path, n):
+    db = Database(path)
+    for i in range(n):
+        db.add_channel(f"https://soundcloud.com/c{i}", f"C{i}", False, 0)
+    db.conn.close()
+
+
+def test_seekdrop_data_is_taken_over_when_seeksync_started_empty(tmp_path):
+    old, new = tmp_path / "SeekDrop", tmp_path / "SeekSync"
+    old.mkdir()
+    (old / "settings.json").write_text('{"soulseek_username": "old"}')
+    _db_with_channels(old / "seekdrop.db", 3)
+    (new / "Logs").mkdir(parents=True)
+    (new / "settings.json").write_text('{"soulseek_username": "typed again"}')
+    _db_with_channels(new / "seeksync.db", 0)
+    assert migrate_legacy_data(new, [old]) == old
+    assert json.loads((new / "settings.json").read_text())["soulseek_username"] == "old"
+    assert len(Database(new / "seeksync.db").channels()) == 3
+    kept = [p for p in new.iterdir() if p.name.startswith("before-takeover-")]
+    assert len(kept) == 1 and (kept[0] / "settings.json").exists()      # nothing SeekSync made is lost
+    assert migrate_legacy_data(new, [old]) is None                       # and only once
+
+
+def test_seeksync_with_channels_is_never_replaced(tmp_path):
+    old, new = tmp_path / "SeekDrop", tmp_path / "SeekSync"
+    old.mkdir()
+    _db_with_channels(old / "seekdrop.db", 3)
+    new.mkdir()
+    _db_with_channels(new / "seeksync.db", 1)
+    assert migrate_legacy_data(new, [old]) is None
+    assert len(Database(new / "seeksync.db").channels()) == 1 and (old / "seekdrop.db").exists()

@@ -325,6 +325,8 @@ button.st.open:hover .lbl { text-decoration-color: currentColor; }
 
 .tr.gave_up, .tr.skipped { opacity: .55; }
 
+.list-more { margin: 16px 4px 4px; color: var(--text-muted); font-size: 13px; }
+
 /* Row actions: always visible, quiet grey text buttons. */
 .acts { display: flex; justify-content: flex-end; gap: 4px; }
 

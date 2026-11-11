@@ -93,7 +93,7 @@ class Backend:
         self._stop: Optional[asyncio.Event] = None
         self._thread = threading.Thread(target=self._run, name="backend", daemon=True)
 
-    def start(self, timeout: float = 30) -> str:
+    def start(self, timeout: float = 60) -> str:
         self._thread.start()
         if not self._ready.wait(timeout):
             raise RuntimeError("backend did not start in time")

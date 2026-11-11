@@ -89,6 +89,15 @@ Feature work follows `ROADMAP.md` (one step per session, plan first, wait for ap
   couldn't be listed; `server.Api.auth` turns any unexpected error in an `/api/` route into JSON `{"error"}` (ValueError -> 400);
   `config._coerce` / `_clamp` clean what is loaded from settings.json; `app.open_database` sets a damaged database aside;
   `migrate_legacy_data` ignores `Logs` / `crash.log` when deciding whether SeekSync already has data (Windows keeps logs in the data folder).
+- **Follow-ups of the review** (0.6.4): `__main__.start_failed_page` (window with the reason when `Backend.start` fails);
+  `/api/open {log: true}` (Settings, Show log file); `/api/state?filter=` + `server.FILTERS` / `TRACK_LIMIT` / `counts` (the list
+  per filter, counts over all tracks); `Engine.check_channel` looks `CATCH_UP_COUNT` uploads back when none of the newest
+  `LATEST_COUNT` is known; `tracks.revived_at` (retry_now) restarts the give-up window, a gave_up retry resets `attempts`; a failed
+  search keeps `attempts`; `_upgrade_search` uses `_queries`; `QUEUE_TIMEOUT_NEXT` (15 min) while candidates are left, a queue
+  timeout is not a peer failure; `QUARANTINE_DAYS` (`_tidy_quarantine`, at start and daily; reject rows stay as the block);
+  `soulseek.py` saves aioslsk's shares index on `ScanCompleteEvent`; `secret.py` encrypts `config.SECRET_FIELDS` with DPAPI on
+  Windows (`dpapi:` prefix; plain values still read); `migrate_legacy_data` takes over an old folder with channels when SeekSync's
+  database has 0 channels (what was there goes to `before-takeover-<ts>/`).
 - **Keeping the app responsive** (0.6.4, after Windows reports of "not responding"; not reproduced, causes found by reading):
   nothing on the event loop may touch the music drive or wait for a thread pool another job can fill. `Api.state` builds its JSON in
   `Api._state_pool` (2 own threads; `_state_json` is sync and runs there, so keep it free of `await` and of loop-only objects);

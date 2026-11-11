@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import html
 import logging
 import os
 import signal
@@ -35,6 +36,20 @@ class JsApi:
         if result:
             return result[0] if isinstance(result, (list, tuple)) else result
         return None
+
+
+START_FAILED_HTML = """<html><body style="font-family:system-ui;background:#111;color:#eee;
+display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
+<div style="max-width:420px;padding:0 24px"><h2>SeekSync couldn't start</h2>
+<p style="color:#ccc">@REASON@</p>
+<p style="color:#999">The details are in the log file:<br><code style="color:#eee;word-break:break-all">@LOG@</code></p>
+<p style="color:#999">Restarting the computer helps when another program still holds SeekSync's files.</p></div></body></html>"""
+
+
+def start_failed_page(error: BaseException, log_file: str) -> str:
+    """What the window shows when the app couldn't start: the reason in plain words and where the log is."""
+    reason = (error.strerror if isinstance(error, OSError) and error.strerror else str(error)) or type(error).__name__
+    return START_FAILED_HTML.replace("@REASON@", html.escape(reason[:300])).replace("@LOG@", html.escape(log_file))
 
 
 SHUTDOWN_GRACE = 12      # seconds the app may take to quit before it is ended by force
@@ -99,7 +114,22 @@ def main(argv: list[str] | None = None) -> int:
         logging.getLogger("seeksync").exception("couldn't move the old data folder")
 
     backend = Backend(port=args.port)
-    url = backend.start()
+    try:
+        url = backend.start()
+    except Exception as e:
+        # Without this the app just closed, and on Windows (no console) nobody could see why.
+        log_file = str(log_dir() / "seeksync.log")
+        logging.getLogger("seeksync").exception("SeekSync couldn't start")
+        print(f"SeekSync couldn't start: {e}. Details in {log_file}", file=sys.stderr)
+        lock.close()
+        if not (args.headless or args.browser):
+            try:
+                import webview
+                webview.create_window(APP_NAME, html=start_failed_page(e, log_file), width=520, height=340)
+                webview.start()
+            except Exception:
+                pass
+        return 1
 
     def on_term(signum, frame):   # `kill` / logout: shut down like Ctrl+C so transfers get cleaned up
         raise KeyboardInterrupt

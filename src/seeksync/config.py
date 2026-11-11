@@ -5,14 +5,16 @@ import json
 import logging
 import os
 import shutil
+import sqlite3
 import threading
+import time
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
 from typing import Optional
 
 from platformdirs import user_data_dir, user_log_dir, user_music_dir
-from . import fsutil
+from . import fsutil, secret
 
 from .naming import DEFAULT_TEMPLATE, FLAT_TEMPLATE, template_error
 from .politeness import MAX_MAX_SEARCHES, MIN_MAX_SEARCHES, MIN_SEARCH_SPACING
@@ -39,7 +41,20 @@ def migrate_legacy_data(new: Optional[Path] = None, legacy: Optional[list[Path]]
     if legacy is None:
         legacy = [Path(user_data_dir(n, appauthor=False)) for n in LEGACY_APP_NAMES]
     moved = None
-    if not _has_data(new):
+    if _has_data(new) and _channel_count(new) == 0:
+        # 0.6.0 to 0.6.3 on Windows: the log folder was made first, so the old data wasn't taken over and SeekSync
+        # started empty. If SeekSync still has no channels and the old folder does, take it over now. What SeekSync
+        # made meanwhile (settings typed in again) is kept in a folder next to it, never deleted.
+        for old in legacy:
+            if _has_data(old) and (_channel_count(old) or 0) > 0:
+                keep = new / f"before-takeover-{time.strftime('%Y%m%d-%H%M%S')}"
+                keep.mkdir()
+                for entry in list(new.iterdir()):
+                    if entry != keep and entry.name.lower() not in _NOT_DATA and not entry.name.startswith("before-takeover-"):
+                        shutil.move(str(entry), str(keep / entry.name))
+                log.info("SeekSync had no channels; taking over %s (what was there is in %s)", old, keep)
+                break
+    if not _has_data(new) or _only_kept(new):
         for old in legacy:
             if _has_data(old):
                 if new.exists() and any(new.iterdir()):
@@ -71,6 +86,31 @@ def migrate_legacy_data(new: Optional[Path] = None, legacy: Optional[list[Path]]
 
 
 _NOT_DATA = {"logs", "crash.log"}      # what logging puts in the data folder on Windows before anything else
+
+
+def _only_kept(folder: Path) -> bool:
+    """Nothing but logs and a just-made before-takeover folder: ready to take over an old data folder."""
+    try:
+        names = [e.name for e in folder.iterdir() if e.name.lower() not in _NOT_DATA]
+    except OSError:
+        return False
+    return bool(names) and all(n.startswith("before-takeover-") for n in names)
+
+
+def _channel_count(folder: Path) -> Optional[int]:
+    """How many channels the database in this data folder has; None when there is none or it can't be read."""
+    for name in (DB_NAME, *LEGACY_DB_NAMES):
+        db = folder / name
+        if db.is_file():
+            try:
+                conn = sqlite3.connect(f"file:{db.as_posix()}?mode=ro", uri=True)
+                try:
+                    return int(conn.execute("SELECT COUNT(*) FROM channels").fetchone()[0])
+                finally:
+                    conn.close()
+            except (sqlite3.Error, ValueError):
+                return None
+    return None
 
 
 def _has_data(folder: Path) -> bool:
@@ -173,6 +213,8 @@ class Settings:
         return d
 
 
+SECRET_FIELDS = ("soulseek_password", "nicotine_token")    # encrypted in settings.json on Windows (secret.py)
+
 _INT_FIELDS = ("check_interval_minutes", "max_parallel_downloads", "give_up_days", "listen_port", "nicotine_port",
                "check_length_margin", "check_silence_seconds", "search_spacing", "search_max_per_5min", "min_free_gb")
 
@@ -247,7 +289,10 @@ class SettingsStore:
                     elif isinstance(v, list) and len(v) > 1 and all(isinstance(x, str) and len(x) == 1 for x in v):
                         raw[key] = []                # one letter per entry: an earlier version split a path into characters
                 known = {f.name for f in fields(Settings)}
-                return _clamp(_coerce(Settings(**{k: v for k, v in raw.items() if k in known})))
+                s = _clamp(_coerce(Settings(**{k: v for k, v in raw.items() if k in known})))
+                for key in SECRET_FIELDS:
+                    setattr(s, key, secret.unprotect(getattr(s, key)))
+                return s
             except Exception:
                 # Starting with the defaults would overwrite this file at the first change: keep a copy.
                 log.exception("couldn't read %s, starting with the default settings", self.path)
@@ -260,7 +305,10 @@ class SettingsStore:
     def save(self) -> None:
         with self._lock:
             tmp = self.path.with_suffix(".tmp")
-            tmp.write_text(json.dumps(asdict(self.settings), indent=2), "utf-8")
+            data = asdict(self.settings)
+            for key in SECRET_FIELDS:
+                data[key] = secret.protect(data[key])
+            tmp.write_text(json.dumps(data, indent=2), "utf-8")
             fsutil.replace(tmp, self.path)
             try:
                 os.chmod(self.path, 0o600)

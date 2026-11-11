@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS tracks (
     fix_version TEXT NOT NULL DEFAULT '',
     sc_meta TEXT NOT NULL DEFAULT '',      -- JSON from SoundCloud for the tags: genre, release date (step 10)
     skip_rule TEXT NOT NULL DEFAULT '',    -- why a rule skipped it (rules.py); 'overridden' = user fetched it anyway
+    revived_at REAL NOT NULL DEFAULT 0,    -- the user pressed Search now / Get it: give_up_days count from here
     created_at REAL NOT NULL,
     updated_at REAL NOT NULL
 );
@@ -169,6 +170,8 @@ class Database:
                     self.conn.execute(f"ALTER TABLE tracks ADD COLUMN {col} {ddl}")
             if "sc_meta" not in tcols:   # step 10
                 self.conn.execute("ALTER TABLE tracks ADD COLUMN sc_meta TEXT NOT NULL DEFAULT ''")
+            if "revived_at" not in tcols:   # 0.6.4
+                self.conn.execute("ALTER TABLE tracks ADD COLUMN revived_at REAL NOT NULL DEFAULT 0")
             if "skip_rule" not in tcols:   # step 9: the two fixed rules of before are now rules
                 self.conn.execute("ALTER TABLE tracks ADD COLUMN skip_rule TEXT NOT NULL DEFAULT ''")
                 self.conn.execute("""UPDATE tracks SET skip_rule=last_error WHERE state='skipped'
@@ -251,6 +254,10 @@ class Database:
     def update_reject(self, rid: int, **fields: Any) -> None:
         cols = ", ".join(f"{k}=?" for k in fields)
         self._x(f"UPDATE rejects SET {cols} WHERE id=?", (*fields.values(), rid))
+
+    def old_quarantined(self, before: float) -> list[dict]:
+        """Files still in quarantine that were put there before this time."""
+        return self._q("SELECT * FROM rejects WHERE status='quarantined' AND created_at<?", (before,))
 
     def quarantined(self, limit: int = 200) -> list[dict]:
         return self._q("""
@@ -385,10 +392,18 @@ class Database:
         rows = self._q("SELECT * FROM tracks WHERE id=?", (tid,))
         return rows[0] if rows else None
 
-    def tracks(self, limit: int = 500, channel_id: Optional[int] = None) -> list[dict]:
-        where, args = "", ()
+    def tracks(self, limit: int = 500, channel_id: Optional[int] = None, states: Optional[tuple] = None,
+               exclude_states: Optional[tuple] = None) -> list[dict]:
+        """The newest tracks, optionally of one channel and only (or not) in the given states."""
+        conds, args = [], []
         if channel_id:
-            where, args = "WHERE t.channel_id=?", (channel_id,)
+            conds.append("t.channel_id=?")
+            args.append(channel_id)
+        for col_states, op in ((states, "IN"), (exclude_states, "NOT IN")):
+            if col_states:
+                conds.append(f"t.state {op} ({','.join('?' * len(col_states))})")
+                args += list(col_states)
+        where = ("WHERE " + " AND ".join(conds)) if conds else ""
         return self._q(f"""
             SELECT t.*, c.name AS channel_name FROM tracks t JOIN channels c ON c.id=t.channel_id
             {where} ORDER BY COALESCE(t.uploaded_at, t.created_at) DESC, t.id DESC LIMIT ?""", (*args, limit))
@@ -439,6 +454,9 @@ class Database:
         """After a restart, anything that was mid-search/download is wanted again."""
         self._x("UPDATE tracks SET state='wanted', progress=0, next_attempt=0 WHERE state IN ('searching','downloading')")
 
-    def stats(self) -> dict:
-        rows = self._q("SELECT state, COUNT(*) AS n FROM tracks GROUP BY state")
+    def stats(self, channel_id: Optional[int] = None) -> dict:
+        if channel_id:
+            rows = self._q("SELECT state, COUNT(*) AS n FROM tracks WHERE channel_id=? GROUP BY state", (channel_id,))
+        else:
+            rows = self._q("SELECT state, COUNT(*) AS n FROM tracks GROUP BY state")
         return {r["state"]: r["n"] for r in rows}

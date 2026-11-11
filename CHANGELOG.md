@@ -5,6 +5,32 @@
 A stability release: the whole app was read through for weak spots. No new features and nothing works
 differently; these are things that could go wrong and now don't.
 
+- Fixed: **when SeekSync couldn't start, it just closed** (on Windows nobody could see why). It now shows a
+  window with the reason and where the log file is. New in Settings, under Updates: **Show log file**, to send
+  along with a question.
+- Fixed: the track list showed only the newest 400 tracks, and the **numbers on the filters** counted only those.
+  The numbers now count everything, and each filter shows its own newest 400 (so an old *Not found yet* track
+  is no longer out of sight). When there are more, the list says so.
+- Fixed: **uploads were missed after the app was off for a long time.** A check looks at a profile's newest 25
+  uploads; when more had come out, the rest was never seen. When none of those 25 is known, SeekSync now looks
+  200 uploads back.
+- Fixed: ***Search now* on a track that had stopped** stopped again after one try, because the 30 days counted
+  from when the track first came in. They now count from your click, and the waits start at 1 hour again.
+- Fixed: a search that couldn't happen (connection gone) counted as a try, so the wait before the next one grew.
+- Fixed: looking for a **better copy** ignored your own search term and the artist's other names.
+- Changed: SeekSync waits **15 minutes instead of 45** in a busy peer's queue when another peer is still left to
+  try (45 for the last one), and a long queue no longer counts towards blocking that peer for 30 days. A
+  download that stalls still does.
+- Changed: files in **quarantine** that nobody approved or deleted are deleted after 30 days, like the trash. The
+  block stays, so that file from that peer is still never tried again.
+- Fixed: with the built-in login and a big shared folder, every start after a crash or a forced quit read all
+  shared files again. The index of shared files is now saved after each scan.
+- Changed: on **Windows the Soulseek password and the Nicotine+ key** are now stored encrypted (Windows Data
+  Protection: only your Windows account on this computer can read them). On macOS the settings file was already
+  readable only by you. If you copy your settings to another PC, enter the password there once.
+- Fixed: **Windows users who came from SeekDrop and started with an empty SeekSync** (0.6.0 to 0.6.3) get their
+  channels and settings back on the first start of 0.6.4, as long as SeekSync still has no channels. What
+  SeekSync had made meanwhile is kept in a folder `before-takeover-…` next to it.
 - Changed: ***Why not?* is easier to find.** For a track that wasn't found, the reason in the list ("3 results,
   none matched…") is now itself a button with a small arrow, and *Why not?* is a filled button at the front of
   the row instead of grey text between the others. Both open the same panel as before.
