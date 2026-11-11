@@ -185,7 +185,8 @@ def test_a_folder_that_is_gone_keeps_its_rows_but_an_unlisted_one_loses_them(tmp
 
 
 def test_overlapping_folders_are_scanned_once():
-    assert library.clean_roots(["/m/dj", "/m/dj/sub", "/m/dj/", "/m/other", "/m/dj2"]) == ["/m/dj", "/m/other", "/m/dj2"]
+    full = os.path.abspath          # on Windows the folders get a drive letter and backslashes
+    assert library.clean_roots(["/m/dj", "/m/dj/sub", "/m/dj/", "/m/other", "/m/dj2"]) == [full("/m/dj"), full("/m/other"), full("/m/dj2")]
 
 
 def test_old_database_gets_the_library_table(tmp_path):

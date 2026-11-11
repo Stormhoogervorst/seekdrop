@@ -17,6 +17,11 @@ from test_library import mp3
 from test_tagging import _download_as, _ready, _run_download, fake_flac, make_wav
 
 
+def _native(path: str) -> str:
+    """A Location always has forward slashes; on Windows the file path it stands for has backslashes."""
+    return os.path.normpath(path)
+
+
 def mk_flac(path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     fake_flac(path)
@@ -31,6 +36,7 @@ def track(i, path, **kw):
 
 # --- paths -------------------------------------------------------------------------------------
 
+@pytest.mark.skipif(os.name == "nt", reason="Mac/Linux paths; the Windows spelling has its own test below")
 def test_location_is_a_percent_encoded_file_url_and_goes_back_to_the_same_path():
     for path in ["/Users/dj/Music/SeekSync/Label/Artist - Title (Extended Mix).flac",
                  "/Users/dj/Music/Café Del Mar/Sinéad & Björk - 100% #1 [live].mp3",
@@ -109,7 +115,7 @@ def test_written_file_is_read_back_with_the_same_content(tmp_path):
     assert (t2["Name"], t2["BitRate"], t2["Kind"]) == ('"Quoted" <Title> & more', "320", "MP3 File")
     assert t7["Name"] == "Привет 🎧" and t7["Artist"] == "Дельфин"
     for t in tracks:
-        assert rb.path_from_location(got["tracks"][t.track_id]["Location"]) == t.path
+        assert _native(rb.path_from_location(got["tracks"][t.track_id]["Location"])) == t.path
     assert got["playlists"] == [("Label", [1, 2]), ("Friday & Warm-up", [7, 1])]      # same order as given
 
 
@@ -187,7 +193,7 @@ def test_a_finished_download_ends_up_in_the_xml(setup, monkeypatch):
     x = got["tracks"][t["id"]]
     assert (x["Name"], x["Artist"], x["Genre"], x["Year"]) == ("Brand New", "Fresh Artist", "Techno", "2025")
     assert x["Comments"] == "https://soundcloud.com/lbl/fresh" and x["Kind"] == "FLAC File"
-    assert rb.path_from_location(x["Location"]) == done["file_path"] and os.path.exists(done["file_path"])
+    assert _native(rb.path_from_location(x["Location"])) == done["file_path"] and os.path.exists(done["file_path"])
     assert int(x["Size"]) == os.path.getsize(done["file_path"]) and "Label" not in x
     assert got["playlists"] == [("Label", [t["id"]])]               # one playlist for the channel
     assert eng.rekordbox_state["tracks"] == 1 and eng.rekordbox_state["playlists"] == 1 and not eng.rekordbox_state["error"]
@@ -296,7 +302,7 @@ def test_a_better_copy_changes_the_location(setup, monkeypatch):
     path = eng._replace(db.track(t["id"]), better, Candidate("peer", "x.flac"), {}, "flac16")
     assert scheduled == [1] and path.endswith(".flac")             # the replacement asks for a new write
     eng.write_rekordbox_sync()
-    new = rb.path_from_location(rb.read(eng.rekordbox_path())["tracks"][t["id"]]["Location"])
+    new = _native(rb.path_from_location(rb.read(eng.rekordbox_path())["tracks"][t["id"]]["Location"]))
     assert new == path and new != old and not os.path.exists(old)
 
 
@@ -358,7 +364,7 @@ def test_settings_and_api(setup, monkeypatch):
     assert eng.settings.rekordbox_xml_path == f"{tmp}/rb/out.xml" and os.path.exists(f"{tmp}/rb/out.xml")
 
     state = json.loads(asyncio.run(api.state(Req())).text)["rekordbox"]
-    assert state["enabled"] and state["path"] == f"{tmp}/rb/out.xml" and state["written_at"] > 0
+    assert state["enabled"] and state["path"] == os.path.abspath(f"{tmp}/rb/out.xml") and state["written_at"] > 0
 
     opened = []
     monkeypatch.setattr(server, "open_in_file_manager", opened.append)

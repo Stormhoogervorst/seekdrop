@@ -44,6 +44,7 @@ def test_never_overwrites_existing_seeksync_data(tmp_path):
 
 def test_plugin_takes_over_old_key(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    monkeypatch.setenv("APPDATA", str(tmp_path))            # where Nicotine+ keeps its plugins on Windows
     old = tmp_path / "nicotine" / "plugins" / "nicotine_sync_bridge"
     old.mkdir(parents=True)
     (old / "bridge.json").write_text(json.dumps({"port": 47820, "token": "old-key"}))
@@ -136,6 +137,7 @@ def test_the_real_list_of_old_names_includes_seekdrop(tmp_path, monkeypatch):
 
 def test_seekdrop_plugin_key_is_reused(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    monkeypatch.setenv("APPDATA", str(tmp_path))            # where Nicotine+ keeps its plugins on Windows
     old = tmp_path / "nicotine" / "plugins" / "seekdrop_bridge"
     old.mkdir(parents=True)
     (old / "bridge.json").write_text(json.dumps({"port": 47821, "token": "drop-key"}))
