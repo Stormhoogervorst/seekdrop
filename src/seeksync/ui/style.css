@@ -334,8 +334,11 @@ button.st.open:hover .lbl { text-decoration-color: currentColor; }
 .empty h2 { margin-bottom: 10px; }
 
 /* Settings drawer ------------------------------------------------------------ */
-.scrim { position: fixed; inset: 0; background: var(--scrim); }
+/* The panels must lie above the dark layer whatever their order in the page: "Why not?" and Rules come before it
+   in index.html, and without a z-index the layer covered them (dimmed, and scrolling and clicks went to the layer). */
+.scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 40; }
 .drawer {
+  z-index: 41;
   position: fixed; top: 12px; right: 12px; bottom: 12px; width: min(520px, calc(100vw - 24px));
   background: var(--surface); border-radius: var(--radius-card); display: flex; flex-direction: column;
   animation: slide .18s ease-out; overflow: hidden;
@@ -370,6 +373,7 @@ button.st.open:hover .lbl { text-decoration-color: currentColor; }
 .why-fix .btn { margin-top: 4px; }
 
 .toast {
+  z-index: 50;        /* above the panels and the dark layer */
   position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
   background: var(--surface-inverse); color: var(--text-inverse);
   height: 44px; padding: 0 20px; display: flex; align-items: center;

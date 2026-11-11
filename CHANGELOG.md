@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.5
+
+- Fixed: **the *Why not?* panel was dimmed and couldn't be scrolled or clicked.** The dark layer behind a panel
+  lay on top of it instead. The same went for the *Rules* panel of a channel. This was already so before 0.6.4,
+  but showed now that *Why not?* is easier to open.
+
 ## 0.6.4
 
 A stability release: the whole app was read through for weak spots, especially the ones behind the
