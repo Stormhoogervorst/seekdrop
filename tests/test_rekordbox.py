@@ -369,7 +369,7 @@ def test_settings_and_api(setup, monkeypatch):
     opened = []
     monkeypatch.setattr(server, "open_in_file_manager", opened.append)
     assert asyncio.run(api.open_path(Req({"rekordbox": True}))).status == 200
-    assert opened == [f"{tmp}/rb/out.xml"]
+    assert opened == [os.path.abspath(f"{tmp}/rb/out.xml")]
 
 
 # --- which tracks are in Rekordbox (reading the user's own collection export) ------------------
